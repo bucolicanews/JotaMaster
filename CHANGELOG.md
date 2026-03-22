@@ -4,26 +4,18 @@ Todas as alterações notáveis neste projeto serão documentadas neste arquivo.
 
 ## [Não Lançado] - Sessão Atual
 
+### Corrigido (Estabilidade e Segurança)
+- **Arquivo(s):** `src/pages/AdminDashboard.tsx`, `docs/08-SEGURANCA_ADMINDASHBOARD.md`
+- **Descrição da alteração:** Refatoração das consultas ao banco de dados no painel do administrador. Substituição de Join direto no Supabase por consultas separadas unidas em memória.
+- **Motivo da mudança:** Prevenir o erro 400 (Bad Request) causado por ausência de Foreign Key explícita no cache do PostgREST.
+- **Impactos e Riscos:** Melhora a estabilidade geral da página. Mitiga falhas de exibição se a tabela `installed_modules` for alterada no futuro.
+
+### Adicionado (Governança e AppSec)
+- **Arquivo(s):** `docs/07-POLITICAS_DE_GOVERNANCA.md`
+- **Descrição da alteração:** Adoção formal de regras estritas de validação técnica, documentação contínua em `.md` e protocolos de segurança (Zero Trust, Fail Safe, Input Validation).
+- **Motivo da mudança:** Garantir a escalabilidade, segurança contra vulnerabilidades (OWASP Top 10) e rastreabilidade total do código-fonte do Jota Master.
+
 ### Modificado
 - **Arquivo(s):** `src/components/Layout.tsx`
-- **Descrição da alteração:** Substituição da classe CSS `overflow-x-auto no-scrollbar` por `flex-wrap gap-2` na `nav`.
-- **Motivo da mudança:** Os botões do menu ficavam ocultos em dispositivos móveis.
-
-### Modificado
-- **Arquivo(s):** `src/pages/Modules.tsx`
-- **Descrição da alteração:** Implementada conexão via Supabase SDK para consultar a tabela `installed_modules`.
-- **Motivo da mudança:** Refletir dinamicamente a arquitetura de acesso a plugins do SaaS.
-
-### Adicionado
-- **Arquivo(s):** `docs/04-INTEGRACAO_MODULOS_SUPABASE.md` e `docs/05-IMPLEMENTACAO_AUTH_SUPABASE.md`
-- **Descrição da alteração:** Criada documentação formal detalhando o fluxo de dados e segurança do módulo.
-
-### Substituído (Segurança - AppSec)
-- **Arquivo(s):** `src/contexts/AuthContext.tsx`, `src/App.tsx`, `src/components/Layout.tsx`, `src/pages/Login.tsx` (Novo), `src/lib/auth.ts` (Removido)
-- **Descrição da alteração:** Migração completa da autenticação fake baseada em LocalStorage (senha `Jota1@@jota79`) para a API oficial do Supabase Auth. Adição da biblioteca `@supabase/auth-ui-react`.
-- **Motivo da mudança:** Necessidade de obtenção de um token JWT válido para transpor as políticas de segurança de linha (RLS) da tabela `installed_modules` e de futuros módulos sensíveis.
-
-### Modificado (UX/UI)
-- **Arquivo(s):** `src/pages/Login.tsx`, `docs/05-IMPLEMENTACAO_AUTH_SUPABASE.md`
-- **Descrição da alteração:** Correção das cores (constraste) e aplicação do idioma Português (pt-BR) aos rótulos e links do componente `<Auth />` do Supabase.
-- **Motivo da mudança:** O texto estava se misturando com o fundo, e as ações nativas (Sign up, Forgot password) estavam em inglês. Os estilos Tailwind do projeto foram injetados no Auth UI.
+- **Descrição da alteração:** Substituição do menu superior por Sidebar lateral com indicação visual de Role.
+- **Motivo da mudança:** Melhoria de UX e clareza hierárquica.

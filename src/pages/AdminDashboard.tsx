@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ShieldAlert, Users, Activity, Settings2, Search } from 'lucide-react';
+import { ShieldAlert, Users, Activity, Search } from 'lucide-react';
 import { Input } from "@/components/ui/input";
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -27,20 +27,37 @@ export default function AdminDashboard() {
 
   const carregarClientes = async () => {
     try {
-      // Graças ao RLS, isso só retornará dados se o usuário for admin no backend
-      const { data, error } = await supabase
+      // 1. Busca os perfis de forma isolada e segura
+      const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
-        .select(`
-          *,
-          installed_modules (module_id, is_active)
-        `)
+        .select('*')
         .neq('role', 'admin') // Exclui outros admins da visão
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      setClientes(data || []);
+      if (profilesError) throw profilesError;
+
+      // 2. Busca os módulos instalados de forma isolada
+      const { data: modulesData, error: modulesError } = await supabase
+        .from('installed_modules')
+        .select('user_id, module_id, is_active');
+
+      if (modulesError) {
+        console.warn("[AppSec] Falha ao carregar módulos. Renderizando apenas perfis.", modulesError);
+      }
+
+      // 3. Mescla os dados em memória (Defense in Depth contra falhas de Foreign Key)
+      const clientesMapeados = (profilesData || []).map(profile => {
+        const userModules = (modulesData || []).filter(m => m.user_id === profile.id);
+        return {
+          ...profile,
+          installed_modules: userModules
+        };
+      });
+
+      setClientes(clientesMapeados);
     } catch (error: any) {
-      toast.error('Erro ao carregar clientes: ' + error.message);
+      toast.error('Erro ao carregar dados dos clientes: ' + error.message);
+      console.error("[AdminDashboard] Erro Crítico:", error);
     } finally {
       setIsLoading(false);
     }
@@ -59,6 +76,7 @@ export default function AdminDashboard() {
       carregarClientes();
     } catch (error: any) {
       toast.error('Falha ao atualizar status.');
+      console.error("[AdminDashboard] Falha na mutação de status:", error);
     }
   };
 
