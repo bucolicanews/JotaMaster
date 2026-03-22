@@ -81,9 +81,9 @@ const Configuracao = () => {
       setIsLoadingDB(true);
       try {
         const [dbAgents, dbPrompts, dbSkills] = await Promise.all([
-          fetchDbAgents(session.user.id),
-          fetchDbPrompts(session.user.id),
-          fetchDbSkills(session.user.id)
+          fetchDbAgents(session.user.id, isAdmin),
+          fetchDbPrompts(session.user.id, isAdmin),
+          fetchDbSkills(session.user.id, isAdmin)
         ]);
         setAgents(dbAgents);
         setPrompts(dbPrompts);
@@ -95,7 +95,7 @@ const Configuracao = () => {
       }
     };
     loadDbData();
-  }, [session]);
+  }, [session, isAdmin]);
 
   const cleanTextNoise = (text: string) => text.replace(/[^\x20-\x7E\xA0-\xFF\n\r\t]/g, " ").replace(/\t/g, " ").replace(/ +/g, " ").replace(/\n\s*\n/g, "\n\n").trim();
 
@@ -105,45 +105,59 @@ const Configuracao = () => {
     try {
       const uid = session.user.id;
 
-      // Filtra apenas os itens que o usuário atual tem permissão para salvar (seus próprios itens)
       const mySkills = dynamicSkills.filter(s => !s.userId || s.userId === uid);
       if (mySkills.length > 0) {
-        const skillsToUpsert = mySkills.map(s => ({
-          id: s.id, user_id: uid, module_id: s.moduleId || null,
-          name: s.name, description: s.description, suggested_instruction: s.suggestedInstruction,
-          parameters: s.parameters, execution_type: s.executionType, js_code: s.jsCode, webhook_url: s.webhookUrl,
-          knowledge_base_text: s.knowledgeBaseText, url: s.url, selector: s.selector, is_active: s.isActive,
-          is_global: s.isGlobal || false
-        }));
-        await supabase.from('ai_skills').upsert(skillsToUpsert);
+        const skillsToUpsert = mySkills.map(s => {
+          const payload: any = {
+            id: s.id, user_id: uid, module_id: s.moduleId || null,
+            name: s.name, description: s.description, suggested_instruction: s.suggestedInstruction,
+            parameters: s.parameters, execution_type: s.executionType, js_code: s.jsCode, webhook_url: s.webhookUrl,
+            knowledge_base_text: s.knowledgeBaseText, url: s.url, selector: s.selector, is_active: s.isActive
+          };
+          if (s.isGlobal !== undefined) payload.is_global = s.isGlobal;
+          return payload;
+        });
+        const { error } = await supabase.from('ai_skills').upsert(skillsToUpsert);
+        if (error && error.message.includes('is_global')) {
+           toast.error("Erro: Execute o script SQL para adicionar a coluna is_global no banco!");
+           throw error;
+        }
       }
 
       const myPrompts = prompts.filter(p => !p.userId || p.userId === uid);
       if (myPrompts.length > 0) {
-        const promptsToUpsert = myPrompts.map(p => ({
-          id: p.id, user_id: uid, module_id: p.moduleId || null,
-          title: p.title, role: p.role, content: p.content, is_active: p.isActive,
-          is_global: p.isGlobal || false
-        }));
+        const promptsToUpsert = myPrompts.map(p => {
+          const payload: any = {
+            id: p.id, user_id: uid, module_id: p.moduleId || null,
+            title: p.title, role: p.role, content: p.content, is_active: p.isActive
+          };
+          if (p.isGlobal !== undefined) payload.is_global = p.isGlobal;
+          return payload;
+        });
         await supabase.from('ai_prompts').upsert(promptsToUpsert);
       }
 
       const myAgents = agents.filter(a => !a.userId || a.userId === uid);
       if (myAgents.length > 0) {
-        const agentsToUpsert = myAgents.map(a => ({
-          id: a.id, user_id: uid, module_id: a.moduleId || null,
-          nome: a.nome, system_prompt: a.systemPrompt, order_index: a.order,
-          selected_skills: a.selectedSkills || [], enable_monitoring: a.enableMonitoring,
-          monitoring_interval: a.monitoringInterval, use_n8n: a.useN8n, n8n_response_url: a.n8nResponseUrl,
-          webhook_url: a.webhookUrl, is_active: true,
-          is_global: a.isGlobal || false
-        }));
+        const agentsToUpsert = myAgents.map(a => {
+          const payload: any = {
+            id: a.id, user_id: uid, module_id: a.moduleId || null,
+            nome: a.nome, system_prompt: a.systemPrompt, order_index: a.order,
+            selected_skills: a.selectedSkills || [], enable_monitoring: a.enableMonitoring,
+            monitoring_interval: a.monitoringInterval, use_n8n: a.useN8n, n8n_response_url: a.n8nResponseUrl,
+            webhook_url: a.webhookUrl, is_active: true
+          };
+          if (a.isGlobal !== undefined) payload.is_global = a.isGlobal;
+          return payload;
+        });
         await supabase.from('ai_agents').upsert(agentsToUpsert);
       }
 
       toast.success("Configurações salvas no Banco de Dados!");
     } catch (e: any) {
-      toast.error("Erro ao salvar: " + e.message);
+      if (!e.message.includes('is_global')) {
+        toast.error("Erro ao salvar: " + e.message);
+      }
     } finally {
       setIsSaving(false);
     }
@@ -226,9 +240,9 @@ const Configuracao = () => {
   const updatePrompt = (id: string, field: keyof PromptConfig, value: any) => setPrompts(prompts.map(p => p.id === id ? { ...p, [field]: value } : p));
   const updateSkill = (id: string, field: keyof DynamicSkill, value: any) => setDynamicSkills(dynamicSkills.map(s => s.id === id ? { ...s, [field]: value } : s));
   
-  const addPrompt = () => setPrompts([{ id: generateUUID(), title: 'Novo Prompt', role: 'Especialista', content: '', isActive: true }, ...prompts]);
-  const addSkill = () => setDynamicSkills([{ id: generateUUID(), name: 'nova_skill', description: 'Descrição', parameters: { type: 'object', properties: {} }, executionType: 'local_js', isActive: true, jsCode: 'return { status: "ok" };' }, ...dynamicSkills]);
-  const addAgent = () => setAgents([...agents, { id: generateUUID(), nome: 'Novo Agente', systemPrompt: '', order: agents.length + 1, selectedSkills: [], enableMonitoring: false, monitoringInterval: 60, useN8n: false, n8nResponseUrl: 'http://localhost:3001/agent-result' }]);
+  const addPrompt = () => setPrompts([{ id: generateUUID(), title: 'Novo Prompt', role: 'Especialista', content: '', isActive: true, isGlobal: false }, ...prompts]);
+  const addSkill = () => setDynamicSkills([{ id: generateUUID(), name: 'nova_skill', description: 'Descrição', parameters: { type: 'object', properties: {} }, executionType: 'local_js', isActive: true, jsCode: 'return { status: "ok" };', isGlobal: false }, ...dynamicSkills]);
+  const addAgent = () => setAgents([...agents, { id: generateUUID(), nome: 'Novo Agente', systemPrompt: '', order: agents.length + 1, selectedSkills: [], enableMonitoring: false, monitoringInterval: 60, useN8n: false, n8nResponseUrl: 'http://localhost:3001/agent-result', isGlobal: false }]);
 
   return (
     <div className="container mx-auto px-4 py-8">

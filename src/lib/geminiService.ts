@@ -70,22 +70,34 @@ export const DEFAULT_PROMPTS: PromptConfig[] = [
 ];
 
 // Busca do Banco de Dados
-export async function fetchDbAgents(userId: string): Promise<AgentConfig[]> {
-  const { data, error } = await supabase.from('ai_agents').select('*').or(`user_id.eq.${userId},is_global.eq.true`).order('order_index', { ascending: true });
+export async function fetchDbAgents(userId: string, isAdmin: boolean = false): Promise<AgentConfig[]> {
+  let data: any = null;
+  let error: any = null;
+
+  if (isAdmin) {
+    const res = await supabase.from('ai_agents').select('*').order('order_index', { ascending: true });
+    data = res.data; error = res.error;
+  } else {
+    const res = await supabase.from('ai_agents').select('*').or(`user_id.eq.${userId},is_global.eq.true`).order('order_index', { ascending: true });
+    if (res.error && res.error.message.includes('is_global')) {
+      const fallback = await supabase.from('ai_agents').select('*').eq('user_id', userId).order('order_index', { ascending: true });
+      data = fallback.data; error = fallback.error;
+    } else {
+      data = res.data; error = res.error;
+    }
+  }
+
   if (error) return [];
   
-  const myItems = data ? data.filter(d => d.user_id === userId) : [];
-  
+  const myItems = data ? data.filter((d: any) => d.user_id === userId) : [];
   if (myItems.length === 0) {
-    // Semeia defaults
     const defaults = DEFAULT_AGENTS.map(a => ({
       user_id: userId, nome: a.nome, system_prompt: a.systemPrompt, order_index: a.order,
-      use_n8n: a.useN8n, n8n_response_url: a.n8nResponseUrl, is_active: true, is_global: false
+      use_n8n: a.useN8n, n8n_response_url: a.n8nResponseUrl, is_active: true
     }));
     const { data: inserted } = await supabase.from('ai_agents').insert(defaults).select();
-    
     const combinedData = [...(data || []), ...(inserted || [])];
-    return combinedData.map(d => ({
+    return combinedData.map((d: any) => ({
       id: d.id, nome: d.nome, systemPrompt: d.system_prompt, order: d.order_index,
       selectedSkills: d.selected_skills || [], enableMonitoring: d.enable_monitoring,
       monitoringInterval: d.monitoring_interval, useN8n: d.use_n8n,
@@ -94,7 +106,7 @@ export async function fetchDbAgents(userId: string): Promise<AgentConfig[]> {
     }));
   }
 
-  return data.map(d => ({
+  return data.map((d: any) => ({
     id: d.id, nome: d.nome, systemPrompt: d.system_prompt, order: d.order_index,
     selectedSkills: d.selected_skills || [], enableMonitoring: d.enable_monitoring,
     monitoringInterval: d.monitoring_interval, useN8n: d.use_n8n,
@@ -103,25 +115,38 @@ export async function fetchDbAgents(userId: string): Promise<AgentConfig[]> {
   }));
 }
 
-export async function fetchDbPrompts(userId: string): Promise<PromptConfig[]> {
-  const { data, error } = await supabase.from('ai_prompts').select('*').or(`user_id.eq.${userId},is_global.eq.true`);
+export async function fetchDbPrompts(userId: string, isAdmin: boolean = false): Promise<PromptConfig[]> {
+  let data: any = null;
+  let error: any = null;
+
+  if (isAdmin) {
+    const res = await supabase.from('ai_prompts').select('*');
+    data = res.data; error = res.error;
+  } else {
+    const res = await supabase.from('ai_prompts').select('*').or(`user_id.eq.${userId},is_global.eq.true`);
+    if (res.error && res.error.message.includes('is_global')) {
+      const fallback = await supabase.from('ai_prompts').select('*').eq('user_id', userId);
+      data = fallback.data; error = fallback.error;
+    } else {
+      data = res.data; error = res.error;
+    }
+  }
+
   if (error) return [];
 
-  const myItems = data ? data.filter(d => d.user_id === userId) : [];
-
+  const myItems = data ? data.filter((d: any) => d.user_id === userId) : [];
   if (myItems.length === 0) {
     const defaults = DEFAULT_PROMPTS.map(p => ({
-      user_id: userId, title: p.title, role: p.role, content: p.content, is_active: p.isActive, is_global: false
+      user_id: userId, title: p.title, role: p.role, content: p.content, is_active: p.isActive
     }));
     const { data: inserted } = await supabase.from('ai_prompts').insert(defaults).select();
-    
     const combinedData = [...(data || []), ...(inserted || [])];
-    return combinedData.map(d => ({
+    return combinedData.map((d: any) => ({
       id: d.id, title: d.title, role: d.role, content: d.content, isActive: d.is_active, moduleId: d.module_id, isGlobal: d.is_global, userId: d.user_id
     }));
   }
 
-  return data.map(d => ({
+  return data.map((d: any) => ({
     id: d.id, title: d.title, role: d.role, content: d.content, isActive: d.is_active, moduleId: d.module_id, isGlobal: d.is_global, userId: d.user_id
   }));
 }

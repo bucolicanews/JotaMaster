@@ -22,7 +22,6 @@ export interface DynamicSkill {
 
 export const JOTA_TOOLS_MANIFEST: any[] = [];
 
-// Construtor seguro para funções assíncronas dinâmicas
 const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
 
 export const DEFAULT_DYNAMIC_SKILLS: DynamicSkill[] = [
@@ -123,36 +122,40 @@ return {
   }
 ];
 
-// Busca do Banco de Dados
-export async function fetchDbSkills(userId: string): Promise<DynamicSkill[]> {
-  const { data, error } = await supabase.from('ai_skills').select('*').or(`user_id.eq.${userId},is_global.eq.true`);
-  
+export async function fetchDbSkills(userId: string, isAdmin: boolean = false): Promise<DynamicSkill[]> {
+  let data: any = null;
+  let error: any = null;
+
+  if (isAdmin) {
+    const res = await supabase.from('ai_skills').select('*');
+    data = res.data; error = res.error;
+  } else {
+    const res = await supabase.from('ai_skills').select('*').or(`user_id.eq.${userId},is_global.eq.true`);
+    if (res.error && res.error.message.includes('is_global')) {
+      // Fallback: A coluna is_global não existe ainda no banco
+      const fallback = await supabase.from('ai_skills').select('*').eq('user_id', userId);
+      data = fallback.data; error = fallback.error;
+    } else {
+      data = res.data; error = res.error;
+    }
+  }
+
   if (error) {
     console.error("Erro ao buscar skills do DB:", error);
     return [];
   }
 
-  // Verifica se o usuário atual tem skills próprias, se não, insere as padrões
-  const myItems = data ? data.filter(d => d.user_id === userId) : [];
+  const myItems = data ? data.filter((d: any) => d.user_id === userId) : [];
 
   if (myItems.length === 0) {
     const defaultsToInsert = DEFAULT_DYNAMIC_SKILLS.map(s => ({
-       user_id: userId,
-       name: s.name,
-       description: s.description,
-       suggested_instruction: s.suggestedInstruction,
-       parameters: s.parameters,
-       execution_type: s.executionType,
-       js_code: s.jsCode,
-       is_active: s.isActive,
-       is_global: false
+       user_id: userId, name: s.name, description: s.description,
+       suggested_instruction: s.suggestedInstruction, parameters: s.parameters,
+       execution_type: s.executionType, js_code: s.jsCode, is_active: s.isActive
     }));
-    
     const { data: inserted } = await supabase.from('ai_skills').insert(defaultsToInsert).select();
-    
-    // Retorna os globais que já existiam + os novos do usuário
     const combinedData = [...(data || []), ...(inserted || [])];
-    return combinedData.map(d => ({
+    return combinedData.map((d: any) => ({
       id: d.id, name: d.name, description: d.description,
       suggestedInstruction: d.suggested_instruction, parameters: d.parameters,
       executionType: d.execution_type as any, jsCode: d.js_code, webhookUrl: d.webhook_url,
@@ -161,7 +164,7 @@ export async function fetchDbSkills(userId: string): Promise<DynamicSkill[]> {
     }));
   }
 
-  return data.map(d => ({
+  return data.map((d: any) => ({
     id: d.id, name: d.name, description: d.description,
     suggestedInstruction: d.suggested_instruction, parameters: d.parameters,
     executionType: d.execution_type as any, jsCode: d.js_code, webhookUrl: d.webhook_url,
@@ -170,7 +173,6 @@ export async function fetchDbSkills(userId: string): Promise<DynamicSkill[]> {
   }));
 }
 
-// Mantido para fallback local temporário
 export const loadDynamicSkills = (): DynamicSkill[] => {
   const saved = localStorage.getItem('jota-dynamic-skills');
   return saved ? JSON.parse(saved) : DEFAULT_DYNAMIC_SKILLS;
