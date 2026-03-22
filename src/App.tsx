@@ -15,6 +15,7 @@ import Chat from "./pages/Chat";
 import Modules from "./pages/Modules";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
+import AdminDashboard from "./pages/AdminDashboard";
 import { Layout } from "./components/Layout";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { Loader2 } from "lucide-react";
@@ -53,6 +54,7 @@ const AppRoutes = () => (
       <Route path="/impact" element={<RotaProtegida><ImpactAnalysis /></RotaProtegida>} />
       <Route path="/new-business" element={<RotaProtegida><Viabilidade /></RotaProtegida>} />
       <Route path="/modules" element={<RotaProtegida><Modules /></RotaProtegida>} />
+      <Route path="/admin" element={<RotaProtegida><AdminDashboard /></RotaProtegida>} />
       
       <Route path="*" element={<NotFound />} />
     </Routes>

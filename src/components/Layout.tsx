@@ -2,7 +2,7 @@ import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Upload, BarChart3, Settings, Tags, TrendingUp, ShieldCheck, Sparkles, Lock, LogOut, Home, MessageSquare, Blocks } from 'lucide-react';
+import { Upload, BarChart3, Settings, Tags, TrendingUp, ShieldCheck, Sparkles, Lock, LogOut, Home, MessageSquare, Blocks, ShieldAlert } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 
@@ -25,10 +25,14 @@ const privateNavItems = [
   { to: '/impact', label: 'Análise de Impacto', icon: TrendingUp },
 ];
 
+const adminNavItems = [
+  { to: '/admin', label: 'Painel Admin', icon: ShieldAlert },
+];
+
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { autenticado, logout } = useAuth();
+  const { autenticado, logout, isAdmin } = useAuth();
 
   const handleLogout = async () => {
     try {
@@ -40,7 +44,9 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     }
   };
 
-  const navItems = autenticado ? [...publicNavItems, ...privateNavItems] : publicNavItems;
+  const navItems = autenticado 
+    ? [...publicNavItems, ...privateNavItems, ...(isAdmin ? adminNavItems : [])] 
+    : publicNavItems;
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
