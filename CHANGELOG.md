@@ -7,16 +7,19 @@ Todas as alterações notáveis neste projeto serão documentadas neste arquivo.
 ### Modificado
 - **Arquivo(s):** `src/components/Layout.tsx`
 - **Descrição da alteração:** Substituição da classe CSS `overflow-x-auto no-scrollbar` por `flex-wrap gap-2` na `nav`.
-- **Motivo da mudança:** Os botões do menu ficavam ocultos em dispositivos móveis e não havia indicação visual de que a barra era rolável, comprometendo a experiência Mobile-First e dificultando o acesso ao novo botão "Central de Módulos".
-- **Impactos esperados:** O menu se quebrará em várias linhas conforme a largura da tela, exibindo sempre todas as rotas autorizadas.
+- **Motivo da mudança:** Os botões do menu ficavam ocultos em dispositivos móveis.
 
 ### Modificado
 - **Arquivo(s):** `src/pages/Modules.tsx`
 - **Descrição da alteração:** Implementada conexão via Supabase SDK para consultar a tabela `installed_modules`.
 - **Motivo da mudança:** Refletir dinamicamente a arquitetura de acesso a plugins do SaaS.
-- **Impactos esperados:** Consulta ao backend na montagem da tela.
-- **Impactos potenciais (Riscos):** Conflito identificado. Como a autenticação atual é local (`auth.ts`), a query falha na segurança de linha (RLS). A função possui tratamento de erro (Fail Safe) para utilizar os dados mockados no caso de ausência do JWT do Supabase.
 
 ### Adicionado
-- **Arquivo(s):** `docs/04-INTEGRACAO_MODULOS_SUPABASE.md`
-- **Descrição da alteração:** Criada documentação formal detalhando a função de busca de módulos no banco de dados.
+- **Arquivo(s):** `docs/04-INTEGRACAO_MODULOS_SUPABASE.md` e `docs/05-IMPLEMENTACAO_AUTH_SUPABASE.md`
+- **Descrição da alteração:** Criada documentação formal detalhando o fluxo de dados e segurança do módulo.
+
+### Substituído (Segurança - AppSec)
+- **Arquivo(s):** `src/contexts/AuthContext.tsx`, `src/App.tsx`, `src/components/Layout.tsx`, `src/pages/Login.tsx` (Novo), `src/lib/auth.ts` (Removido)
+- **Descrição da alteração:** Migração completa da autenticação fake baseada em LocalStorage (senha `Jota1@@jota79`) para a API oficial do Supabase Auth. Adição da biblioteca `@supabase/auth-ui-react`.
+- **Motivo da mudança:** Necessidade de obtenção de um token JWT válido para transpor as políticas de segurança de linha (RLS) da tabela `installed_modules` e de futuros módulos sensíveis.
+- **Impactos potenciais (Riscos):** Usuários antigos não conseguirão entrar com a senha padrão; eles precisarão de contas válidas (Email/Senha) provisionadas no Supabase.

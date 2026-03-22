@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import React from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Upload, BarChart3, Settings, Tags, TrendingUp, ShieldCheck, Sparkles, Lock, LogOut, Home, MessageSquare, Blocks } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -28,25 +27,17 @@ const privateNavItems = [
 
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const location = useLocation();
-  const { autenticado, login, logout } = useAuth();
-  const [senha, setSenha] = useState('');
-  const [showInput, setShowInput] = useState(false);
+  const navigate = useNavigate();
+  const { autenticado, logout } = useAuth();
 
-  const handleLogin = () => {
-    if (login(senha)) {
-      toast.success('Acesso liberado!');
-      setSenha('');
-      setShowInput(false);
-    } else {
-      toast.error('Senha incorreta.');
-      setSenha('');
+  const handleLogout = async () => {
+    try {
+      await logout();
+      toast.info('Sessão encerrada com sucesso.');
+      navigate('/');
+    } catch (error) {
+      toast.error('Erro ao sair do sistema.');
     }
-  };
-
-  const handleLogout = () => {
-    logout();
-    toast.info('Sessão encerrada.');
-    setShowInput(false);
   };
 
   const navItems = autenticado ? [...publicNavItems, ...privateNavItems] : publicNavItems;
@@ -76,41 +67,23 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                   <LogOut className="h-4 w-4 mr-2" />
                   Sair
                 </Button>
-              ) : showInput ? (
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="password"
-                    placeholder="Senha de acesso"
-                    value={senha}
-                    onChange={(e) => setSenha(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
-                    className="h-8 w-40 text-sm bg-black/20 border-black/30 text-black placeholder:text-black/50"
-                    autoFocus
-                  />
-                  <Button size="sm" onClick={handleLogin} className="bg-black/30 hover:bg-black/50 text-black border-0">
-                    Entrar
-                  </Button>
-                  <Button size="sm" variant="ghost" onClick={() => setShowInput(false)} className="text-black/70 hover:text-black">
-                    ✕
-                  </Button>
-                </div>
               ) : (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="bg-black/20 border-black/30 text-black hover:bg-black/30"
-                  onClick={() => setShowInput(true)}
-                >
-                  <Lock className="h-4 w-4 mr-2" />
-                  Acesso Completo
-                </Button>
+                <Link to="/login">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="bg-black/20 border-black/30 text-black hover:bg-black/30"
+                  >
+                    <Lock className="h-4 w-4 mr-2" />
+                    Acesso Completo
+                  </Button>
+                </Link>
               )}
             </div>
           </div>
         </div>
       </header>
       <nav className="border-b border-border bg-card shadow-sm sticky top-0 z-50">
-        {/* CORREÇÃO: Utilizando flex-wrap para garantir que todos os itens fiquem visíveis no layout */}
         <div className="max-w-[1600px] mx-auto px-4 flex flex-wrap gap-2 py-2">
           {navItems.map((item) => (
             <Link key={item.to} to={item.to}>
