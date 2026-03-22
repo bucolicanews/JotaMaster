@@ -12,6 +12,7 @@ import ProductList from "./pages/ProductList";
 import Configuracao from "./pages/Configuracao";
 import Viabilidade from "./pages/Viabilidade";
 import Chat from "./pages/Chat";
+import Modules from "./pages/Modules";
 import NotFound from "./pages/NotFound";
 import { Layout } from "./components/Layout";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
@@ -35,6 +36,7 @@ const AppRoutes = () => (
       <Route path="/comparison" element={<RotaProtegida><Comparison /></RotaProtegida>} />
       <Route path="/impact" element={<RotaProtegida><ImpactAnalysis /></RotaProtegida>} />
       <Route path="/new-business" element={<RotaProtegida><Viabilidade /></RotaProtegida>} />
+      <Route path="/modules" element={<RotaProtegida><Modules /></RotaProtegida>} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   </Layout>
