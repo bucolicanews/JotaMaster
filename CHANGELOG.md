@@ -22,4 +22,8 @@ Todas as alterações notáveis neste projeto serão documentadas neste arquivo.
 - **Arquivo(s):** `src/contexts/AuthContext.tsx`, `src/App.tsx`, `src/components/Layout.tsx`, `src/pages/Login.tsx` (Novo), `src/lib/auth.ts` (Removido)
 - **Descrição da alteração:** Migração completa da autenticação fake baseada em LocalStorage (senha `Jota1@@jota79`) para a API oficial do Supabase Auth. Adição da biblioteca `@supabase/auth-ui-react`.
 - **Motivo da mudança:** Necessidade de obtenção de um token JWT válido para transpor as políticas de segurança de linha (RLS) da tabela `installed_modules` e de futuros módulos sensíveis.
-- **Impactos potenciais (Riscos):** Usuários antigos não conseguirão entrar com a senha padrão; eles precisarão de contas válidas (Email/Senha) provisionadas no Supabase.
+
+### Modificado (UX/UI)
+- **Arquivo(s):** `src/pages/Login.tsx`, `docs/05-IMPLEMENTACAO_AUTH_SUPABASE.md`
+- **Descrição da alteração:** Correção das cores (constraste) e aplicação do idioma Português (pt-BR) aos rótulos e links do componente `<Auth />` do Supabase.
+- **Motivo da mudança:** O texto estava se misturando com o fundo, e as ações nativas (Sign up, Forgot password) estavam em inglês. Os estilos Tailwind do projeto foram injetados no Auth UI.

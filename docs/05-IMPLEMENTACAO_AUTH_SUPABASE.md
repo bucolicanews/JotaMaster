@@ -30,10 +30,10 @@ Substituição da lógica de autenticação local (fake login com senha hardcode
 
 ## Riscos / Observações
 - **Risco:** Usuários com a senha antiga perderão acesso temporariamente.
-- **Mitigação:** Criação das contas no dashboard do Supabase do projeto, informando os usuários.
-- O arquivo obsoleto `src/lib/auth.ts` foi completamente removido para assegurar o princípio de **Zero Trust**.
+- **Mitigação:** Criação das contas no dashboard do Supabase do projeto, informando os usuários. Alternativamente, os usuários podem usar o formulário de cadastro (Sign Up) habilitado na UI de Login.
+- **Ajuste de UI:** O formulário de login foi ajustado para forçar herança das variáveis Tailwind (`--foreground`, `--background`), evitando problemas de contraste. Foi aplicada também tradução para português (pt-BR).
 
 ## Histórico de Alterações
 - Data: 2024 (Sessão Atual)
-- Alteração: Criação da página `Login.tsx`, refatoração do `AuthContext.tsx` e deleção de `auth.ts`.
-- Motivo: Atender os requisitos de segurança da arquitetura Multi-Tenant.
+- Alteração: Customização de variáveis e classes Tailwind na aparência do `@supabase/auth-ui-react` e aplicação de objeto de localização.
+- Motivo: Melhoria de Experiência do Usuário (UX/UI) e Internacionalização.
