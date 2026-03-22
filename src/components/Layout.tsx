@@ -110,7 +110,8 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         </div>
       </header>
       <nav className="border-b border-border bg-card shadow-sm sticky top-0 z-50">
-        <div className="max-w-[1600px] mx-auto px-4 flex space-x-2 overflow-x-auto no-scrollbar py-2">
+        {/* CORREÇÃO: Utilizando flex-wrap para garantir que todos os itens fiquem visíveis no layout */}
+        <div className="max-w-[1600px] mx-auto px-4 flex flex-wrap gap-2 py-2">
           {navItems.map((item) => (
             <Link key={item.to} to={item.to}>
               <Button
