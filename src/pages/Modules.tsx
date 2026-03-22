@@ -2,11 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Blocks, CheckCircle2, Lock, ShoppingCart, Loader2, ExternalLink } from 'lucide-react';
+import { Blocks, CheckCircle2, Lock, ShoppingCart, Loader2, ExternalLink, BrainCircuit, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { syncModuleManifest } from '@/lib/aiEcosystem'; // Importação do motor de inteligência
 
 export default function Modules() {
   const { session, autenticado } = useAuth();
@@ -15,6 +16,7 @@ export default function Modules() {
   const [installedIds, setInstalledIds] = useState<string[]>([]); 
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState<string | null>(null);
+  const [syncingId, setSyncingId] = useState<string | null>(null); // Controle de UI para o Sync de IA
 
   useEffect(() => {
     const fetchData = async () => {
@@ -53,9 +55,6 @@ export default function Modules() {
 
   const handleAction = async (mod: any, isInstalled: boolean) => {
     if (isInstalled) {
-      // Regra de Roteamento Inteligente:
-      // Se for um módulo nativo hardcoded no React, usa a rota raiz
-      // Se for um micro-frontend de CDN, envia para o DynamicRouteHandler
       if (mod.module_type === 'internal') {
         navigate(`/${mod.id}`);
       } else {
@@ -76,6 +75,12 @@ export default function Modules() {
         if (error) throw error;
         setInstalledIds(prev => [...prev, mod.id]);
         toast.success(`Módulo ${mod.name} ativado com sucesso!`);
+        
+        // Dispara a sincronização de IA automaticamente ao instalar, se for módulo externo
+        if (mod.module_type === 'iframe' && mod.bundle_url) {
+          handleSyncAI(mod);
+        }
+
       } else {
         toast.info(`Solicitação de aquisição para ${mod.name} (R$ ${mod.price}) enviada ao comercial.`);
       }
@@ -83,6 +88,31 @@ export default function Modules() {
       toast.error('Falha na transação.');
     } finally {
       setIsProcessing(null);
+    }
+  };
+
+  // Função para absorver a Inteligência do Módulo (AI Manifest)
+  const handleSyncAI = async (mod: any) => {
+    if (!session?.user) return;
+    
+    setSyncingId(mod.id);
+    try {
+      const itemsAbsorbed = await syncModuleManifest(mod.id, mod.bundle_url, session.user.id);
+      if (itemsAbsorbed > 0) {
+        toast.success(`Inteligência absorvida!`, {
+          description: `${itemsAbsorbed} habilidades/agentes foram ensinados ao Master.`
+        });
+      } else {
+        toast.info("O módulo não possui novas habilidades para ensinar (ai-manifest.json vazio).");
+      }
+    } catch (error: any) {
+      if (error.message.includes('Não possui um ai-manifest.json')) {
+        toast.info("Módulo tradicional (Sem IA vinculada).", { description: "Nenhum arquivo ai-manifest.json encontrado."});
+      } else {
+        toast.error("Erro na Sincronização IA", { description: error.message });
+      }
+    } finally {
+      setSyncingId(null);
     }
   };
 
@@ -146,22 +176,41 @@ export default function Modules() {
                   </CardDescription>
                 </CardHeader>
                 
-                <CardFooter className="mt-auto pt-4 border-t border-border/50 bg-card flex items-center justify-between">
-                  {!isInstalled && (
-                    <span className="font-mono font-bold text-lg text-primary">
-                      {isFree ? 'Grátis' : `R$ ${Number(mod.price).toFixed(2)}`}
-                    </span>
+                <CardFooter className="mt-auto pt-4 border-t border-border/50 bg-card flex flex-col gap-3">
+                  <div className="flex items-center justify-between w-full">
+                    {!isInstalled && (
+                      <span className="font-mono font-bold text-lg text-primary">
+                        {isFree ? 'Grátis' : `R$ ${Number(mod.price).toFixed(2)}`}
+                      </span>
+                    )}
+                    <Button 
+                      variant={isInstalled ? "default" : "outline"} 
+                      className={`ml-auto ${isInstalled ? 'bg-primary text-primary-foreground hover:opacity-90' : 'border-primary/50 text-primary'}`}
+                      onClick={() => handleAction(mod, isInstalled)}
+                      disabled={isProcessing === mod.id}
+                    >
+                      {isProcessing === mod.id ? <Loader2 className="h-4 w-4 animate-spin" /> : 
+                       isInstalled ? 'Acessar Módulo' : 
+                       isFree ? 'Instalar Agora' : <><ShoppingCart className="h-4 w-4 mr-2" /> Adquirir</>}
+                    </Button>
+                  </div>
+                  
+                  {/* Botão Extra de Sincronizar IA para Módulos Externos Instalados */}
+                  {isInstalled && isExternal && (
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="w-full text-xs bg-indigo-500/5 text-indigo-600 border-indigo-500/20 hover:bg-indigo-500/10"
+                      onClick={() => handleSyncAI(mod)}
+                      disabled={syncingId === mod.id}
+                    >
+                      {syncingId === mod.id ? (
+                        <><Loader2 className="h-3 w-3 mr-2 animate-spin" /> Absorvendo Inteligência...</>
+                      ) : (
+                        <><BrainCircuit className="h-3 w-3 mr-2" /> Sincronizar Cérebro IA</>
+                      )}
+                    </Button>
                   )}
-                  <Button 
-                    variant={isInstalled ? "default" : "outline"} 
-                    className={`ml-auto ${isInstalled ? 'bg-primary text-primary-foreground hover:opacity-90' : 'border-primary/50 text-primary'}`}
-                    onClick={() => handleAction(mod, isInstalled)}
-                    disabled={isProcessing === mod.id}
-                  >
-                    {isProcessing === mod.id ? <Loader2 className="h-4 w-4 animate-spin" /> : 
-                     isInstalled ? 'Acessar Módulo' : 
-                     isFree ? 'Instalar Agora' : <><ShoppingCart className="h-4 w-4 mr-2" /> Adquirir</>}
-                  </Button>
                 </CardFooter>
               </Card>
             );
