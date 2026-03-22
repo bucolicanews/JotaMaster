@@ -4,6 +4,11 @@ Todas as alterações notáveis neste projeto serão documentadas neste arquivo.
 
 ## [Não Lançado] - Sessão Atual
 
+### Adicionado (Governança Módulos)
+- **Arquivo(s):** `docs/PROMPT_CRIACAO_MODULO_CRM.md`
+- **Descrição da alteração:** Criação de um manual/prompt estrito para guiar o desenvolvimento de novos módulos externos (micro-frontends) que serão acoplados ao Jota Master.
+- **Motivo da mudança:** Garantir que o repositório `@app:modulo_controle_cliente` seja desenvolvido com os mesmos padrões de segurança (RLS), UI (shadcn) e arquitetura da Placa-mãe.
+
 ### Corrigido (Estabilidade e Segurança)
 - **Arquivo(s):** `src/pages/AdminDashboard.tsx`, `docs/08-SEGURANCA_ADMINDASHBOARD.md`
 - **Descrição da alteração:** Refatoração das consultas ao banco de dados no painel do administrador. Substituição de Join direto no Supabase por consultas separadas unidas em memória.
