@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ShieldAlert, Users, Activity, Search, Blocks, Edit, Save, X } from 'lucide-react';
+import { ShieldAlert, Users, Activity, Search, Blocks, Edit, Save, X, Globe, Code } from 'lucide-react';
 import { Input } from "@/components/ui/input";
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -11,6 +11,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function AdminDashboard() {
   const { isAdmin } = useAuth();
@@ -19,9 +20,13 @@ export default function AdminDashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [busca, setBusca] = useState('');
   
-  // Estado para edição de preços no catálogo
+  // Estado para edição de dados do catálogo
   const [editingModuleId, setEditingModuleId] = useState<string | null>(null);
-  const [editPrice, setEditPrice] = useState<string>('');
+  const [editForm, setEditForm] = useState({
+    price: '',
+    module_type: 'internal',
+    bundle_url: ''
+  });
 
   if (!isAdmin && !isLoading) {
     return <Navigate to="/" replace />;
@@ -86,22 +91,49 @@ export default function AdminDashboard() {
     }
   };
 
-  const salvarPrecoModulo = async (id: string) => {
+  const iniciarEdicaoModulo = (mod: any) => {
+    setEditingModuleId(mod.id);
+    setEditForm({
+      price: mod.price?.toString() || '0',
+      module_type: mod.module_type || 'internal',
+      bundle_url: mod.bundle_url || ''
+    });
+  };
+
+  const salvarEdicaoModulo = async (id: string) => {
     // Validação de Input (AppSec)
-    const precoNum = parseFloat(editPrice);
+    const precoNum = parseFloat(editForm.price);
     if (isNaN(precoNum) || precoNum < 0) {
       toast.error('Valor inválido. O preço deve ser um número positivo.');
       return;
     }
 
+    let urlFinal = editForm.bundle_url?.trim();
+
+    if (editForm.module_type === 'iframe') {
+      if (!urlFinal || !urlFinal.startsWith('https://')) {
+        toast.error('Segurança: Módulos externos exigem URLs seguras (iniciadas com https://).');
+        return;
+      }
+    } else {
+      // Se for internal, limpamos a URL para não manter lixo no BD
+      urlFinal = '';
+    }
+
     try {
-      const { error } = await supabase.from('system_modules').update({ price: precoNum }).eq('id', id);
+      const { error } = await supabase.from('system_modules').update({ 
+        price: precoNum,
+        module_type: editForm.module_type,
+        bundle_url: urlFinal || null
+      }).eq('id', id);
+      
       if (error) throw error;
-      toast.success('Preço atualizado com sucesso.');
+      toast.success('Módulo atualizado com sucesso.');
       setEditingModuleId(null);
       carregarDados();
     } catch (error: any) {
-      toast.error('Falha ao atualizar preço.');
+      toast.error('Falha ao atualizar módulo. Verifique o console.');
+      console.error(error);
     }
   };
 
@@ -187,59 +219,113 @@ export default function AdminDashboard() {
           <Card className="shadow-elegant border-primary/20">
             <CardHeader className="bg-muted/10 border-b border-border/50 pb-4">
               <CardTitle className="text-lg flex items-center gap-2">Vitrine de Módulos (Marketplace)</CardTitle>
-              <CardDescription>Defina quais plugins estão visíveis para os clientes e o preço base.</CardDescription>
+              <CardDescription>Configure precificação, tipo de injeção (Nativo vs CDN) e endpoints dos módulos.</CardDescription>
             </CardHeader>
             <CardContent className="p-0 overflow-x-auto">
               <Table>
                 <TableHeader className="bg-muted/30">
                   <TableRow>
-                    <TableHead>ID</TableHead>
-                    <TableHead>Módulo</TableHead>
-                    <TableHead>Preço (R$)</TableHead>
-                    <TableHead>Nativo?</TableHead>
-                    <TableHead>Visível na Loja?</TableHead>
+                    <TableHead className="w-[80px]">ID</TableHead>
+                    <TableHead className="min-w-[200px]">Módulo</TableHead>
+                    <TableHead className="min-w-[120px]">Preço (R$)</TableHead>
+                    <TableHead className="min-w-[150px]">Tipo Renderização</TableHead>
+                    <TableHead className="min-w-[250px]">URL (App Externo)</TableHead>
+                    <TableHead className="w-[120px]">Visível?</TableHead>
+                    <TableHead className="w-[80px] text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {catalogo.length === 0 ? (
-                    <TableRow><TableCell colSpan={5} className="text-center py-8 text-destructive">Nenhum módulo encontrado no BD. Execute o script SQL.</TableCell></TableRow>
-                  ) : catalogo.map((mod) => (
-                    <TableRow key={mod.id}>
-                      <TableCell className="font-mono text-xs text-muted-foreground">{mod.id}</TableCell>
-                      <TableCell>
-                        <div className="font-bold">{mod.name}</div>
-                        <div className="text-xs text-muted-foreground line-clamp-1">{mod.description}</div>
-                      </TableCell>
-                      <TableCell>
-                        {editingModuleId === mod.id ? (
-                          <div className="flex items-center gap-2">
+                    <TableRow><TableCell colSpan={7} className="text-center py-8 text-destructive">Nenhum módulo encontrado no BD. Execute o script SQL.</TableCell></TableRow>
+                  ) : catalogo.map((mod) => {
+                    const isEditing = editingModuleId === mod.id;
+                    
+                    return (
+                      <TableRow key={mod.id} className={isEditing ? "bg-muted/30" : ""}>
+                        <TableCell className="font-mono text-[10px] text-muted-foreground">{mod.id}</TableCell>
+                        <TableCell>
+                          <div className="font-bold text-sm">{mod.name}</div>
+                          <div className="text-[10px] text-muted-foreground line-clamp-1">{mod.description}</div>
+                        </TableCell>
+                        
+                        <TableCell>
+                          {isEditing ? (
                             <Input 
                               type="number" min="0" step="0.01"
-                              className="w-24 h-8 text-sm"
-                              value={editPrice}
-                              onChange={(e) => setEditPrice(e.target.value)}
+                              className="h-8 text-sm"
+                              value={editForm.price}
+                              onChange={(e) => setEditForm({...editForm, price: e.target.value})}
                             />
-                            <Button size="icon" variant="ghost" className="h-8 w-8 text-success" onClick={() => salvarPrecoModulo(mod.id)}><Save className="h-4 w-4" /></Button>
-                            <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => setEditingModuleId(null)}><X className="h-4 w-4" /></Button>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-2">
+                          ) : (
                             <span className="font-mono font-semibold">R$ {Number(mod.price).toFixed(2)}</span>
-                            <Button size="icon" variant="ghost" className="h-6 w-6 opacity-50 hover:opacity-100" onClick={() => { setEditPrice(mod.price); setEditingModuleId(mod.id); }}>
-                              <Edit className="h-3 w-3" />
-                            </Button>
+                          )}
+                        </TableCell>
+
+                        <TableCell>
+                          {isEditing ? (
+                            <Select 
+                              value={editForm.module_type} 
+                              onValueChange={(val) => setEditForm({...editForm, module_type: val})}
+                            >
+                              <SelectTrigger className="h-8 text-xs">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="internal">Interno (React)</SelectItem>
+                                <SelectItem value="iframe">Externo (Iframe)</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <Badge variant="outline" className={mod.module_type === 'iframe' ? 'bg-amber-500/10 text-amber-600' : 'bg-primary/10 text-primary'}>
+                              {mod.module_type === 'iframe' ? <Globe className="h-3 w-3 mr-1" /> : <Code className="h-3 w-3 mr-1" />}
+                              {mod.module_type === 'iframe' ? 'App CDN' : 'Nativo'}
+                            </Badge>
+                          )}
+                        </TableCell>
+
+                        <TableCell>
+                          {isEditing ? (
+                            <Input 
+                              type="url"
+                              placeholder="https://..."
+                              className="h-8 text-xs font-mono"
+                              value={editForm.bundle_url}
+                              disabled={editForm.module_type !== 'iframe'}
+                              onChange={(e) => setEditForm({...editForm, bundle_url: e.target.value})}
+                            />
+                          ) : (
+                            <div className="text-[10px] font-mono text-muted-foreground truncate max-w-[200px]" title={mod.bundle_url}>
+                              {mod.bundle_url || 'N/A (Built-in)'}
+                            </div>
+                          )}
+                        </TableCell>
+
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Switch disabled={isEditing} checked={mod.is_active} onCheckedChange={() => toggleStatusModulo(mod.id, mod.is_active)} />
+                            <span className="text-xs text-muted-foreground">{mod.is_active ? 'Online' : 'Oculto'}</span>
                           </div>
-                        )}
-                      </TableCell>
-                      <TableCell><Badge variant="outline">{mod.is_native ? 'Sim' : 'Não'}</Badge></TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Switch checked={mod.is_active} onCheckedChange={() => toggleStatusModulo(mod.id, mod.is_active)} />
-                          <span className="text-xs text-muted-foreground">{mod.is_active ? 'Online' : 'Oculto'}</span>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                        </TableCell>
+
+                        <TableCell className="text-right">
+                          {isEditing ? (
+                            <div className="flex items-center justify-end gap-1">
+                              <Button size="icon" variant="ghost" className="h-7 w-7 text-success bg-success/10 hover:bg-success/20" onClick={() => salvarEdicaoModulo(mod.id)}>
+                                <Save className="h-4 w-4" />
+                              </Button>
+                              <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive bg-destructive/10 hover:bg-destructive/20" onClick={() => setEditingModuleId(null)}>
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-primary" onClick={() => iniciarEdicaoModulo(mod)}>
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </CardContent>
