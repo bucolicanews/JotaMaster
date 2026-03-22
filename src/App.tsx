@@ -13,14 +13,15 @@ import Configuracao from "./pages/Configuracao";
 import Viabilidade from "./pages/Viabilidade";
 import Chat from "./pages/Chat";
 import Modules from "./pages/Modules";
-import CRM from "./pages/CRM"; // NOVO MÓDULO IMPORTADO
+import CRM from "./pages/CRM"; 
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
 import AdminDashboard from "./pages/AdminDashboard";
+import DynamicRouteHandler from "./pages/DynamicRouteHandler"; // <--- NOVO ROUTER DE MICRO-FRONTENDS
 import { Layout } from "./components/Layout";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { Loader2 } from "lucide-react";
-import { ModuleProtectedRoute } from "./components/ModuleProtectedRoute"; // SEGURANÇA
+import { ModuleProtectedRoute } from "./components/ModuleProtectedRoute"; 
 
 const queryClient = new QueryClient();
 
@@ -58,8 +59,11 @@ const AppRoutes = () => (
       <Route path="/modules" element={<RotaProtegida><Modules /></RotaProtegida>} />
       <Route path="/admin" element={<RotaProtegida><AdminDashboard /></RotaProtegida>} />
 
-      {/* ROTAS DE MÓDULOS (MARKETPLACE) COM PROTEÇÃO ZERO TRUST */}
+      {/* ROTA NATIVA/LEGACY (INTERNAL) */}
       <Route path="/crm" element={<RotaProtegida><ModuleProtectedRoute moduleId="crm"><CRM /></ModuleProtectedRoute></RotaProtegida>} />
+      
+      {/* ROTA CATCH-ALL PARA MICRO-FRONTENDS (EXTERNAL CDN) */}
+      <Route path="/app/:moduleId" element={<RotaProtegida><DynamicRouteHandler /></RotaProtegida>} />
       
       <Route path="*" element={<NotFound />} />
     </Routes>

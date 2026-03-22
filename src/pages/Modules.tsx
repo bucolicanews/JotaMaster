@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Blocks, CheckCircle2, Lock, ShoppingCart, Loader2 } from 'lucide-react';
+import { Blocks, CheckCircle2, Lock, ShoppingCart, Loader2, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -53,16 +53,21 @@ export default function Modules() {
 
   const handleAction = async (mod: any, isInstalled: boolean) => {
     if (isInstalled) {
-      // Redireciona para a rota com o mesmo nome do ID do módulo (ex: /crm, /pricing)
-      navigate(`/${mod.id}`);
+      // Regra de Roteamento Inteligente:
+      // Se for um módulo nativo hardcoded no React, usa a rota raiz
+      // Se for um micro-frontend de CDN, envia para o DynamicRouteHandler
+      if (mod.module_type === 'internal') {
+        navigate(`/${mod.id}`);
+      } else {
+        navigate(`/app/${mod.id}`);
+      }
       return;
     }
 
-    // Fluxo de Aquisição (Simulado por enquanto, em produção chamaria Stripe/Asaas)
+    // Fluxo de Aquisição (Simulado por enquanto)
     setIsProcessing(mod.id);
     try {
       if (Number(mod.price) === 0) {
-        // Instalação automática se for gratuito
         const { error } = await supabase.from('installed_modules').insert({
           user_id: session?.user.id,
           module_id: mod.id,
@@ -89,7 +94,7 @@ export default function Modules() {
         </div>
         <div>
           <h1 className="text-2xl font-bold">Marketplace (App Store)</h1>
-          <p className="text-sm text-muted-foreground">Adicione novas inteligências e blocos ao seu ecossistema JOTA.</p>
+          <p className="text-sm text-muted-foreground">Adicione novas inteligências e blocos de terceiros ao seu ecossistema JOTA.</p>
         </div>
       </div>
 
@@ -107,23 +112,31 @@ export default function Modules() {
           {catalog.map((mod) => {
             const isInstalled = installedIds.includes(mod.id);
             const isFree = Number(mod.price) === 0;
+            const isExternal = mod.module_type === 'iframe';
 
             return (
               <Card key={mod.id} className={`flex flex-col overflow-hidden transition-all duration-300 hover:shadow-lg ${!isInstalled ? 'border-border shadow-sm' : 'border-primary/50 shadow-elegant bg-primary/5'}`}>
                 <CardHeader className="pb-4">
                   <div className="flex items-start justify-between">
                     <div className="p-3 rounded-lg border bg-background">
-                      <Blocks className={`h-6 w-6 ${isInstalled ? 'text-primary' : 'text-muted-foreground'}`} />
+                      {isExternal ? <ExternalLink className={`h-6 w-6 ${isInstalled ? 'text-amber-500' : 'text-muted-foreground'}`} /> : <Blocks className={`h-6 w-6 ${isInstalled ? 'text-primary' : 'text-muted-foreground'}`} />}
                     </div>
-                    {isInstalled ? (
-                      <Badge variant="outline" className="bg-success/10 text-success border-success/20 shadow-sm">
-                        <CheckCircle2 className="h-3 w-3 mr-1" /> Instalado
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline" className="bg-muted text-muted-foreground shadow-sm">
-                        <Lock className="h-3 w-3 mr-1" /> Loja
-                      </Badge>
-                    )}
+                    <div className="flex flex-col gap-2 items-end">
+                      {isInstalled ? (
+                        <Badge variant="outline" className="bg-success/10 text-success border-success/20 shadow-sm">
+                          <CheckCircle2 className="h-3 w-3 mr-1" /> Instalado
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="bg-muted text-muted-foreground shadow-sm">
+                          <Lock className="h-3 w-3 mr-1" /> Loja
+                        </Badge>
+                      )}
+                      {isExternal && (
+                        <Badge variant="outline" className="text-[8px] bg-amber-500/10 text-amber-600 border-amber-500/20">
+                          App Externo (CDN)
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                   <CardTitle className="text-lg mt-4 flex justify-between items-center">
                     {mod.name}
