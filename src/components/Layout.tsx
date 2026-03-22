@@ -1,10 +1,12 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Upload, BarChart3, Settings, Tags, TrendingUp, ShieldCheck, Sparkles, Lock, LogOut, Home, MessageSquare, Blocks, ShieldAlert } from 'lucide-react';
+import { Upload, BarChart3, Settings, Tags, TrendingUp, ShieldCheck, Sparkles, Lock, LogOut, Home, MessageSquare, Blocks, ShieldAlert, Menu, UserCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet';
+import { Badge } from '@/components/ui/badge';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -32,7 +34,13 @@ const adminNavItems = [
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { autenticado, logout, isAdmin } = useAuth();
+  const { autenticado, logout, isAdmin, profile } = useAuth();
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
+
+  // Fecha o menu mobile quando a rota muda
+  useEffect(() => {
+    setIsMobileOpen(false);
+  }, [location.pathname]);
 
   const handleLogout = async () => {
     try {
@@ -44,92 +52,133 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     }
   };
 
-  const navItems = autenticado 
-    ? [...publicNavItems, ...privateNavItems, ...(isAdmin ? adminNavItems : [])] 
-    : publicNavItems;
+  const NavButton = ({ item, isLocked = false }: { item: any, isLocked?: boolean }) => {
+    const isActive = location.pathname === item.to;
+    return (
+      <Link to={item.to} className="block w-full">
+        <Button
+          variant="ghost"
+          className={cn(
+            "w-full justify-start py-2 px-3 h-10 transition-colors text-sm font-medium",
+            isActive
+              ? "bg-primary text-primary-foreground hover:bg-primary/90"
+              : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+          )}
+        >
+          <item.icon className="h-4 w-4 mr-3 shrink-0" />
+          <span className="truncate">{item.label}</span>
+          {isLocked && <Lock className="h-3 w-3 ml-auto opacity-50 shrink-0" />}
+        </Button>
+      </Link>
+    );
+  };
 
-  return (
-    <div className="min-h-screen bg-background flex flex-col">
-      <header className="border-b border-border bg-gradient-primary">
-        <div className="max-w-[1600px] mx-auto px-4 py-4">
-          <div className="flex flex-col sm:flex-row items-center sm:justify-between gap-3">
-            <div className="flex items-center text-center sm:text-left gap-3">
-              <div className="rounded-lg bg-black/30 p-2 backdrop-blur">
-                <img src="/jota-contabilidade-logo.png" alt="Logo" className="h-12 w-12" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold text-black">JOTA - Análise Tributária Lei 214/2025</h1>
-                <p className="text-xs text-black/70">Sistema Inteligente de Análise Tributária</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              {autenticado ? (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="bg-black/20 border-black/30 text-black hover:bg-black/30"
-                  onClick={handleLogout}
-                >
-                  <LogOut className="h-4 w-4 mr-2" />
-                  Sair
-                </Button>
-              ) : (
-                <Link to="/login">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="bg-black/20 border-black/30 text-black hover:bg-black/30"
-                  >
-                    <Lock className="h-4 w-4 mr-2" />
-                    Acesso Completo
-                  </Button>
-                </Link>
-              )}
-            </div>
-          </div>
+  const SidebarContent = () => (
+    <div className="flex flex-col h-full bg-card">
+      <div className="p-4 border-b border-border bg-gradient-primary flex items-center gap-3 shrink-0">
+        <div className="rounded-lg bg-black/30 p-2 backdrop-blur shrink-0">
+          <img src="/jota-contabilidade-logo.png" alt="Logo" className="h-8 w-8" />
         </div>
-      </header>
-      <nav className="border-b border-border bg-card shadow-sm sticky top-0 z-50">
-        <div className="max-w-[1600px] mx-auto px-4 flex flex-wrap gap-2 py-2">
-          {navItems.map((item) => (
-            <Link key={item.to} to={item.to}>
-              <Button
-                variant="ghost"
-                className={cn(
-                  "py-2 px-3 rounded-md transition-colors whitespace-nowrap text-sm",
-                  location.pathname === item.to
-                    ? "bg-primary text-primary-foreground font-semibold hover:bg-primary/90"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                )}
-              >
-                <item.icon className="h-4 w-4 mr-2" />
-                {item.label}
-              </Button>
-            </Link>
-          ))}
-          <Link to="/configuracao">
-            <Button
-              variant="ghost"
-              className={cn(
-                "py-2 px-3 rounded-md transition-colors whitespace-nowrap text-sm",
-                location.pathname === '/configuracao'
-                  ? "bg-primary text-primary-foreground font-semibold hover:bg-primary/90"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
-              )}
-            >
-              <Settings className="h-4 w-4 mr-2" />
-              Configurações
-              {!autenticado && <Lock className="h-3 w-3 ml-1 opacity-50" />}
+        <div className="overflow-hidden">
+          <h1 className="text-lg font-bold text-black truncate leading-tight">JOTA</h1>
+          <p className="text-[10px] text-black/70 truncate leading-tight">Análise Tributária</p>
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto py-4 px-3 custom-scrollbar">
+        <div className="space-y-1">
+          <div className="mb-2 px-3 text-[10px] font-bold uppercase text-muted-foreground tracking-wider">Acesso Público</div>
+          {publicNavItems.map(item => <NavButton key={item.to} item={item} />)}
+        </div>
+
+        {autenticado && (
+          <div className="space-y-1 mt-6">
+            <div className="mb-2 px-3 text-[10px] font-bold uppercase text-muted-foreground tracking-wider">SaaS & Inteligência</div>
+            {privateNavItems.map(item => <NavButton key={item.to} item={item} />)}
+          </div>
+        )}
+
+        {autenticado && isAdmin && (
+          <div className="space-y-1 mt-6">
+            <div className="mb-2 px-3 text-[10px] font-bold uppercase text-destructive tracking-wider flex items-center gap-1">
+              <ShieldAlert className="h-3 w-3" /> Administração
+            </div>
+            {adminNavItems.map(item => <NavButton key={item.to} item={item} />)}
+          </div>
+        )}
+
+        <div className="space-y-1 mt-6">
+          <div className="mb-2 px-3 text-[10px] font-bold uppercase text-muted-foreground tracking-wider">Sistema</div>
+          <NavButton item={{ to: '/configuracao', label: 'Configurações', icon: Settings }} isLocked={!autenticado} />
+        </div>
+      </div>
+
+      <div className="p-4 border-t border-border shrink-0 bg-muted/10">
+        {autenticado ? (
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center gap-3 px-2 bg-background p-2 rounded-lg border border-border/50">
+              <UserCircle className="h-8 w-8 text-primary shrink-0" />
+              <div className="overflow-hidden flex-1">
+                <p className="text-xs font-bold truncate">{profile?.company_name || profile?.first_name || 'Usuário'}</p>
+                <Badge variant={isAdmin ? "destructive" : "outline"} className={cn("text-[8px] uppercase mt-0.5", !isAdmin && "bg-muted")}>
+                  {profile?.role || 'empresa'}
+                </Badge>
+              </div>
+            </div>
+            <Button size="sm" variant="outline" className="w-full text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/20" onClick={handleLogout}>
+              <LogOut className="h-4 w-4 mr-2" /> Sair do Sistema
+            </Button>
+          </div>
+        ) : (
+          <Link to="/login" className="w-full block">
+            <Button size="sm" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">
+              <Lock className="h-4 w-4 mr-2" /> Acesso Completo
             </Button>
           </Link>
-        </div>
-      </nav>
-      <main className="flex-grow max-w-[1600px] mx-auto w-full">
-        {children}
-      </main>
-      <footer className="border-t border-border bg-card py-4 text-center text-sm text-muted-foreground">
-        <div className="max-w-[1600px] mx-auto px-4">Desenvolvido por Jota Empresas</div>
-      </footer>
+        )}
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="flex h-screen overflow-hidden bg-background">
+      {/* Desktop Sidebar */}
+      <aside className="hidden md:flex flex-col w-64 lg:w-72 border-r border-border shrink-0 z-20 shadow-sm">
+        <SidebarContent />
+      </aside>
+
+      {/* Mobile Header & Main Content */}
+      <div className="flex-1 flex flex-col h-screen overflow-hidden min-w-0">
+        
+        {/* Mobile Header */}
+        <header className="md:hidden flex items-center justify-between p-4 border-b border-border bg-gradient-primary shrink-0 z-20">
+          <div className="flex items-center gap-3">
+            <div className="rounded-lg bg-black/30 p-1.5 backdrop-blur shrink-0">
+              <img src="/jota-contabilidade-logo.png" alt="Logo" className="h-7 w-7" />
+            </div>
+            <span className="font-bold text-black text-lg">JOTA</span>
+          </div>
+          
+          <Sheet open={isMobileOpen} onOpenChange={setIsMobileOpen}>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="icon" className="text-black hover:bg-black/20">
+                <Menu className="h-6 w-6" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="p-0 w-[280px] border-r-0">
+              <SheetTitle className="sr-only">Menu de Navegação</SheetTitle>
+              <SidebarContent />
+            </SheetContent>
+          </Sheet>
+        </header>
+
+        {/* Main Content Area */}
+        <main className="flex-1 overflow-y-auto bg-muted/5 relative">
+          <div className="absolute inset-0 p-4 md:p-8">
+            {children}
+          </div>
+        </main>
+      </div>
     </div>
   );
 };
