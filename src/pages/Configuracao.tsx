@@ -105,7 +105,7 @@ const Configuracao = () => {
     try {
       const uid = session.user.id;
 
-      // Admin salva TUDO. Usuário normal salva apenas os seus.
+      // Skills
       const mySkills = isAdmin ? dynamicSkills : dynamicSkills.filter(s => !s.userId || s.userId === uid);
       if (mySkills.length > 0) {
         const skillsToUpsert = mySkills.map(s => {
@@ -119,9 +119,10 @@ const Configuracao = () => {
           return payload;
         });
         const { error } = await supabase.from('ai_skills').upsert(skillsToUpsert);
-        if (error && error.message.includes('is_global')) throw error;
+        if (error) throw error;
       }
 
+      // Prompts
       const myPrompts = isAdmin ? prompts : prompts.filter(p => !p.userId || p.userId === uid);
       if (myPrompts.length > 0) {
         const promptsToUpsert = myPrompts.map(p => {
@@ -132,9 +133,11 @@ const Configuracao = () => {
           if (p.isGlobal !== undefined) payload.is_global = p.isGlobal;
           return payload;
         });
-        await supabase.from('ai_prompts').upsert(promptsToUpsert);
+        const { error } = await supabase.from('ai_prompts').upsert(promptsToUpsert);
+        if (error) throw error;
       }
 
+      // Agents
       const myAgents = isAdmin ? agents : agents.filter(a => !a.userId || a.userId === uid);
       if (myAgents.length > 0) {
         const agentsToUpsert = myAgents.map(a => {
@@ -148,12 +151,15 @@ const Configuracao = () => {
           if (a.isGlobal !== undefined) payload.is_global = a.isGlobal;
           return payload;
         });
-        await supabase.from('ai_agents').upsert(agentsToUpsert);
+        const { error } = await supabase.from('ai_agents').upsert(agentsToUpsert);
+        if (error) throw error;
       }
 
       toast.success("Configurações salvas no Banco de Dados!");
     } catch (e: any) {
-      if (!e.message.includes('is_global')) {
+      if (e.message?.includes('is_global') || e.message?.includes('Could not find the \'is_global\' column')) {
+        toast.error("ERRO NO BANCO: A coluna 'is_global' não existe. Execute o script SQL no painel do Supabase para criá-la.");
+      } else {
         toast.error("Erro ao salvar: " + e.message);
       }
     } finally {
