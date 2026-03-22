@@ -13,12 +13,14 @@ import Configuracao from "./pages/Configuracao";
 import Viabilidade from "./pages/Viabilidade";
 import Chat from "./pages/Chat";
 import Modules from "./pages/Modules";
+import CRM from "./pages/CRM"; // NOVO MÓDULO IMPORTADO
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
 import AdminDashboard from "./pages/AdminDashboard";
 import { Layout } from "./components/Layout";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { Loader2 } from "lucide-react";
+import { ModuleProtectedRoute } from "./components/ModuleProtectedRoute"; // SEGURANÇA
 
 const queryClient = new QueryClient();
 
@@ -48,13 +50,16 @@ const AppRoutes = () => (
       <Route path="/audit" element={<Audit />} />
       <Route path="/configuracao" element={<Configuracao />} />
       
-      {/* Rotas Protegidas */}
+      {/* Rotas Protegidas Padrão */}
       <Route path="/chat" element={<RotaProtegida><Chat /></RotaProtegida>} />
       <Route path="/comparison" element={<RotaProtegida><Comparison /></RotaProtegida>} />
       <Route path="/impact" element={<RotaProtegida><ImpactAnalysis /></RotaProtegida>} />
       <Route path="/new-business" element={<RotaProtegida><Viabilidade /></RotaProtegida>} />
       <Route path="/modules" element={<RotaProtegida><Modules /></RotaProtegida>} />
       <Route path="/admin" element={<RotaProtegida><AdminDashboard /></RotaProtegida>} />
+
+      {/* ROTAS DE MÓDULOS (MARKETPLACE) COM PROTEÇÃO ZERO TRUST */}
+      <Route path="/crm" element={<RotaProtegida><ModuleProtectedRoute moduleId="crm"><CRM /></ModuleProtectedRoute></RotaProtegida>} />
       
       <Route path="*" element={<NotFound />} />
     </Routes>
