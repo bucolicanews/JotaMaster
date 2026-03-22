@@ -1,4 +1,5 @@
-import { JOTA_TOOLS_MANIFEST, loadDynamicSkills, executeSkill } from "./skills/taxSkills";
+import { supabase } from '@/integrations/supabase/client';
+import { JOTA_TOOLS_MANIFEST, DynamicSkill, executeSkill } from "./skills/taxSkills";
 
 export interface AgentStatus {
   id: string;
@@ -20,6 +21,7 @@ export interface AgentConfig {
   monitoringInterval?: number; 
   useN8n?: boolean;
   n8nResponseUrl?: string;
+  moduleId?: string;
 }
 
 export interface PromptConfig {
@@ -28,6 +30,7 @@ export interface PromptConfig {
   role: string;
   content: string;
   isActive: boolean;
+  moduleId?: string;
 }
 
 export interface ChatMessage {
@@ -35,81 +38,26 @@ export interface ChatMessage {
   parts: any[];
 }
 
+export const DEFAULT_PRE_ANALYSIS_PROMPT = `Você é o Perito Tributário Sênior da Jota Contabilidade. Sua missão é entregar um MANUAL DE ESTRUTURAÇÃO FISCAL E VIABILIDADE (Nível 10/10).
+
+INICIE COM: “Parecer técnico-contábil estratégico, com visão preventiva, fiscalizatória, pericial e de planejamento tributário estruturado”
+
+INSTRUÇÃO DE INÍCIO: Comece com "RELATÓRIO DE VIABILIDADE TÉCNICA".`;
+
 export const DEFAULT_AGENTS: AgentConfig[] = [
   {
-    id: 'agent-1',
+    id: '33333333-3333-3333-3333-333333333333',
     nome: 'Perito Tributário Sênior',
     systemPrompt: 'Você é o Perito Tributário Sênior da Jota Contabilidade. Sua missão é realizar auditorias profundas e encontrar economias fiscais. Utilize a skill #comparar_regimes_tributarios para validações matemáticas.',
     order: 1,
     useN8n: false,
     n8nResponseUrl: 'http://localhost:3001/agent-result'
-  },
-  {
-    id: 'agent-2',
-    nome: 'Analista de Viabilidade',
-    systemPrompt: 'Você é um Analista de Viabilidade especializado em novos negócios e enquadramento no Simples Nacional. Foque na análise de CNAEs e riscos operacionais.',
-    order: 2,
-    useN8n: false,
-    n8nResponseUrl: 'http://localhost:3001/agent-result'
   }
 ];
 
-export const DEFAULT_PRE_ANALYSIS_PROMPT = `Você é o Perito Tributário Sênior da Jota Contabilidade. Sua missão é entregar um MANUAL DE ESTRUTURAÇÃO FISCAL E VIABILIDADE (Nível 10/10).
-
-INICIE COM: “Parecer técnico-contábil estratégico, com visão preventiva, fiscalizatória, pericial e de planejamento tributário estruturado”
-
-INSTRUÇÃO DE INÍCIO: Comece com "RELATÓRIO DE VIABILIDADE TÉCNICA".
-
-🚨 REGRAS DE OURO (PROIBIDO FALHAR):
-1. 🚫 ZERO TABELAS. Use listas aninhadas com tópicos claros e negritos estratégicos.
-2. 💰 SIMULAÇÃO MATEMÁTICA REAL: Use os dados de faturamento e folha informados no JSON. Calcule o valor exato em R$ do imposto mensal no Simples Nacional vs Lucro Presumido. Utilize a ferramenta #comparar_regimes_tributarios para garantir a precisão.
-3. ⚙️ OPERAÇÃO REAL: Diferencie venda (NF-e/ICMS) de serviço (NFS-e municipal).
-4. 📦 ICMS-ST E CEST: Analise a Substituição Tributária. Explique a segregação no PGDAS.
-5. 📑 INTEGRIDADE: Você DEVE obrigatoriamente listar todos os 19 itens abaixo. Não pule nenhum.
-6. 🧠 VEREDITO FINAL: O relatório deve terminar APÓS O ITEM 19 com uma decisão clara: "O regime ideal para você hoje é X por causa da economia real de R$ Y".
-
-ESTRUTURA OBRIGATÓRIA (19 REQUISITOS):
-
-# 1. ANÁLISE DE CNAEs E OPERAÇÃO
-- Analise cada CNAE informado individualmente.
-- Indique o enquadramento de cada um no Simples Nacional (Anexo I, II, III, IV ou V).
-- Explique a segregação de receitas se houver CNAEs de anexos diferentes.
-
-# 1.1 TRIBUTAÇÃO PREVIDENCIÁRIA (CPP)
-# 1.2 RETENÇÃO DE INSS E ISS
-# 1.3 DETALHAMENTO EFD-REINF
-# 2. CALENDÁRIO DE OBRIGAÇÕES (O QUE ENTREGAR)
-# 3. PROJEÇÃO MATEMÁTICA COMPARATIVA (O CORAÇÃO)
-# 4. GUIA DE PARAMETRIZAÇÃO (20 ITENS DO SETOR)
-# 5. LICENCIAMENTO REGIONAL (BELÉM/PA OU INFORMADO)
-# 6. NORMAS E EQUIPAMENTOS
-# 7. INVESTIMENTO DE ABERTURA
-
-# 8. MATRIZ DE RISCOS E CONFORMIDADE (ANÁLISE CRÍTICA)
-- Analise as respostas do cliente sobre: Mistura Patrimonial, Recebimento em Conta PF e Retirada de Lucros.
-- Se houver "Mistura Patrimonial: Sim" ou "Recebe na conta PF: Sim", emita um ALERTA VERMELHO sobre desconsideração da personalidade jurídica.
-- Sugira correções imediatas para blindagem patrimonial dos sócios.
-
-# 9. IMPACTO DA REFORMA (EC 132)
-# 10. RESPOSTA À PERGUNTA DO USUÁRIO
-# 11. METODOLOGIA DE ANÁLISE
-# 12. CONCLUSÃO E PLANO DE AÇÃO
-# 13. LIMITAÇÃO DE RESPONSABILIDADE
-# 14. FUNDAMENTAÇÃO PERICIAL
-# 15. CLÁUSULA DE REVISÃO CONTRATUAL
-# 16. TABELAS 2026 (Salário Mínimo e INSS)
-
-# 17. OBRIGAÇÕES DA EMPRESA COM A PRÓPRIA EMPRESA (GOVERNANÇA)
-# 18. OBRIGAÇÕES DA EMPRESA COM A CONTABILIDADE
-# 19. OBRIGAÇÕES DA EMPRESA COM O FISCO (CONFORMIDADE)
-
----
-VEREDITO PRÁTICO FINAL:
-[Sua decisão técnica aqui]`;
-
 export const DEFAULT_PROMPTS: PromptConfig[] = [
   {
-    id: 'p-1',
+    id: '44444444-4444-4444-4444-444444444444',
     title: 'Viabilidade e Estruturação (Padrão JOTA)',
     role: 'Perito Tributário Sênior',
     content: DEFAULT_PRE_ANALYSIS_PROMPT,
@@ -117,26 +65,74 @@ export const DEFAULT_PROMPTS: PromptConfig[] = [
   }
 ];
 
-export function loadPromptsFromStorage(): PromptConfig[] {
-  const raw = localStorage.getItem('jota-prompts');
-  return raw ? JSON.parse(raw) : DEFAULT_PROMPTS;
+// Busca do Banco de Dados
+export async function fetchDbAgents(userId: string): Promise<AgentConfig[]> {
+  const { data, error } = await supabase.from('ai_agents').select('*').eq('user_id', userId).order('order_index', { ascending: true });
+  if (error) return [];
+  
+  if (!data || data.length === 0) {
+    // Semeia defaults
+    const defaults = DEFAULT_AGENTS.map(a => ({
+      user_id: userId, nome: a.nome, system_prompt: a.systemPrompt, order_index: a.order,
+      use_n8n: a.useN8n, n8n_response_url: a.n8nResponseUrl, is_active: true
+    }));
+    const { data: inserted } = await supabase.from('ai_agents').insert(defaults).select();
+    if (inserted) return inserted.map(d => ({
+      id: d.id, nome: d.nome, systemPrompt: d.system_prompt, order: d.order_index,
+      selectedSkills: d.selected_skills || [], enableMonitoring: d.enable_monitoring,
+      monitoringInterval: d.monitoring_interval, useN8n: d.use_n8n,
+      n8nResponseUrl: d.n8n_response_url, webhookUrl: d.webhook_url, moduleId: d.module_id
+    }));
+    return DEFAULT_AGENTS;
+  }
+
+  return data.map(d => ({
+    id: d.id, nome: d.nome, systemPrompt: d.system_prompt, order: d.order_index,
+    selectedSkills: d.selected_skills || [], enableMonitoring: d.enable_monitoring,
+    monitoringInterval: d.monitoring_interval, useN8n: d.use_n8n,
+    n8nResponseUrl: d.n8n_response_url, webhookUrl: d.webhook_url, moduleId: d.module_id
+  }));
 }
 
-export function savePromptsToStorage(prompts: PromptConfig[]): void {
-  localStorage.setItem('jota-prompts', JSON.stringify(prompts));
+export async function fetchDbPrompts(userId: string): Promise<PromptConfig[]> {
+  const { data, error } = await supabase.from('ai_prompts').select('*').eq('user_id', userId);
+  if (error) return [];
+
+  if (!data || data.length === 0) {
+    const defaults = DEFAULT_PROMPTS.map(p => ({
+      user_id: userId, title: p.title, role: p.role, content: p.content, is_active: p.isActive
+    }));
+    const { data: inserted } = await supabase.from('ai_prompts').insert(defaults).select();
+    if (inserted) return inserted.map(d => ({
+      id: d.id, title: d.title, role: d.role, content: d.content, isActive: d.is_active, moduleId: d.module_id
+    }));
+    return DEFAULT_PROMPTS;
+  }
+
+  return data.map(d => ({
+    id: d.id, title: d.title, role: d.role, content: d.content, isActive: d.is_active, moduleId: d.module_id
+  }));
 }
 
+// Fallbacks locais
+export function loadAgentsFromStorage(): AgentConfig[] { return DEFAULT_AGENTS; }
+export function saveAgentsToStorage(agents: AgentConfig[]): void {}
+export function loadPromptsFromStorage(): PromptConfig[] { return DEFAULT_PROMPTS; }
+export function savePromptsToStorage(prompts: PromptConfig[]): void {}
+
+// Execução Gemini
 export async function callGeminiAgent(
   systemPrompt: string,
   userContent: string,
-  apiKey: string
+  apiKey: string,
+  skillsOverride?: DynamicSkill[]
 ): Promise<string> {
   if (!apiKey) throw new Error('Chave API Gemini não configurada.');
   
   const model = localStorage.getItem('jota-gemini-model') || 'gemini-2.0-flash';
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
   
-  const dynamicSkills = loadDynamicSkills().filter(s => s.isActive);
+  const dynamicSkills = skillsOverride || [];
   const dynamicManifests = dynamicSkills.map(s => ({ name: s.name, description: s.description, parameters: s.parameters }));
   const allFunctionTools = [...JOTA_TOOLS_MANIFEST, ...dynamicManifests];
   const toolsArray: any[] = [];
@@ -144,17 +140,13 @@ export async function callGeminiAgent(
 
   const initialBody = {
     system_instruction: { parts: [{ text: systemPrompt }] },
-    contents: [{ 
-      role: 'user', 
-      parts: [{ text: userContent }] 
-    }],
+    contents: [{ role: 'user', parts: [{ text: userContent }] }],
     tools: toolsArray.length > 0 ? toolsArray : undefined,
     generationConfig: { temperature: 0.1, maxOutputTokens: 8192 }, 
   };
 
   const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(initialBody) });
   const data = await response.json();
-  
   if (data.error) throw new Error(`Erro API Gemini: ${data.error.message}`);
   
   let message = data?.candidates?.[0]?.content;
@@ -165,7 +157,7 @@ export async function callGeminiAgent(
     for (const part of message.parts) {
       if (part.functionCall) {
         const { name, args } = part.functionCall;
-        const result = await executeSkill(name, args);
+        const result = await executeSkill(name, args, dynamicSkills);
         toolResults.push({ functionResponse: { name, response: { result } } });
       }
     }
@@ -173,11 +165,7 @@ export async function callGeminiAgent(
     const finalBody = {
       system_instruction: { parts: [{ text: systemPrompt }] },
       tools: toolsArray.length > 0 ? toolsArray : undefined,
-      contents: [
-        { role: 'user', parts: [{ text: userContent }] }, 
-        message, 
-        { role: 'function', parts: toolResults } 
-      ],
+      contents: [ { role: 'user', parts: [{ text: userContent }] }, message, { role: 'function', parts: toolResults } ],
       generationConfig: { temperature: 0.1, maxOutputTokens: 8192 },
     };
     
@@ -192,6 +180,7 @@ export async function callGeminiAgent(
 export async function sendChatMessage(
   history: ChatMessage[],
   apiKey: string,
+  skillsOverride: DynamicSkill[],
   onToolCall?: (toolName: string) => void
 ): Promise<string> {
   if (!apiKey) throw new Error('Chave API Gemini não configurada.');
@@ -199,22 +188,14 @@ export async function sendChatMessage(
   const model = localStorage.getItem('jota-gemini-model') || 'gemini-2.0-flash';
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
   
-  const dynamicSkills = loadDynamicSkills().filter(s => s.isActive);
-  const dynamicManifests = dynamicSkills.map(s => ({ name: s.name, description: s.description, parameters: s.parameters }));
+  const dynamicManifests = skillsOverride.map(s => ({ name: s.name, description: s.description, parameters: s.parameters }));
   const toolsArray = dynamicManifests.length > 0 ? [{ functionDeclarations: dynamicManifests }] : undefined;
-
-  const skillsList = dynamicSkills.map(s => `- ${s.name}: ${s.description}`).join('\n');
+  const skillsList = skillsOverride.map(s => `- ${s.name}: ${s.description}`).join('\n');
 
   const systemPrompt = `Você é o Assistente Inteligente da Jota Contabilidade. 
-  Você tem acesso a ferramentas especializadas (Skills) configuradas pelo usuário.
-  
-  FERRAMENTAS DISPONÍVEIS:
-  ${skillsList || "Nenhuma ferramenta configurada no momento."}
-
-  Sempre que o usuário perguntar algo relacionado a estas ferramentas, você DEVE chamá-las. 
-  Por exemplo, se houver uma ferramenta de "tabela_cClassTrib", chame-a para obter os dados antes de responder.
-  
-  Responda de forma profissional, clara e técnica. Use Markdown para formatar suas respostas.`;
+  FERRAMENTAS DISPONÍVEIS:\n${skillsList || "Nenhuma ferramenta no momento."}\n
+  Sempre que o usuário perguntar algo relacionado a estas ferramentas, chame-as obrigatoriamente.
+  Responda de forma profissional e use Markdown.`;
 
   const body = {
     system_instruction: { parts: [{ text: systemPrompt }] },
@@ -225,11 +206,10 @@ export async function sendChatMessage(
 
   const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
   const data = await response.json();
-  
   if (data.error) throw new Error(data.error.message);
   
   const message = data?.candidates?.[0]?.content;
-  if (!message) return "Desculpe, não consegui processar sua mensagem.";
+  if (!message) return "Desculpe, não consegui processar.";
 
   if (message.parts?.some((p: any) => p.functionCall)) {
     const toolResults: any[] = [];
@@ -237,22 +217,18 @@ export async function sendChatMessage(
       if (part.functionCall) {
         const { name, args } = part.functionCall;
         if (onToolCall) onToolCall(name);
-        const result = await executeSkill(name, args);
+        const result = await executeSkill(name, args, skillsOverride);
         toolResults.push({ functionResponse: { name, response: { result } } });
       }
     }
-
     const updatedHistory = [...history, message, { role: 'function', parts: toolResults }];
-    return sendChatMessage(updatedHistory, apiKey, onToolCall);
+    return sendChatMessage(updatedHistory, apiKey, skillsOverride, onToolCall);
   }
-
   return message.parts?.map((p: any) => p.text || '').join('\n') || '';
 }
 
 export async function callAgentWebhook(agent: AgentConfig, userContent: string, previousReports?: Record<string, string>): Promise<string> {
   if (!agent.webhookUrl) throw new Error(`Webhook não configurado.`);
-  
-  // Gera um ID de sessão único para que o relay saiba de quem é o resultado
   const sessionId = localStorage.getItem('jota-session-id') || Math.random().toString(36).substring(7);
   localStorage.setItem('jota-session-id', sessionId);
 
@@ -260,24 +236,10 @@ export async function callAgentWebhook(agent: AgentConfig, userContent: string, 
     method: 'POST', 
     headers: { 'Content-Type': 'application/json' }, 
     body: JSON.stringify({ 
-      agentName: agent.nome, 
-      sessionId: sessionId,
-      responseUrl: agent.n8nResponseUrl || 'http://localhost:3001/agent-result',
-      data: JSON.parse(userContent), 
-      previousReports 
+      agentName: agent.nome, sessionId, responseUrl: agent.n8nResponseUrl || 'http://localhost:3001/agent-result',
+      data: JSON.parse(userContent), previousReports 
     }) 
   });
-  
   const data = await response.json();
-  // Se o n8n responder sincronamente, usamos o report. Se for assíncrono, o frontend vai buscar no relay.
   return data.report || data.output || "Processamento iniciado no n8n...";
-}
-
-export function loadAgentsFromStorage(): AgentConfig[] {
-  const raw = localStorage.getItem('jota-agentes');
-  return raw ? JSON.parse(raw) : DEFAULT_AGENTS;
-}
-
-export function saveAgentsToStorage(agents: AgentConfig[]): void {
-  localStorage.setItem('jota-agentes', JSON.stringify(agents));
 }

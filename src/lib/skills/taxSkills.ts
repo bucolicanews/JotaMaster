@@ -1,3 +1,4 @@
+import { supabase } from '@/integrations/supabase/client';
 import { calculateSimplesNacionalEffectiveRate } from "../simplesNacional";
 import { findCClassByNcm, checkIfNcmHasSelectiveTax } from "../tax/taxClassificationService";
 
@@ -14,6 +15,7 @@ export interface DynamicSkill {
   url?: string;
   selector?: string;
   isActive: boolean;
+  moduleId?: string;
 }
 
 export const JOTA_TOOLS_MANIFEST: any[] = [];
@@ -23,7 +25,7 @@ const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
 
 export const DEFAULT_DYNAMIC_SKILLS: DynamicSkill[] = [
   {
-    id: 'sys-1',
+    id: '11111111-1111-1111-1111-111111111111',
     name: 'consultar_endereco_viacep',
     description: 'Consulta endereço completo via CEP.',
     suggestedInstruction: 'Você tem acesso à ferramenta #consultar_endereco_viacep. Utilize-a para validar o endereço da empresa ou localizar o município correto sempre que um CEP for fornecido.',
@@ -37,10 +39,10 @@ export const DEFAULT_DYNAMIC_SKILLS: DynamicSkill[] = [
     jsCode: "const cleanCep = String(args.cep).replace(/\\D/g, ''); if (cleanCep.length !== 8) return { error: 'CEP inválido' }; try { const response = await fetch('https://viacep.com.br/ws/' + cleanCep + '/json/'); const data = await response.json(); return data.erro ? { error: 'CEP não localizado' } : data; } catch (e) { return { error: 'Falha no serviço de CEP' }; }"
   },
   {
-    id: 'sys-2',
+    id: '22222222-2222-2222-2222-222222222222',
     name: 'comparar_regimes_tributarios',
     description: 'Realiza o comparativo matemático real entre Simples Nacional e Lucro Presumido.',
-    suggestedInstruction: 'Você tem acesso à ferramenta #comparar_regimes_tributarios. Utilize-a obrigatoriamente para realizar simulações matemáticas precisas entre Simples Nacional e Lucro Presumido, garantindo que os valores em R$ sejam exatos.',
+    suggestedInstruction: 'Você tem acesso à ferramenta #comparar_regimes_tributarios. Utilize-a obrigatoriamente para realizar simulações matemáticas precisas entre Simples Nacional e Lucro Presumido.',
     parameters: {
       type: 'object',
       properties: {
@@ -102,7 +104,7 @@ return {
     anexo,
     aliquota_efetiva: efetivaSimples.toFixed(2) + "%",
     valor_mensal: impostoSimples,
-    observacao: (args.icms_st || args.icms_isento) ? "Cálculo com segregação de ICMS (ST/Isento)" : "Tributação integral no DAS"
+    observacao: (args.icms_st || args.icms_isento) ? "Cálculo com segregação de ICMS" : "Tributação integral no DAS"
   },
   presumido: {
     presuncao: { irpj: (presuncaoIRPJ*100)+"%", csll: (presuncaoCSLL*100)+"%" },
@@ -112,91 +114,58 @@ return {
   },
   veredito: {
     melhor_regime: impostoSimples < totalPresumido ? "Simples Nacional" : "Lucro Presumido",
-    economia_mensal: Math.abs(impostoSimples - totalPresumido),
-    recomendacao: impostoSimples < totalPresumido 
-      ? "O Simples Nacional é mais vantajoso para este nível de faturamento." 
-      : "O Lucro Presumido apresenta vantagem tributária, principalmente devido aos créditos ou isenções de ICMS."
+    economia_mensal: Math.abs(impostoSimples - totalPresumido)
   }
 };
-    `
-  },
-  {
-    id: 'sys-3',
-    name: 'calcular_pro_labore_liquido',
-    description: 'Calcula o valor líquido do pró-labore (INSS e IRPF 2026).',
-    suggestedInstruction: 'Você tem acesso à ferramenta #calcular_pro_labore_liquido. Utilize-a para calcular o valor líquido real que o sócio receberá, aplicando as regras de INSS e IRPF 2026.',
-    parameters: {
-      type: 'object',
-      properties: { valor_bruto: { type: 'number' } },
-      required: ['valor_bruto']
-    },
-    executionType: 'local_js',
-    isActive: true,
-    jsCode: `
-const bruto = args.valor_bruto;
-const inss = bruto * 0.11;
-const descontoSimplificado = 607.20;
-const deducaoEfetiva = Math.max(inss, descontoSimplificado);
-const baseIR = Math.max(0, bruto - deducaoEfetiva);
-
-let aliq = 0, parcelaDeduzir = 0;
-if (baseIR <= 2428.80) { aliq = 0; parcelaDeduzir = 0; }
-else if (baseIR <= 2826.65) { aliq = 0.075; parcelaDeduzir = 182.16; }
-else if (baseIR <= 3751.05) { aliq = 0.15; parcelaDeduzir = 394.16; }
-else if (baseIR <= 4664.68) { aliq = 0.225; parcelaDeduzir = 675.49; }
-else { aliq = 0.275; parcelaDeduzir = 908.73; }
-
-const impostoCalculado = Math.max(0, (baseIR * aliq) - parcelaDeduzir);
-let valorReducao = 0;
-if (bruto <= 5000.00) {
-  valorReducao = Math.min(impostoCalculado, 312.89);
-} else if (bruto <= 7350.00) {
-  valorReducao = Math.max(0, 978.62 - (0.133145 * bruto));
-}
-
-const irFinal = Math.max(0, impostoCalculado - valorReducao);
-
-return { 
-  bruto, 
-  inss, 
-  deducao_utilizada: deducaoEfetiva === inss ? "INSS (Dedução Legal)" : "Desconto Simplificado (R$ 607,20)",
-  base_ir: baseIR, 
-  ir_final: irFinal, 
-  liquido: bruto - inss - irFinal,
-  lei: "Lei 15.270/2025 (Vigência 2026)"
-};
-    `
-  },
-  {
-    id: 'sys-4',
-    name: 'consultar_portal_nfe',
-    description: 'Busca os últimos Informes Técnicos no Portal Nacional da NF-e.',
-    suggestedInstruction: 'Você tem acesso à ferramenta #consultar_portal_nfe. Utilize-a para verificar se existem Notas Técnicas recentes ou atualizações na legislação da NF-e.',
-    parameters: {
-      type: 'object',
-      properties: {
-        termo_busca: { type: 'string', description: 'Opcional: termo para filtrar os informes' }
-      }
-    },
-    executionType: 'local_js',
-    isActive: true,
-    jsCode: `
-try {
-  const targetUrl = 'https://www.nfe.fazenda.gov.br/portal/listaConteudo.aspx?tipoConteudo=hXzemuyNHW4=';
-  const proxyUrl = 'https://api.allorigins.win/get?url=' + encodeURIComponent(targetUrl);
-  const response = await fetch(proxyUrl);
-  const data = await response.json();
-  const html = data.contents;
-  const matches = html.match(/<span id="[^"]+" class="tituloConteudo">([^<]+)<\\/span>/g) || [];
-  const results = matches.map(m => m.replace(/<[^>]+>/g, '').trim()).slice(0, 10);
-  return { fonte: targetUrl, ultimos_informes: results };
-} catch (e) {
-  return { error: "Erro ao acessar o portal: " + e.message };
-}
     `
   }
 ];
 
+// Busca do Banco de Dados
+export async function fetchDbSkills(userId: string): Promise<DynamicSkill[]> {
+  const { data, error } = await supabase.from('ai_skills').select('*').eq('user_id', userId);
+  
+  if (error) {
+    console.error("Erro ao buscar skills do DB:", error);
+    return [];
+  }
+
+  // Se o usuário não tiver nenhuma skill, injeta as padrões automaticamente no DB dele
+  if (!data || data.length === 0) {
+    const defaultsToInsert = DEFAULT_DYNAMIC_SKILLS.map(s => ({
+       user_id: userId,
+       name: s.name,
+       description: s.description,
+       suggested_instruction: s.suggestedInstruction,
+       parameters: s.parameters,
+       execution_type: s.executionType,
+       js_code: s.jsCode,
+       is_active: s.isActive
+    }));
+    
+    const { data: inserted } = await supabase.from('ai_skills').insert(defaultsToInsert).select();
+    if (inserted && inserted.length > 0) {
+       return inserted.map(d => ({
+        id: d.id, name: d.name, description: d.description,
+        suggestedInstruction: d.suggested_instruction, parameters: d.parameters,
+        executionType: d.execution_type as any, jsCode: d.js_code, webhookUrl: d.webhook_url,
+        knowledgeBaseText: d.knowledge_base_text, url: d.url, selector: d.selector,
+        isActive: d.is_active, moduleId: d.module_id
+       }));
+    }
+    return DEFAULT_DYNAMIC_SKILLS;
+  }
+
+  return data.map(d => ({
+    id: d.id, name: d.name, description: d.description,
+    suggestedInstruction: d.suggested_instruction, parameters: d.parameters,
+    executionType: d.execution_type as any, jsCode: d.js_code, webhookUrl: d.webhook_url,
+    knowledgeBaseText: d.knowledge_base_text, url: d.url, selector: d.selector,
+    isActive: d.is_active, moduleId: d.module_id
+  }));
+}
+
+// Mantido para fallback local temporário
 export const loadDynamicSkills = (): DynamicSkill[] => {
   const saved = localStorage.getItem('jota-dynamic-skills');
   return saved ? JSON.parse(saved) : DEFAULT_DYNAMIC_SKILLS;
@@ -210,13 +179,8 @@ export async function executeSkill(name: string, args: any, skillsOverride?: Dyn
   const dynamicSkills = skillsOverride || loadDynamicSkills();
   const skill = dynamicSkills.find(s => s.name === name);
 
-  if (!skill) {
-    return { error: "Skill '" + name + "' não encontrada." };
-  }
-
-  if (!skillsOverride && !skill.isActive) {
-    return { error: "Skill '" + name + "' está inativa." };
-  }
+  if (!skill) return { error: "Skill '" + name + "' não encontrada." };
+  if (!skill.isActive) return { error: "Skill '" + name + "' está inativa." };
   
   if (skill.executionType === 'knowledge_base') {
     return { status: "sucesso", conteudo_recuperado: skill.knowledgeBaseText || "" };
@@ -224,74 +188,31 @@ export async function executeSkill(name: string, args: any, skillsOverride?: Dyn
 
   if (skill.executionType === 'web_scraping' && skill.url) {
     let targetUrl = skill.url;
-    
     if (args && typeof args === 'object') {
       for (const key in args) {
-        const placeholder = '{{' + key + '}}';
-        const value = String(args[key]);
-        targetUrl = targetUrl.split(placeholder).join(value);
+        targetUrl = targetUrl.split('{{' + key + '}}').join(String(args[key]));
       }
     }
-
-    const proxies = [
-      (url: string) => 'https://api.allorigins.win/get?url=' + encodeURIComponent(url),
-      (url: string) => 'https://corsproxy.io/?' + encodeURIComponent(url)
-    ];
-
-    let lastError = "";
-    
-    for (const getProxyUrl of proxies) {
-      try {
-        const response = await fetch(getProxyUrl(targetUrl));
-        if (!response.ok) throw new Error('Status: ' + response.status);
-        
-        const text = await response.text();
-        let html = "";
-
-        try {
-          const json = JSON.parse(text);
-          html = json.contents || text;
-        } catch (e) {
-          html = text;
-        }
-
-        if (!html || html.trim().length === 0) throw new Error("Conteúdo vazio retornado.");
-
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(html, 'text/html');
-        
-        let targetElement: Element | null = doc.body;
-        
-        if (skill.selector) {
-          targetElement = doc.querySelector(skill.selector);
-          if (!targetElement) {
-            return { error: "Seletor CSS '" + skill.selector + "' não encontrado na página." };
-          }
-        }
-
-        const noiseSelectors = 'script, style, nav, footer, header, .menu, .sidebar, #header, #footer, .breadcrumb, .social-share';
-        const noise = targetElement.querySelectorAll(noiseSelectors);
-        noise.forEach(n => n.remove());
-
-        const rawText = (targetElement as HTMLElement).innerText || targetElement.textContent || "";
-        const cleanText = rawText
-          .split('\n')
-          .map(line => line.trim())
-          .filter(line => line.length > 0)
-          .join('\n');
-        
-        return { 
-          status: "sucesso", 
-          url: targetUrl, 
-          conteudo: cleanText.substring(0, 12000) 
-        };
-      } catch (e: any) {
-        lastError = e.message;
-        continue;
+    const proxyUrl = 'https://api.allorigins.win/get?url=' + encodeURIComponent(targetUrl);
+    try {
+      const response = await fetch(proxyUrl);
+      if (!response.ok) throw new Error('Status: ' + response.status);
+      const data = await response.json();
+      const html = data.contents || "";
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
+      let targetElement: Element | null = doc.body;
+      if (skill.selector) {
+        targetElement = doc.querySelector(skill.selector);
+        if (!targetElement) return { error: "Seletor CSS não encontrado." };
       }
+      const noise = targetElement.querySelectorAll('script, style, nav, footer, header');
+      noise.forEach(n => n.remove());
+      const cleanText = ((targetElement as HTMLElement).innerText || "").split('\n').map(l => l.trim()).filter(l => l.length > 0).join('\n');
+      return { status: "sucesso", conteudo: cleanText.substring(0, 12000) };
+    } catch (e: any) {
+      return { error: "Falha na navegação web: " + e.message };
     }
-
-    return { error: "Falha na navegação web. Último erro: " + lastError };
   }
 
   if (skill.executionType === 'webhook' && skill.webhookUrl) {
@@ -309,22 +230,13 @@ export async function executeSkill(name: string, args: any, skillsOverride?: Dyn
 
   if (skill.executionType === 'local_js' && skill.jsCode) {
     try {
-      const helpers = { 
-        calculateSimplesNacionalEffectiveRate, 
-        findCClassByNcm, 
-        checkIfNcmHasSelectiveTax 
-      };
-      
+      const helpers = { calculateSimplesNacionalEffectiveRate, findCClassByNcm, checkIfNcmHasSelectiveTax };
       let codeToExecute = skill.jsCode.trim();
-      
       if (codeToExecute.startsWith('async function') || codeToExecute.startsWith('function')) {
           const firstBrace = codeToExecute.indexOf('{');
           const lastBrace = codeToExecute.lastIndexOf('}');
-          if (firstBrace !== -1 && lastBrace !== -1) {
-              codeToExecute = codeToExecute.substring(firstBrace + 1, lastBrace);
-          }
+          if (firstBrace !== -1 && lastBrace !== -1) codeToExecute = codeToExecute.substring(firstBrace + 1, lastBrace);
       }
-
       const fn = new AsyncFunction('args', 'helpers', codeToExecute);
       return await fn(args, helpers);
     } catch (e: any) {

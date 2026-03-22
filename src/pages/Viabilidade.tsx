@@ -9,18 +9,16 @@ import { toast } from "sonner";
 import { Send, Sparkles, ChevronDown, RefreshCw, Building2, ShieldQuestion, Gavel, Loader2, Trash2, Plus, ListChecks, Calendar, Bot, AlertTriangle, Printer, FileDown, Copy, Check, MessageSquareQuote } from 'lucide-react';
 import { AiAnalysisReport } from '@/components/AiAnalysisReport';
 import { AnalysisProgress, ProgressStep } from '@/components/AnalysisProgress';
-import { getInssTables } from '@/lib/tax/inssData';
-import { getIrpfTables } from '@/lib/tax/irpfData';
-import { getMinimumWages } from '@/lib/tax/minimumWageData';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader as UIDialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { callGeminiAgent, loadPromptsFromStorage, PromptConfig } from '@/lib/geminiService';
+import { callGeminiAgent, PromptConfig, fetchDbPrompts } from '@/lib/geminiService';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { PDFDownloadLink } from '@react-pdf/renderer';
 import { ViabilityReportPDF } from '@/components/ViabilityReportPDF';
+import { useAuth } from '@/contexts/AuthContext';
 
 const UFs = ["AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"];
 const naturezasJuridicas = ["Empresário Individual (EI)", "Sociedade Limitada (LTDA)", "Sociedade Limitada Unipessoal (SLU)", "Sociedade Simples", "Não sei / Sugerir"];
@@ -43,6 +41,7 @@ const formatCityName = (city: string) => {
 };
 
 const Viabilidade = () => {
+  const { session } = useAuth();
   const getStored = (key: string, fallback: string = '') => localStorage.getItem(key) ?? fallback;
 
   const [razaoSocial, setRazaoSocial] = useState(() => getStored('viab-razaoSocial'));
@@ -91,10 +90,14 @@ const Viabilidade = () => {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    const loadedPrompts = loadPromptsFromStorage().filter(p => p.isActive);
-    setPrompts(loadedPrompts);
-    if (loadedPrompts.length > 0) setSelectedPromptId(loadedPrompts[0].id);
-  }, []);
+    if (session?.user) {
+      fetchDbPrompts(session.user.id).then(loaded => {
+        const active = loaded.filter(p => p.isActive);
+        setPrompts(active);
+        if (active.length > 0) setSelectedPromptId(active[0].id);
+      });
+    }
+  }, [session]);
 
   const handleFolhaMensalChange = (val: string) => {
     setFolhaPagamento(val);
