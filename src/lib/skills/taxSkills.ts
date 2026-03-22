@@ -16,6 +16,8 @@ export interface DynamicSkill {
   selector?: string;
   isActive: boolean;
   moduleId?: string;
+  isGlobal?: boolean;
+  userId?: string;
 }
 
 export const JOTA_TOOLS_MANIFEST: any[] = [];
@@ -123,15 +125,17 @@ return {
 
 // Busca do Banco de Dados
 export async function fetchDbSkills(userId: string): Promise<DynamicSkill[]> {
-  const { data, error } = await supabase.from('ai_skills').select('*').eq('user_id', userId);
+  const { data, error } = await supabase.from('ai_skills').select('*').or(`user_id.eq.${userId},is_global.eq.true`);
   
   if (error) {
     console.error("Erro ao buscar skills do DB:", error);
     return [];
   }
 
-  // Se o usuário não tiver nenhuma skill, injeta as padrões automaticamente no DB dele
-  if (!data || data.length === 0) {
+  // Verifica se o usuário atual tem skills próprias, se não, insere as padrões
+  const myItems = data ? data.filter(d => d.user_id === userId) : [];
+
+  if (myItems.length === 0) {
     const defaultsToInsert = DEFAULT_DYNAMIC_SKILLS.map(s => ({
        user_id: userId,
        name: s.name,
@@ -140,20 +144,21 @@ export async function fetchDbSkills(userId: string): Promise<DynamicSkill[]> {
        parameters: s.parameters,
        execution_type: s.executionType,
        js_code: s.jsCode,
-       is_active: s.isActive
+       is_active: s.isActive,
+       is_global: false
     }));
     
     const { data: inserted } = await supabase.from('ai_skills').insert(defaultsToInsert).select();
-    if (inserted && inserted.length > 0) {
-       return inserted.map(d => ({
-        id: d.id, name: d.name, description: d.description,
-        suggestedInstruction: d.suggested_instruction, parameters: d.parameters,
-        executionType: d.execution_type as any, jsCode: d.js_code, webhookUrl: d.webhook_url,
-        knowledgeBaseText: d.knowledge_base_text, url: d.url, selector: d.selector,
-        isActive: d.is_active, moduleId: d.module_id
-       }));
-    }
-    return DEFAULT_DYNAMIC_SKILLS;
+    
+    // Retorna os globais que já existiam + os novos do usuário
+    const combinedData = [...(data || []), ...(inserted || [])];
+    return combinedData.map(d => ({
+      id: d.id, name: d.name, description: d.description,
+      suggestedInstruction: d.suggested_instruction, parameters: d.parameters,
+      executionType: d.execution_type as any, jsCode: d.js_code, webhookUrl: d.webhook_url,
+      knowledgeBaseText: d.knowledge_base_text, url: d.url, selector: d.selector,
+      isActive: d.is_active, moduleId: d.module_id, isGlobal: d.is_global, userId: d.user_id
+    }));
   }
 
   return data.map(d => ({
@@ -161,7 +166,7 @@ export async function fetchDbSkills(userId: string): Promise<DynamicSkill[]> {
     suggestedInstruction: d.suggested_instruction, parameters: d.parameters,
     executionType: d.execution_type as any, jsCode: d.js_code, webhookUrl: d.webhook_url,
     knowledgeBaseText: d.knowledge_base_text, url: d.url, selector: d.selector,
-    isActive: d.is_active, moduleId: d.module_id
+    isActive: d.is_active, moduleId: d.module_id, isGlobal: d.is_global, userId: d.user_id
   }));
 }
 

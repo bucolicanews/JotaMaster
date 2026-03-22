@@ -37,7 +37,7 @@ const generateUUID = () => {
 };
 
 const Configuracao = () => {
-  const { autenticado, session } = useAuth();
+  const { autenticado, session, isAdmin } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [activeSkillIdForUpload, setActiveSkillIdForUpload] = useState<string | null>(null);
   const [isExtracting, setIsExtracting] = useState(false);
@@ -105,34 +105,38 @@ const Configuracao = () => {
     try {
       const uid = session.user.id;
 
-      // Skills
-      if (dynamicSkills.length > 0) {
-        const skillsToUpsert = dynamicSkills.map(s => ({
+      // Filtra apenas os itens que o usuário atual tem permissão para salvar (seus próprios itens)
+      const mySkills = dynamicSkills.filter(s => !s.userId || s.userId === uid);
+      if (mySkills.length > 0) {
+        const skillsToUpsert = mySkills.map(s => ({
           id: s.id, user_id: uid, module_id: s.moduleId || null,
           name: s.name, description: s.description, suggested_instruction: s.suggestedInstruction,
           parameters: s.parameters, execution_type: s.executionType, js_code: s.jsCode, webhook_url: s.webhookUrl,
-          knowledge_base_text: s.knowledgeBaseText, url: s.url, selector: s.selector, is_active: s.isActive
+          knowledge_base_text: s.knowledgeBaseText, url: s.url, selector: s.selector, is_active: s.isActive,
+          is_global: s.isGlobal || false
         }));
         await supabase.from('ai_skills').upsert(skillsToUpsert);
       }
 
-      // Prompts
-      if (prompts.length > 0) {
-        const promptsToUpsert = prompts.map(p => ({
+      const myPrompts = prompts.filter(p => !p.userId || p.userId === uid);
+      if (myPrompts.length > 0) {
+        const promptsToUpsert = myPrompts.map(p => ({
           id: p.id, user_id: uid, module_id: p.moduleId || null,
-          title: p.title, role: p.role, content: p.content, is_active: p.isActive
+          title: p.title, role: p.role, content: p.content, is_active: p.isActive,
+          is_global: p.isGlobal || false
         }));
         await supabase.from('ai_prompts').upsert(promptsToUpsert);
       }
 
-      // Agents
-      if (agents.length > 0) {
-        const agentsToUpsert = agents.map(a => ({
+      const myAgents = agents.filter(a => !a.userId || a.userId === uid);
+      if (myAgents.length > 0) {
+        const agentsToUpsert = myAgents.map(a => ({
           id: a.id, user_id: uid, module_id: a.moduleId || null,
           nome: a.nome, system_prompt: a.systemPrompt, order_index: a.order,
           selected_skills: a.selectedSkills || [], enable_monitoring: a.enableMonitoring,
           monitoring_interval: a.monitoringInterval, use_n8n: a.useN8n, n8n_response_url: a.n8nResponseUrl,
-          webhook_url: a.webhookUrl, is_active: true
+          webhook_url: a.webhookUrl, is_active: true,
+          is_global: a.isGlobal || false
         }));
         await supabase.from('ai_agents').upsert(agentsToUpsert);
       }
@@ -275,31 +279,43 @@ const Configuracao = () => {
                      </div>
 
                      <Accordion type="multiple" className="w-full space-y-2">
-                       {prompts.map((prompt) => (
-                         <AccordionItem key={prompt.id} value={prompt.id} className="border rounded-md bg-background px-4">
-                           <AccordionTrigger className="hover:no-underline py-3">
-                             <div className="flex items-center gap-3">
-                               <div className={prompt.isActive ? "text-indigo-500" : "text-muted-foreground"}><Bot className="h-4 w-4" /></div>
-                               <span className="font-bold text-sm">{prompt.title}</span>
-                               {prompt.moduleId && <Badge className="bg-indigo-500/10 text-indigo-600 border-indigo-500/20 text-[8px] h-4">MÓDULO: {prompt.moduleId}</Badge>}
-                             </div>
-                           </AccordionTrigger>
-                           <AccordionContent className="pt-2 pb-4 space-y-4">
-                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                               <div className="space-y-2"><Label>Título</Label><Input value={prompt.title} disabled={!!prompt.moduleId} onChange={e => updatePrompt(prompt.id, 'title', e.target.value)} /></div>
-                               <div className="space-y-2"><Label>Persona</Label><Input value={prompt.role} disabled={!!prompt.moduleId} onChange={e => updatePrompt(prompt.id, 'role', e.target.value)} /></div>
-                             </div>
-                             <div className="space-y-2">
-                               <Label className="text-indigo-600">Instruções de Sistema</Label>
-                               <PromptSystemEditor value={prompt.content} onChange={e => updatePrompt(prompt.id, 'content', e)} />
-                             </div>
-                             <div className="flex justify-between items-center pt-2 border-t border-border/50">
-                               <div className="flex items-center gap-2"><Switch checked={prompt.isActive} onCheckedChange={v => updatePrompt(prompt.id, 'isActive', v)} /><Label>Ativo</Label></div>
-                               {!prompt.moduleId && <Button type="button" variant="ghost" size="sm" className="text-destructive" onClick={() => handleDeletePrompt(prompt.id)}><Trash2 className="h-4 w-4 mr-2" /> Remover</Button>}
-                             </div>
-                           </AccordionContent>
-                         </AccordionItem>
-                       ))}
+                       {prompts.map((prompt) => {
+                         const isOwner = !prompt.userId || prompt.userId === session?.user.id;
+                         return (
+                           <AccordionItem key={prompt.id} value={prompt.id} className="border rounded-md bg-background px-4">
+                             <AccordionTrigger className="hover:no-underline py-3">
+                               <div className="flex items-center gap-3">
+                                 <div className={prompt.isActive ? "text-indigo-500" : "text-muted-foreground"}><Bot className="h-4 w-4" /></div>
+                                 <span className="font-bold text-sm">{prompt.title}</span>
+                                 {prompt.moduleId && <Badge className="bg-indigo-500/10 text-indigo-600 border-indigo-500/20 text-[8px] h-4">MÓDULO: {prompt.moduleId}</Badge>}
+                                 {!isOwner && <Badge className="bg-amber-500/10 text-amber-600 border-amber-500/20 text-[8px] h-4">GLOBAL</Badge>}
+                               </div>
+                             </AccordionTrigger>
+                             <AccordionContent className="pt-2 pb-4 space-y-4">
+                               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                 <div className="space-y-2"><Label>Título</Label><Input value={prompt.title} disabled={!isOwner || !!prompt.moduleId} onChange={e => updatePrompt(prompt.id, 'title', e.target.value)} /></div>
+                                 <div className="space-y-2"><Label>Persona</Label><Input value={prompt.role} disabled={!isOwner || !!prompt.moduleId} onChange={e => updatePrompt(prompt.id, 'role', e.target.value)} /></div>
+                               </div>
+                               <div className="space-y-2">
+                                 <Label className="text-indigo-600">Instruções de Sistema</Label>
+                                 <PromptSystemEditor value={prompt.content} onChange={e => { if (isOwner && !prompt.moduleId) updatePrompt(prompt.id, 'content', e); }} />
+                               </div>
+                               <div className="flex justify-between items-center pt-2 border-t border-border/50">
+                                 <div className="flex items-center gap-6">
+                                    <div className="flex items-center gap-2"><Switch checked={prompt.isActive} disabled={!isOwner} onCheckedChange={v => updatePrompt(prompt.id, 'isActive', v)} /><Label>Ativo</Label></div>
+                                    {isAdmin && isOwner && (
+                                      <div className="flex items-center gap-2">
+                                        <Switch checked={prompt.isGlobal} onCheckedChange={v => updatePrompt(prompt.id, 'isGlobal', v)} />
+                                        <Label className="text-amber-600 font-bold">Global (Compartilhar com todos)</Label>
+                                      </div>
+                                    )}
+                                 </div>
+                                 {isOwner && !prompt.moduleId && <Button type="button" variant="ghost" size="sm" className="text-destructive" onClick={() => handleDeletePrompt(prompt.id)}><Trash2 className="h-4 w-4 mr-2" /> Remover</Button>}
+                               </div>
+                             </AccordionContent>
+                           </AccordionItem>
+                         );
+                       })}
                      </Accordion>
                   </div>
 
@@ -314,76 +330,86 @@ const Configuracao = () => {
                      </div>
 
                      <Accordion type="multiple" className="w-full space-y-2">
-                       {dynamicSkills.map((skill) => (
-                         <AccordionItem key={skill.id} value={skill.id} className="border rounded-md bg-background px-4">
-                           <AccordionTrigger className="hover:no-underline py-3">
-                             <div className="flex items-center gap-3">
-                               <div className={skill.isActive ? "text-emerald-500" : "text-muted-foreground"}>
-                                 {skill.executionType === 'webhook' ? <Globe className="h-4 w-4" /> : skill.executionType === 'local_js' ? <Code className="h-4 w-4" /> : skill.executionType === 'web_scraping' ? <Search className="h-4 w-4" /> : <Book className="h-4 w-4" />}
+                       {dynamicSkills.map((skill) => {
+                         const isOwner = !skill.userId || skill.userId === session?.user.id;
+                         return (
+                           <AccordionItem key={skill.id} value={skill.id} className="border rounded-md bg-background px-4">
+                             <AccordionTrigger className="hover:no-underline py-3">
+                               <div className="flex items-center gap-3">
+                                 <div className={skill.isActive ? "text-emerald-500" : "text-muted-foreground"}>
+                                   {skill.executionType === 'webhook' ? <Globe className="h-4 w-4" /> : skill.executionType === 'local_js' ? <Code className="h-4 w-4" /> : skill.executionType === 'web_scraping' ? <Search className="h-4 w-4" /> : <Book className="h-4 w-4" />}
+                                 </div>
+                                 <span className="font-bold text-sm">{skill.name}</span>
+                                 {skill.moduleId && <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 text-[8px] h-4">MÓDULO: {skill.moduleId}</Badge>}
+                                 {!isOwner && <Badge className="bg-amber-500/10 text-amber-600 border-amber-500/20 text-[8px] h-4">GLOBAL</Badge>}
                                </div>
-                               <span className="font-bold text-sm">{skill.name}</span>
-                               {skill.moduleId && <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 text-[8px] h-4">MÓDULO: {skill.moduleId}</Badge>}
-                             </div>
-                           </AccordionTrigger>
-                           <AccordionContent className="pt-2 pb-4 space-y-4">
-                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                               <div className="space-y-2"><Label>Nome Técnico</Label><Input value={skill.name} disabled={!!skill.moduleId} onChange={e => updateSkill(skill.id, 'name', e.target.value)} /></div>
+                             </AccordionTrigger>
+                             <AccordionContent className="pt-2 pb-4 space-y-4">
+                               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                 <div className="space-y-2"><Label>Nome Técnico</Label><Input value={skill.name} disabled={!isOwner || !!skill.moduleId} onChange={e => updateSkill(skill.id, 'name', e.target.value)} /></div>
+                                 <div className="space-y-2">
+                                   <Label>Tipo de Execução</Label>
+                                   <Select value={skill.executionType} disabled={!isOwner || !!skill.moduleId} onValueChange={v => updateSkill(skill.id, 'executionType', v)}>
+                                     <SelectTrigger><SelectValue /></SelectTrigger>
+                                     <SelectContent>
+                                       <SelectItem value="local_js">JavaScript Local</SelectItem>
+                                       <SelectItem value="webhook">Webhook (n8n)</SelectItem>
+                                       <SelectItem value="knowledge_base">Base de Conhecimento</SelectItem>
+                                       <SelectItem value="web_scraping">Navegação Web</SelectItem>
+                                     </SelectContent>
+                                   </Select>
+                                 </div>
+                                 <div className="flex items-center gap-2 pt-6"><Switch checked={skill.isActive} disabled={!isOwner} onCheckedChange={v => updateSkill(skill.id, 'isActive', v)} /><Label>Ativa</Label></div>
+                               </div>
+
+                               <div className="space-y-2"><Label>Descrição para a IA</Label><Input value={skill.description} disabled={!isOwner || !!skill.moduleId} onChange={e => updateSkill(skill.id, 'description', e.target.value)} /></div>
+
                                <div className="space-y-2">
-                                 <Label>Tipo de Execução</Label>
-                                 <Select value={skill.executionType} disabled={!!skill.moduleId} onValueChange={v => updateSkill(skill.id, 'executionType', v)}>
-                                   <SelectTrigger><SelectValue /></SelectTrigger>
-                                   <SelectContent>
-                                     <SelectItem value="local_js">JavaScript Local</SelectItem>
-                                     <SelectItem value="webhook">Webhook (n8n)</SelectItem>
-                                     <SelectItem value="knowledge_base">Base de Conhecimento</SelectItem>
-                                     <SelectItem value="web_scraping">Navegação Web</SelectItem>
-                                   </SelectContent>
-                                 </Select>
+                                 <Label className="text-emerald-600">Instrução Sugerida</Label>
+                                 <Textarea value={skill.suggestedInstruction || ''} disabled={!isOwner || !!skill.moduleId} onChange={e => updateSkill(skill.id, 'suggestedInstruction', e.target.value)} className="text-xs h-20" />
                                </div>
-                               <div className="flex items-center gap-2 pt-6"><Switch checked={skill.isActive} onCheckedChange={v => updateSkill(skill.id, 'isActive', v)} /><Label>Ativa</Label></div>
-                             </div>
 
-                             <div className="space-y-2"><Label>Descrição para a IA</Label><Input value={skill.description} disabled={!!skill.moduleId} onChange={e => updateSkill(skill.id, 'description', e.target.value)} /></div>
-
-                             <div className="space-y-2">
-                               <Label className="text-emerald-600">Instrução Sugerida</Label>
-                               <Textarea value={skill.suggestedInstruction || ''} disabled={!!skill.moduleId} onChange={e => updateSkill(skill.id, 'suggestedInstruction', e.target.value)} className="text-xs h-20" />
-                             </div>
-
-                             {skill.executionType === 'knowledge_base' ? (
-                               <div className="space-y-3">
-                                 <div className="flex items-center justify-between">
-                                   <Label className="flex items-center gap-2 text-blue-600"><Book className="h-3 w-3" /> Conteúdo da Base</Label>
-                                   <div className="flex gap-2">
-                                     <Button type="button" variant="outline" size="sm" className="h-7 text-[10px] border-amber-200 text-amber-600" onClick={() => { const cleaned = cleanTextNoise(skill.knowledgeBaseText || ''); updateSkill(skill.id, 'knowledgeBaseText', cleaned); toast.success("Ruído removido!"); }}><Eraser className="h-3 w-3 mr-1" /> Limpar</Button>
-                                     <Button type="button" variant="outline" size="sm" className="h-7 text-[10px] border-blue-200 text-blue-600" onClick={() => { setActiveSkillIdForUpload(skill.id); fileInputRef.current?.click(); }} disabled={isExtracting || !!skill.moduleId}>{isExtracting ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Upload className="h-3 w-3 mr-1" />} Arquivo</Button>
+                               {skill.executionType === 'knowledge_base' ? (
+                                 <div className="space-y-3">
+                                   <div className="flex items-center justify-between">
+                                     <Label className="flex items-center gap-2 text-blue-600"><Book className="h-3 w-3" /> Conteúdo da Base</Label>
+                                     <div className="flex gap-2">
+                                       <Button type="button" variant="outline" size="sm" className="h-7 text-[10px] border-amber-200 text-amber-600" disabled={!isOwner} onClick={() => { const cleaned = cleanTextNoise(skill.knowledgeBaseText || ''); updateSkill(skill.id, 'knowledgeBaseText', cleaned); toast.success("Ruído removido!"); }}><Eraser className="h-3 w-3 mr-1" /> Limpar</Button>
+                                       <Button type="button" variant="outline" size="sm" className="h-7 text-[10px] border-blue-200 text-blue-600" onClick={() => { setActiveSkillIdForUpload(skill.id); fileInputRef.current?.click(); }} disabled={!isOwner || isExtracting || !!skill.moduleId}>{isExtracting ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Upload className="h-3 w-3 mr-1" />} Arquivo</Button>
+                                     </div>
+                                   </div>
+                                   <Textarea className="font-sans text-xs h-64 bg-slate-950 text-blue-300 border-blue-900/50" disabled={!isOwner || !!skill.moduleId} value={skill.knowledgeBaseText || ''} onChange={e => updateSkill(skill.id, 'knowledgeBaseText', e.target.value)} />
+                                 </div>
+                               ) : (
+                                 <div className="space-y-4">
+                                   {skill.executionType === 'web_scraping' && (
+                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-3 border rounded-md bg-blue-500/5 border-blue-500/20">
+                                       <div className="space-y-2"><Label className="text-blue-600 flex items-center gap-2"><Globe className="h-3 w-3" /> URL do Site</Label><Input value={skill.url || ''} disabled={!isOwner || !!skill.moduleId} onChange={e => updateSkill(skill.id, 'url', e.target.value)} /></div>
+                                       <div className="space-y-2"><Label className="text-blue-600 flex items-center gap-2"><Search className="h-3 w-3" /> Seletor CSS</Label><Input value={skill.selector || ''} disabled={!isOwner || !!skill.moduleId} onChange={e => updateSkill(skill.id, 'selector', e.target.value)} /></div>
+                                     </div>
+                                   )}
+                                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                     <div className="space-y-2"><Label>Parâmetros JSON</Label><Textarea className="font-mono text-[10px] h-48 bg-slate-900 text-blue-300" disabled={!isOwner || !!skill.moduleId} value={typeof skill.parameters === 'string' ? skill.parameters : JSON.stringify(skill.parameters, null, 2)} onChange={e => { try { updateSkill(skill.id, 'parameters', JSON.parse(e.target.value)); } catch (err) { updateSkill(skill.id, 'parameters', e.target.value); } }} /></div>
+                                     {skill.executionType === 'local_js' && <div className="space-y-2"><Label className="text-emerald-600">Código JavaScript</Label><Textarea className="font-mono text-[11px] h-48 bg-slate-950 text-emerald-400" disabled={!isOwner || !!skill.moduleId} value={skill.jsCode || ''} onChange={e => updateSkill(skill.id, 'jsCode', e.target.value)} /></div>}
                                    </div>
                                  </div>
-                                 <Textarea className="font-sans text-xs h-64 bg-slate-950 text-blue-300 border-blue-900/50" disabled={!!skill.moduleId} value={skill.knowledgeBaseText || ''} onChange={e => updateSkill(skill.id, 'knowledgeBaseText', e.target.value)} />
-                               </div>
-                             ) : (
-                               <div className="space-y-4">
-                                 {skill.executionType === 'web_scraping' && (
-                                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-3 border rounded-md bg-blue-500/5 border-blue-500/20">
-                                     <div className="space-y-2"><Label className="text-blue-600 flex items-center gap-2"><Globe className="h-3 w-3" /> URL do Site</Label><Input value={skill.url || ''} disabled={!!skill.moduleId} onChange={e => updateSkill(skill.id, 'url', e.target.value)} /></div>
-                                     <div className="space-y-2"><Label className="text-blue-600 flex items-center gap-2"><Search className="h-3 w-3" /> Seletor CSS</Label><Input value={skill.selector || ''} disabled={!!skill.moduleId} onChange={e => updateSkill(skill.id, 'selector', e.target.value)} /></div>
-                                   </div>
-                                 )}
-                                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                                   <div className="space-y-2"><Label>Parâmetros JSON</Label><Textarea className="font-mono text-[10px] h-48 bg-slate-900 text-blue-300" disabled={!!skill.moduleId} value={typeof skill.parameters === 'string' ? skill.parameters : JSON.stringify(skill.parameters, null, 2)} onChange={e => { try { updateSkill(skill.id, 'parameters', JSON.parse(e.target.value)); } catch (err) { updateSkill(skill.id, 'parameters', e.target.value); } }} /></div>
-                                   {skill.executionType === 'local_js' && <div className="space-y-2"><Label className="text-emerald-600">Código JavaScript</Label><Textarea className="font-mono text-[11px] h-48 bg-slate-950 text-emerald-400" disabled={!!skill.moduleId} value={skill.jsCode || ''} onChange={e => updateSkill(skill.id, 'jsCode', e.target.value)} /></div>}
+                               )}
+                               <div className="flex justify-between items-center pt-2 border-t border-border/50">
+                                 <div className="flex gap-2 items-center">
+                                   <Button type="button" variant="outline" size="sm" className="text-emerald-600 border-emerald-200" onClick={() => handleTestSkill(skill)} disabled={isTestingSkill === skill.id}>{isTestingSkill === skill.id ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Play className="h-4 w-4 mr-2" />} Testar Skill</Button>
+                                   {isAdmin && isOwner && (
+                                     <div className="flex items-center gap-2 ml-4">
+                                       <Switch checked={skill.isGlobal} onCheckedChange={v => updateSkill(skill.id, 'isGlobal', v)} />
+                                       <Label className="text-amber-600 font-bold">Global (Compartilhar com todos)</Label>
+                                     </div>
+                                   )}
                                  </div>
+                                 {isOwner && !skill.moduleId && <Button type="button" variant="ghost" size="sm" className="text-destructive" onClick={() => handleDeleteSkill(skill.id)}><Trash2 className="h-4 w-4 mr-2" /> Remover</Button>}
                                </div>
-                             )}
-                             <div className="flex justify-between items-center pt-2 border-t border-border/50">
-                               <div className="flex gap-2">
-                                 <Button type="button" variant="outline" size="sm" className="text-emerald-600 border-emerald-200" onClick={() => handleTestSkill(skill)} disabled={isTestingSkill === skill.id}>{isTestingSkill === skill.id ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Play className="h-4 w-4 mr-2" />} Testar Skill</Button>
-                                 {!skill.moduleId && <Button type="button" variant="ghost" size="sm" className="text-destructive" onClick={() => handleDeleteSkill(skill.id)}><Trash2 className="h-4 w-4 mr-2" /> Remover</Button>}
-                               </div>
-                             </div>
-                           </AccordionContent>
-                         </AccordionItem>
-                       ))}
+                             </AccordionContent>
+                           </AccordionItem>
+                         );
+                       })}
                      </Accordion>
                   </div>
 
@@ -398,57 +424,69 @@ const Configuracao = () => {
                      </div>
 
                      <Accordion type="multiple" className="w-full space-y-2">
-                       {agents.sort((a,b) => (a.order||0)-(b.order||0)).map((agent) => (
-                         <AccordionItem key={agent.id} value={agent.id} className="border rounded-md bg-background px-4">
-                           <AccordionTrigger className="hover:no-underline py-3">
-                             <div className="flex items-center gap-3">
-                               <Badge variant="outline" className="font-mono">{agent.order}</Badge>
-                               <span className="font-bold text-sm">{agent.nome}</span>
-                               {agent.moduleId && <Badge className="bg-primary/10 text-primary border-primary/20 text-[8px] h-4">MÓDULO: {agent.moduleId}</Badge>}
-                               {agent.enableMonitoring && <Badge className="bg-emerald-500 text-[8px] h-4">MONITORANDO</Badge>}
-                             </div>
-                           </AccordionTrigger>
-                           <AccordionContent className="pt-2 pb-4 space-y-6">
-                             
-                             <div className="space-y-4 p-4 border rounded-lg bg-muted/10">
-                               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                 <div className="space-y-2"><Label>Nome do Agente</Label><Input value={agent.nome} disabled={!!agent.moduleId} onChange={e => updateAgent(agent.id, 'nome', e.target.value)} /></div>
-                                 <div className="space-y-2"><Label>Webhook n8n (Execução)</Label><Input value={agent.webhookUrl || ''} disabled={!!agent.moduleId} onChange={e => updateAgent(agent.id, 'webhookUrl', e.target.value)} /></div>
+                       {agents.sort((a,b) => (a.order||0)-(b.order||0)).map((agent) => {
+                         const isOwner = !agent.userId || agent.userId === session?.user.id;
+                         return (
+                           <AccordionItem key={agent.id} value={agent.id} className="border rounded-md bg-background px-4">
+                             <AccordionTrigger className="hover:no-underline py-3">
+                               <div className="flex items-center gap-3">
+                                 <Badge variant="outline" className="font-mono">{agent.order}</Badge>
+                                 <span className="font-bold text-sm">{agent.nome}</span>
+                                 {agent.moduleId && <Badge className="bg-primary/10 text-primary border-primary/20 text-[8px] h-4">MÓDULO: {agent.moduleId}</Badge>}
+                                 {agent.enableMonitoring && <Badge className="bg-emerald-500 text-[8px] h-4">MONITORANDO</Badge>}
+                                 {!isOwner && <Badge className="bg-amber-500/10 text-amber-600 border-amber-500/20 text-[8px] h-4">GLOBAL</Badge>}
                                </div>
-                               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-                                 <div className="flex items-center justify-between p-3 border rounded-md bg-orange-500/5 border-orange-500/20"><div className="space-y-0.5"><Label className="text-orange-700 flex items-center gap-2"><Workflow className="h-3 w-3" /> Usar n8n</Label></div><Switch checked={agent.useN8n} disabled={!!agent.moduleId} onCheckedChange={v => updateAgent(agent.id, 'useN8n', v)} /></div>
-                                 <div className="space-y-2"><Label className="text-orange-700 flex items-center gap-2"><Link2 className="h-3 w-3" /> URL de Resposta do n8n</Label><Input disabled={!agent.useN8n || !!agent.moduleId} value={agent.n8nResponseUrl || ''} onChange={e => updateAgent(agent.id, 'n8nResponseUrl', e.target.value)} /></div>
+                             </AccordionTrigger>
+                             <AccordionContent className="pt-2 pb-4 space-y-6">
+                               
+                               <div className="space-y-4 p-4 border rounded-lg bg-muted/10">
+                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                   <div className="space-y-2"><Label>Nome do Agente</Label><Input value={agent.nome} disabled={!isOwner || !!agent.moduleId} onChange={e => updateAgent(agent.id, 'nome', e.target.value)} /></div>
+                                   <div className="space-y-2"><Label>Webhook n8n (Execução)</Label><Input value={agent.webhookUrl || ''} disabled={!isOwner || !!agent.moduleId} onChange={e => updateAgent(agent.id, 'webhookUrl', e.target.value)} /></div>
+                                 </div>
+                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                                   <div className="flex items-center justify-between p-3 border rounded-md bg-orange-500/5 border-orange-500/20"><div className="space-y-0.5"><Label className="text-orange-700 flex items-center gap-2"><Workflow className="h-3 w-3" /> Usar n8n</Label></div><Switch checked={agent.useN8n} disabled={!isOwner || !!agent.moduleId} onCheckedChange={v => updateAgent(agent.id, 'useN8n', v)} /></div>
+                                   <div className="space-y-2"><Label className="text-orange-700 flex items-center gap-2"><Link2 className="h-3 w-3" /> URL de Resposta do n8n</Label><Input disabled={!isOwner || !agent.useN8n || !!agent.moduleId} value={agent.n8nResponseUrl || ''} onChange={e => updateAgent(agent.id, 'n8nResponseUrl', e.target.value)} /></div>
+                                 </div>
                                </div>
-                             </div>
 
-                             <div className="space-y-4 p-4 border rounded-lg bg-blue-500/5 border-blue-500/20">
-                               <h4 className="text-xs font-bold uppercase text-blue-700 flex items-center gap-2"><Wrench className="h-3 w-3" /> Skills Vinculadas</h4>
-                               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                                 {dynamicSkills.map(skill => (
-                                   <div key={skill.id} className="flex items-center space-x-2 p-2 rounded border bg-background hover:bg-blue-50">
-                                     <Checkbox id={`skill-${agent.id}-${skill.id}`} checked={(agent.selectedSkills || []).includes(skill.id)} onCheckedChange={() => toggleAgentSkill(agent.id, skill.id)} disabled={!!agent.moduleId} />
-                                     <label htmlFor={`skill-${agent.id}-${skill.id}`} className="text-[11px] font-medium leading-none cursor-pointer truncate">{skill.name}</label>
-                                   </div>
-                                 ))}
+                               <div className="space-y-4 p-4 border rounded-lg bg-blue-500/5 border-blue-500/20">
+                                 <h4 className="text-xs font-bold uppercase text-blue-700 flex items-center gap-2"><Wrench className="h-3 w-3" /> Skills Vinculadas</h4>
+                                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                                   {dynamicSkills.map(skill => (
+                                     <div key={skill.id} className="flex items-center space-x-2 p-2 rounded border bg-background hover:bg-blue-50">
+                                       <Checkbox id={`skill-${agent.id}-${skill.id}`} checked={(agent.selectedSkills || []).includes(skill.id)} onCheckedChange={() => toggleAgentSkill(agent.id, skill.id)} disabled={!isOwner || !!agent.moduleId} />
+                                       <label htmlFor={`skill-${agent.id}-${skill.id}`} className="text-[11px] font-medium leading-none cursor-pointer truncate">{skill.name}</label>
+                                     </div>
+                                   ))}
+                                 </div>
                                </div>
-                             </div>
 
-                             <div className="space-y-2">
-                               <Label className="flex items-center gap-2"><MessageSquareQuote className="h-4 w-4 text-primary" /> Prompt do Sistema</Label>
-                               {agent.moduleId ? (
-                                 <Textarea className="font-mono text-[11px] h-48 bg-slate-950 text-primary border-primary/30" disabled value={agent.systemPrompt} />
-                               ) : (
-                                 <AgentPromptEditor value={agent.systemPrompt} onChange={(val) => updateAgent(agent.id, 'systemPrompt', val)} prompts={prompts} skills={dynamicSkills.filter(s => (agent.selectedSkills || []).includes(s.id))} />
-                               )}
-                             </div>
+                               <div className="space-y-2">
+                                 <Label className="flex items-center gap-2"><MessageSquareQuote className="h-4 w-4 text-primary" /> Prompt do Sistema</Label>
+                                 {!isOwner || agent.moduleId ? (
+                                   <Textarea className="font-mono text-[11px] h-48 bg-slate-950 text-primary border-primary/30" disabled value={agent.systemPrompt} />
+                                 ) : (
+                                   <AgentPromptEditor value={agent.systemPrompt} onChange={(val) => updateAgent(agent.id, 'systemPrompt', val)} prompts={prompts} skills={dynamicSkills.filter(s => (agent.selectedSkills || []).includes(s.id))} />
+                                 )}
+                               </div>
 
-                             <div className="flex justify-between items-center pt-4 border-t border-border/50">
-                               <div className="flex items-center gap-2"><Label>Ordem:</Label><Input type="number" className="w-16 h-8 text-center" disabled={!!agent.moduleId} value={agent.order || 0} onChange={e => updateAgent(agent.id, 'order', parseInt(e.target.value) || 0)} /></div>
-                               {!agent.moduleId && <Button type="button" variant="ghost" size="sm" className="text-destructive" onClick={() => handleDeleteAgent(agent.id)}><Trash2 className="h-4 w-4 mr-2" /> Remover Agente</Button>}
-                             </div>
-                           </AccordionContent>
-                         </AccordionItem>
-                       ))}
+                               <div className="flex justify-between items-center pt-4 border-t border-border/50">
+                                 <div className="flex items-center gap-6">
+                                   <div className="flex items-center gap-2"><Label>Ordem:</Label><Input type="number" className="w-16 h-8 text-center" disabled={!isOwner || !!agent.moduleId} value={agent.order || 0} onChange={e => updateAgent(agent.id, 'order', parseInt(e.target.value) || 0)} /></div>
+                                   {isAdmin && isOwner && (
+                                     <div className="flex items-center gap-2">
+                                       <Switch checked={agent.isGlobal} onCheckedChange={v => updateAgent(agent.id, 'isGlobal', v)} />
+                                       <Label className="text-amber-600 font-bold">Global (Compartilhar com todos)</Label>
+                                     </div>
+                                   )}
+                                 </div>
+                                 {isOwner && !agent.moduleId && <Button type="button" variant="ghost" size="sm" className="text-destructive" onClick={() => handleDeleteAgent(agent.id)}><Trash2 className="h-4 w-4 mr-2" /> Remover Agente</Button>}
+                               </div>
+                             </AccordionContent>
+                           </AccordionItem>
+                         );
+                       })}
                      </Accordion>
                   </div>
 
