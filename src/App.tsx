@@ -17,7 +17,7 @@ import CRM from "./pages/CRM";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
 import AdminDashboard from "./pages/AdminDashboard";
-import DynamicRouteHandler from "./pages/DynamicRouteHandler"; // <--- NOVO ROUTER DE MICRO-FRONTENDS
+import DynamicRouteHandler from "./pages/DynamicRouteHandler";
 import { Layout } from "./components/Layout";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { Loader2 } from "lucide-react";
@@ -74,7 +74,8 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
-      <BrowserRouter>
+      {/* Adicionando future flags para silenciar avisos de migração do React Router v7 */}
+      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <AuthProvider>
           <AppRoutes />
         </AuthProvider>
