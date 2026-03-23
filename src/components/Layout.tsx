@@ -2,16 +2,22 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Upload, BarChart3, Settings, Tags, TrendingUp, ShieldCheck, Sparkles, Lock, LogOut, Home, MessageSquare, Blocks, ShieldAlert, Menu, UserCircle } from 'lucide-react';
+import { 
+  Upload, BarChart3, Settings, Tags, TrendingUp, ShieldCheck, 
+  Sparkles, Lock, LogOut, Home, MessageSquare, Blocks, 
+  ShieldAlert, Menu, UserCircle, LayoutGrid, ExternalLink 
+} from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
+import { supabase } from '@/integrations/supabase/client';
 
 interface LayoutProps {
   children: React.ReactNode;
 }
 
+// Itens fixos do sistema (Placa-mãe)
 const publicNavItems = [
   { to: '/', label: 'Início', icon: Home },
   { to: '/precificacao', label: 'Precificação', icon: Upload },
@@ -20,11 +26,9 @@ const publicNavItems = [
 ];
 
 const privateNavItems = [
-  { to: '/modules', label: 'Central de Módulos', icon: Blocks },
+  { to: '/modules', label: 'Marketplace', icon: Blocks },
   { to: '/chat', label: 'Chat Inteligente', icon: MessageSquare },
   { to: '/new-business', label: 'Análise de Viabilidade', icon: Sparkles },
-  { to: '/comparison', label: 'Comparativo de Regimes', icon: BarChart3 },
-  { to: '/impact', label: 'Análise de Impacto', icon: TrendingUp },
 ];
 
 const adminNavItems = [
@@ -34,10 +38,52 @@ const adminNavItems = [
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { autenticado, logout, isAdmin, profile } = useAuth();
+  const { autenticado, logout, isAdmin, profile, session } = useAuth();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [dynamicModules, setDynamicModules] = useState<any[]>([]);
 
-  // Fecha o menu mobile quando a rota muda
+  // Busca módulos instalados para popular o menu lateral
+  useEffect(() => {
+    const fetchInstalledModules = async () => {
+      if (!autenticado || !session?.user) {
+        setDynamicModules([]);
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from('installed_modules')
+          .select(`
+            module_id,
+            is_active,
+            system_modules (
+              name,
+              module_type
+            )
+          `)
+          .eq('user_id', session.user.id)
+          .eq('is_active', true);
+
+        if (error) throw error;
+
+        const formatted = (data || []).map((item: any) => ({
+          to: item.system_modules.module_type === 'internal' 
+              ? `/${item.module_id}` 
+              : `/app/${item.module_id}`,
+          label: item.system_modules.name,
+          icon: item.system_modules.module_type === 'internal' ? LayoutGrid : ExternalLink,
+          id: item.module_id
+        }));
+
+        setDynamicModules(formatted);
+      } catch (err) {
+        console.error("[Layout] Erro ao carregar módulos dinâmicos:", err);
+      }
+    };
+
+    fetchInstalledModules();
+  }, [autenticado, session]);
+
   useEffect(() => {
     setIsMobileOpen(false);
   }, [location.pathname]);
@@ -52,7 +98,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     }
   };
 
-  const NavButton = ({ item, isLocked = false }: { item: any, isLocked?: boolean }) => {
+  const NavButton = ({ item, isLocked = false, isDynamic = false }: { item: any, isLocked?: boolean, isDynamic?: boolean }) => {
     const isActive = location.pathname === item.to;
     return (
       <Link to={item.to} className="block w-full">
@@ -62,10 +108,12 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
             "w-full justify-start py-2 px-3 h-10 transition-colors text-sm font-medium",
             isActive
               ? "bg-primary text-primary-foreground hover:bg-primary/90"
-              : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+              : isDynamic 
+                ? "text-foreground hover:bg-primary/10 hover:text-primary border-l-2 border-transparent hover:border-primary"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
           )}
         >
-          <item.icon className="h-4 w-4 mr-3 shrink-0" />
+          <item.icon className={cn("h-4 w-4 mr-3 shrink-0", isActive ? "" : isDynamic ? "text-primary" : "")} />
           <span className="truncate">{item.label}</span>
           {isLocked && <Lock className="h-3 w-3 ml-auto opacity-50 shrink-0" />}
         </Button>
@@ -92,10 +140,24 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         </div>
 
         {autenticado && (
-          <div className="space-y-1 mt-6">
-            <div className="mb-2 px-3 text-[10px] font-bold uppercase text-muted-foreground tracking-wider">SaaS & Inteligência</div>
-            {privateNavItems.map(item => <NavButton key={item.to} item={item} />)}
-          </div>
+          <>
+            {/* SEÇÃO DINÂMICA: MÓDULOS INSTALADOS */}
+            {dynamicModules.length > 0 && (
+              <div className="space-y-1 mt-6">
+                <div className="mb-2 px-3 text-[10px] font-bold uppercase text-primary tracking-wider flex items-center gap-2">
+                  <LayoutGrid className="h-3 w-3" /> Meus Módulos
+                </div>
+                {dynamicModules.map(item => (
+                  <NavButton key={item.id} item={item} isDynamic />
+                ))}
+              </div>
+            )}
+
+            <div className="space-y-1 mt-6">
+              <div className="mb-2 px-3 text-[10px] font-bold uppercase text-muted-foreground tracking-wider">SaaS & Inteligência</div>
+              {privateNavItems.map(item => <NavButton key={item.to} item={item} />)}
+            </div>
+          </>
         )}
 
         {autenticado && isAdmin && (
@@ -136,48 +198,6 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
             </Button>
           </Link>
         )}
-      </div>
-    </div>
-  );
-
-  return (
-    <div className="flex h-screen overflow-hidden bg-background">
-      {/* Desktop Sidebar */}
-      <aside className="hidden md:flex flex-col w-64 lg:w-72 border-r border-border shrink-0 z-20 shadow-sm">
-        <SidebarContent />
-      </aside>
-
-      {/* Mobile Header & Main Content */}
-      <div className="flex-1 flex flex-col h-screen overflow-hidden min-w-0">
-        
-        {/* Mobile Header */}
-        <header className="md:hidden flex items-center justify-between p-4 border-b border-border bg-gradient-primary shrink-0 z-20">
-          <div className="flex items-center gap-3">
-            <div className="rounded-lg bg-black/30 p-1.5 backdrop-blur shrink-0">
-              <img src="/jota-contabilidade-logo.png" alt="Logo" className="h-7 w-7" />
-            </div>
-            <span className="font-bold text-black text-lg">JOTA</span>
-          </div>
-          
-          <Sheet open={isMobileOpen} onOpenChange={setIsMobileOpen}>
-            <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="text-black hover:bg-black/20">
-                <Menu className="h-6 w-6" />
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="left" className="p-0 w-[280px] border-r-0">
-              <SheetTitle className="sr-only">Menu de Navegação</SheetTitle>
-              <SidebarContent />
-            </SheetContent>
-          </Sheet>
-        </header>
-
-        {/* Main Content Area */}
-        <main className="flex-1 overflow-y-auto bg-muted/5 relative">
-          <div className="absolute inset-0 p-4 md:p-8">
-            {children}
-          </div>
-        </main>
       </div>
     </div>
   );
