@@ -20,7 +20,6 @@ export default function AdminDashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [busca, setBusca] = useState('');
   
-  // Estado para edição de dados do catálogo
   const [editingModuleId, setEditingModuleId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({
     price: '',
@@ -39,7 +38,6 @@ export default function AdminDashboard() {
   const carregarDados = async () => {
     setIsLoading(true);
     try {
-      // 1. Carga de Clientes
       const { data: profilesData, error: profilesError } = await supabase
         .from('profiles').select('*').neq('role', 'admin').order('created_at', { ascending: false });
       if (profilesError) throw profilesError;
@@ -51,12 +49,11 @@ export default function AdminDashboard() {
       }));
       setClientes(clientesMapeados);
 
-      // 2. Carga do Catálogo de Módulos (Marketplace)
       const { data: catalogData, error: catalogError } = await supabase
         .from('system_modules').select('*').order('name', { ascending: true });
       
       if (catalogError) {
-        console.warn("[AppSec] Tabela system_modules não encontrada. Você rodou o script SQL?", catalogError);
+        console.warn("[AppSec] Tabela system_modules não encontrada.", catalogError);
       } else {
         setCatalogo(catalogData || []);
       }
@@ -101,7 +98,6 @@ export default function AdminDashboard() {
   };
 
   const salvarEdicaoModulo = async (id: string) => {
-    // Validação de Input (AppSec)
     const precoNum = parseFloat(editForm.price);
     if (isNaN(precoNum) || precoNum < 0) {
       toast.error('Valor inválido. O preço deve ser um número positivo.');
@@ -111,12 +107,15 @@ export default function AdminDashboard() {
     let urlFinal = editForm.bundle_url?.trim();
 
     if (editForm.module_type === 'iframe') {
-      if (!urlFinal || !urlFinal.startsWith('https://')) {
-        toast.error('Segurança: Módulos externos exigem URLs seguras (iniciadas com https://).');
+      // VALIDAÇÃO ATUALIZADA (AppSec): Permite localhost para desenvolvimento
+      const isLocal = urlFinal.startsWith('http://localhost') || urlFinal.startsWith('http://127.0.0.1');
+      const isSecure = urlFinal.startsWith('https://');
+
+      if (!urlFinal || (!isSecure && !isLocal)) {
+        toast.error('Segurança: Módulos externos exigem URLs seguras (https://) ou ambiente local (http://localhost).');
         return;
       }
     } else {
-      // Se for internal, limpamos a URL para não manter lixo no BD
       urlFinal = '';
     }
 
@@ -132,7 +131,7 @@ export default function AdminDashboard() {
       setEditingModuleId(null);
       carregarDados();
     } catch (error: any) {
-      toast.error('Falha ao atualizar módulo. Verifique o console.');
+      toast.error('Falha ao atualizar módulo.');
       console.error(error);
     }
   };
@@ -236,7 +235,7 @@ export default function AdminDashboard() {
                 </TableHeader>
                 <TableBody>
                   {catalogo.length === 0 ? (
-                    <TableRow><TableCell colSpan={7} className="text-center py-8 text-destructive">Nenhum módulo encontrado no BD. Execute o script SQL.</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={7} className="text-center py-8 text-destructive">Nenhum módulo encontrado no BD.</TableCell></TableRow>
                   ) : catalogo.map((mod) => {
                     const isEditing = editingModuleId === mod.id;
                     
@@ -287,7 +286,7 @@ export default function AdminDashboard() {
                           {isEditing ? (
                             <Input 
                               type="url"
-                              placeholder="https://..."
+                              placeholder="https://... ou http://localhost:..."
                               className="h-8 text-xs font-mono"
                               value={editForm.bundle_url}
                               disabled={editForm.module_type !== 'iframe'}

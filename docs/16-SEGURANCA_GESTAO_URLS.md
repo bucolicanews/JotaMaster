@@ -9,8 +9,9 @@ Políticas de segurança aplicadas no Painel de Administração durante o cadast
 
 ## Validações Aplicadas (AppSec)
 1. **Obrigatoriedade Condicional:** Se o tipo de módulo for `iframe`, a URL passa a ser estritamente obrigatória.
-2. **Validação de Protocolo (HTTPS Enforcement):** A URL fornecida deve iniciar obrigatoriamente com `https://`. Tentativas de injeção de `javascript:`, `data:` ou `http:` são bloqueadas antes de atingirem a rede.
-3. **Data Cleansing:** Se um módulo for alterado de `iframe` de volta para `internal`, a URL no banco de dados é automaticamente limpa (`null`) para evitar lixo ou execuções fantasmas caso o tipo mude no futuro.
+2. **Validação de Protocolo (HTTPS Enforcement):** A URL fornecida deve iniciar obrigatoriamente com `https://`. 
+3. **Exceção de Desenvolvimento (Dev Mode):** Para facilitar o desenvolvimento local, o sistema permite URLs iniciadas com `http://localhost` ou `http://127.0.0.1`. Tentativas de injeção de `javascript:`, `data:` ou `http:` (em domínios externos) continuam bloqueadas.
+4. **Data Cleansing:** Se um módulo for alterado de `iframe` de volta para `internal`, a URL no banco de dados é automaticamente limpa (`null`) para evitar lixo ou execuções fantasmas caso o tipo mude no futuro.
 
 ## Riscos Identificados e Mitigados
 - **Risco:** Stored XSS via `javascript:` URI.
@@ -18,4 +19,5 @@ Políticas de segurança aplicadas no Painel de Administração durante o cadast
 
 ## Histórico de Alterações
 - Data: Sessão Atual
-- Alteração: Inclusão de validação de HTTPS no `AdminDashboard.tsx`.
+- Alteração: Inclusão de exceção para `http://localhost` no `AdminDashboard.tsx`.
+- Motivo: Permitir testes de Micro-Frontends em ambiente de desenvolvimento local.
