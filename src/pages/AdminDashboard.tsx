@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ShieldAlert, Users, Activity, Search, Blocks, Edit, Save, X, Globe, Code, Coins, KeyRound, TrendingUp, Loader2, Plus, Trash2, Star } from 'lucide-react';
+import { ShieldAlert, Users, Activity, Search, Blocks, Edit, Save, X, Globe, Code, Coins, KeyRound, TrendingUp, Loader2, Plus, Trash2, Star, CreditCard } from 'lucide-react';
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from '@/integrations/supabase/client';
@@ -28,10 +28,12 @@ export default function AdminDashboard() {
     price_per_1m_input_tokens: 1.25,
     price_per_1m_output_tokens: 2.50,
     profit_multiplier: 4.0,
-    credit_conversion_rate: 10.0
+    credit_conversion_rate: 10.0,
+    pagbank_token_sandbox: '',
+    pagbank_token_production: '',
+    pagbank_env: 'sandbox'
   });
 
-  // Estado para novo pacote
   const [isAddingPackage, setIsAddingPackage] = useState(false);
   const [newPackage, setNewPackage] = useState({
     name: '',
@@ -62,7 +64,10 @@ export default function AdminDashboard() {
           price_per_1m_input_tokens: Number(data.price_per_1m_input_tokens) || 1.25,
           price_per_1m_output_tokens: Number(data.price_per_1m_output_tokens) || 2.50,
           profit_multiplier: Number(data.profit_multiplier) || 4.0,
-          credit_conversion_rate: Number(data.credit_conversion_rate) || 10.0
+          credit_conversion_rate: Number(data.credit_conversion_rate) || 10.0,
+          pagbank_token_sandbox: data.pagbank_token_sandbox || '',
+          pagbank_token_production: data.pagbank_token_production || '',
+          pagbank_env: data.pagbank_env || 'sandbox'
         });
       }
     } catch (e) { console.warn("Configurações globais não localizadas."); }
@@ -77,7 +82,7 @@ export default function AdminDashboard() {
         updated_at: new Date().toISOString()
       });
       if (error) throw error;
-      toast.success("Configurações de Economia salvas!");
+      toast.success("Configurações salvas com sucesso!");
     } catch (e: any) {
       toast.error("Erro ao salvar: " + e.message);
     } finally {
@@ -148,7 +153,7 @@ export default function AdminDashboard() {
           <TabsTrigger value="clientes"><Users className="h-4 w-4 mr-2" /> Locatários</TabsTrigger>
           <TabsTrigger value="pacotes"><Coins className="h-4 w-4 mr-2" /> Pacotes</TabsTrigger>
           <TabsTrigger value="economia"><TrendingUp className="h-4 w-4 mr-2" /> Economia IA</TabsTrigger>
-          <TabsTrigger value="catalogo"><Blocks className="h-4 w-4 mr-2" /> Catálogo</TabsTrigger>
+          <TabsTrigger value="pagamentos"><CreditCard className="h-4 w-4 mr-2" /> PagBank</TabsTrigger>
         </TabsList>
 
         <TabsContent value="clientes" className="space-y-4">
@@ -323,10 +328,57 @@ export default function AdminDashboard() {
           </div>
         </TabsContent>
 
-        <TabsContent value="catalogo" className="space-y-4">
-           <Card className="p-8 text-center text-muted-foreground italic">
-              Gestão de catálogo em desenvolvimento.
-           </Card>
+        <TabsContent value="pagamentos" className="space-y-6">
+          <Card className="shadow-elegant border-primary/20">
+            <CardHeader className="bg-muted/10 border-b border-border/50">
+              <CardTitle className="text-lg flex items-center gap-2"><CreditCard className="h-5 w-5 text-primary" />Gateway PagBank</CardTitle>
+              <CardDescription>Configure as credenciais para recebimento de pagamentos.</CardDescription>
+            </CardHeader>
+            <CardContent className="p-6 space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label>Ambiente</Label>
+                  <Select value={settings.pagbank_env} onValueChange={(v) => setSettings({...settings, pagbank_env: v})}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="sandbox">Sandbox (Teste)</SelectItem>
+                      <SelectItem value="production">Produção (Real)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="space-y-4 pt-4 border-t border-border/50">
+                <div className="space-y-2">
+                  <Label>Token Sandbox</Label>
+                  <Input 
+                    type="password" 
+                    value={settings.pagbank_token_sandbox}
+                    onChange={(e) => setSettings({...settings, pagbank_token_sandbox: e.target.value})}
+                    className="font-mono text-xs"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Token Produção</Label>
+                  <Input 
+                    type="password" 
+                    value={settings.pagbank_token_production}
+                    onChange={(e) => setSettings({...settings, pagbank_token_production: e.target.value})}
+                    className="font-mono text-xs"
+                  />
+                </div>
+              </div>
+
+              <Button 
+                className="w-full bg-primary hover:bg-primary/90" 
+                onClick={handleSaveSettings}
+                disabled={isSavingSettings}
+              >
+                {isSavingSettings ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+                Salvar Configurações PagBank
+              </Button>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>
