@@ -1,136 +1,101 @@
-# Guia de Desenvolvimento de Módulos (Arquitetura de Artefatos)
+# Guia do Desenvolvedor: Criação e Conexão de Módulos
 
-## 1. Visão Geral
-Bem-vindo ao ecossistema **JOTA Master**. Este documento orienta desenvolvedores parceiros e Agentes de IA na criação de novos módulos (Artefatos/Blocos de Lego) que serão acoplados à nossa Placa-mãe. 
-
-Nossa arquitetura baseia-se em **Micro-Frontends isolados (Iframes Sandboxed)** e um regime OBRIGATÓRIO de documentação e validação técnica.
+Este guia detalha como construir um módulo (Micro-frontend) que se acopla perfeitamente à Placa-mãe JOTA, injetando automaticamente suas funcionalidades e inteligência artificial.
 
 ---
 
-## 2. Requisitos Técnicos e de Segurança (Obrigatório)
+## 1. Arquitetura do Módulo
+Um módulo JOTA é uma aplicação independente (Vite + React) hospedada externamente. Ele se comunica com o Master através de um **Manifesto de Inteligência**.
 
-Para que seu módulo funcione dentro do Jota Master, ele deve respeitar as seguintes regras operacionais:
-
-### 2.1. Protocolo e Hospedagem
-- O módulo **DEVE** ser hospedado com certificado SSL/TLS válido (`https://`). O Master rejeitará conexões HTTP simples (Zero Trust).
-
-### 2.2. Cabeçalhos de Segurança (CORS e Frame-Ancestors)
-- Como o módulo rodará dentro de um Iframe, seu servidor/CDN deve permitir o encapsulamento: `Content-Security-Policy: frame-ancestors 'self' https://*.jotaempresas.com;`
-
-### 2.3. Design e UX
-- Garanta design responsivo (Mobile-First). Recomendamos o uso de **Tailwind CSS e shadcn/ui** para manter a consistência visual com a placa-mãe.
-- Não crie menus globais redundantes; o Master já gerencia a navegação global.
-
-### 2.4. Comunicação e Autenticação
-- O artefato **NÃO** tem acesso direto a cookies ou tokens do Jota Master.
-- Para acessar o banco de dados durante a execução em Iframe, o módulo deve validar a sessão ativa do Supabase gerada pelo navegador ou receber parâmetros seguros via URL/PostMessage.
+### Requisitos:
+- Hospedagem em HTTPS (Segurança Zero Trust).
+- Cabeçalhos CORS permitindo o domínio `jotaempresas.com`.
+- Arquivo `ai-manifest.json` na raiz pública do projeto.
 
 ---
 
-## 3. ESTRUTURA MÍNIMA PARA TESTE LOCAL (DEV HARNESS)
+## 2. O Cérebro do Módulo: `ai-manifest.json`
+Este arquivo é lido pelo Master no momento da instalação. Ele define quais Skills, Prompts e Agentes o módulo "ensinará" ao sistema.
 
-Você **não** deve programar um módulo "às cegas". Todo novo módulo (ex: CRM) deve ser criado como um projeto React independente para facilitar a visualização e os testes locais antes do deploy.
-
-### 3.1. O Boilerplate (Mock Master)
-Seu projeto deve ter uma estrutura básica em React (Vite) para simular o Master:
-1. **`src/App.tsx`:** Deve conter um roteador básico (`react-router-dom`) com um layout simples simulando o menu lateral da Placa-Mãe. Isso permite que você veja suas telas.
-2. **`src/integrations/supabase/client.ts`:** Deve apontar para o MESMO banco de dados do Master para testar as leituras e inserções com RLS.
-3. **Tela de Mock Login:** Como o módulo precisa de um `user_id` para gravar dados, crie um login falso ou use credenciais de teste locais no seu `.env` para simular uma sessão autenticada.
-
-**Regra de Ouro:** Tudo que está no `App.tsx` do módulo serve **apenas para seu teste local**. Quando o módulo for para produção (build), o Master chamará as páginas diretamente via Iframe.
-
----
-
-## 4. ECOSSISTEMA DE IA (COMO CRIAR SKILLS E AGENTES)
-
-**MUITO IMPORTANTE:** O módulo **NÃO DEVE** criar telas de chat, nem importar SDK do Gemini, nem salvar prompts no banco de dados via código React. A Placa-Mãe (Jota Master) faz isso!
-
-Para que o Master "aprenda" o que o seu módulo faz, você só precisa criar um arquivo na pasta pública do seu projeto:
-
-### O Arquivo `public/ai-manifest.json`
-Crie este arquivo com a estrutura abaixo. Quando o Master carregar a URL do seu módulo, ele fará o download deste JSON e gravará as Skills no banco de dados automaticamente.
-
+### Estrutura Completa:
 ```json
 {
-  "module_id": "meu_modulo_crm",
+  "module_id": "meu_modulo_financeiro",
   "version": "1.0.0",
+  "dependencies": ["skills", "crm"], 
   "skills": [
     {
-      "name": "crm_listar_clientes",
-      "description": "Busca todos os clientes do usuário logado.",
+      "name": "fin_calcular_roi",
+      "description": "Calcula o ROI baseado em investimento e retorno.",
       "executionType": "local_js",
-      "suggestedInstruction": "Sempre que perguntarem sobre clientes, use esta skill.",
-      "jsCode": "const { data } = await supabase.from('crm_clientes').select('*'); return data;"
-    }
-  ],
-  "agents": [
-    {
-      "nome": "Assistente de Vendas",
-      "systemPrompt": "Você é o assistente do CRM. Analise os clientes buscando oportunidades."
+      "jsCode": "return { roi: ((args.ganho - args.custo) / args.custo) * 100 };",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "custo": { "type": "number" },
+          "ganho": { "type": "number" }
+        }
+      }
     }
   ],
   "prompts": [
     {
-      "title": "Análise de Churn",
-      "role": "Especialista em Retenção",
-      "content": "Analise os dados e indique quais clientes podem cancelar."
+      "title": "Analista de Investimentos",
+      "role": "CFO Virtual",
+      "content": "Você é um CFO. Use a skill #fin_calcular_roi para analisar os dados de @empresa.razaoSocial."
+    }
+  ],
+  "agents": [
+    {
+      "nome": "Auditor de Lucratividade",
+      "systemPrompt": "Você orquestra a análise financeira completa.",
+      "order": 1
     }
   ]
 }
 ```
-**Como testar a IA no seu módulo?** 
-Você não testa. Você testa a tela e o CRUD localmente. Para testar a IA, você sobe o módulo para a CDN (ou usa Ngrok/Localhost), cadastra a URL no Jota Master (Painel Admin) e clica em **"Sincronizar Cérebro IA"**. O Master lerá seu `ai-manifest.json` e você testará no Chat da Placa-Mãe.
 
 ---
 
-## 5. GOVERNANÇA E DOCUMENTAÇÃO (A REGRA DOS ARTEFATOS)
+## 3. Gestão de Dependências
+Se o seu módulo precisa de outro para funcionar (ex: um módulo de Relatórios que precisa do módulo de Skills), declare no campo `"dependencies"`.
 
-Todo desenvolvedor (humano ou IA) atuando neste ecossistema tem a responsabilidade obrigatória de **documentação, rastreabilidade e validação técnica**.
+**Comportamento do Master:**
+- Se o usuário tentar instalar seu módulo sem as dependências, o Master exibirá um alerta: 
+  > "Este módulo requer a instalação prévia do módulo: [Nome do Módulo X]."
 
-### 5.1. Análise Antes da Execução (O Fluxo de 8 Passos)
-NUNCA escreva código sem antes:
-1. **Entender a solicitação:** Qual é a dor de negócio?
-2. **Questionar e validar a proposta:** Faz sentido nesta arquitetura?
-3. **Analisar impactos e riscos:** Fere o RLS? Causa gargalo (N+1)?
-4. **Propor melhorias:** Existe uma API mais adequada?
-5. **Aguardar confirmação lógica.**
-6. **Executar alteração.**
-7. **Documentar detalhadamente.**
-8. **Atualizar repositório `.md`.**
+---
 
-### 5.2. Padrão de Documentação de Módulos / Funções (.MD)
-Na raiz de cada novo módulo (dentro da pasta `docs/`), documente cada feature usando estritamente:
+## 4. Fluxo de Integração (Passo a Passo)
 
-```md
-# Nome da Tela ou Função
+### Passo 1: Desenvolvimento
+Crie seu app. Para acessar o banco de dados do cliente, utilize o `user_id` que o Master injetará via URL ou utilize a sessão ativa do Supabase (o Master e os Módulos compartilham o mesmo domínio de autenticação).
 
-## Descrição
-[O que faz e qual problema resolve]
+### Passo 2: Publicação do Manifesto
+Certifique-se de que `https://seu-modulo.com/ai-manifest.json` está acessível.
 
-## Entradas
-[Inputs de usuário, chamadas de DB, parâmetros de API]
+### Passo 3: Cadastro no Master (Admin)
+1. Vá em **Painel Admin > Catálogo SaaS**.
+2. Clique em **Novo Módulo**.
+3. Defina o tipo como **iframe**.
+4. Cole a URL base do seu módulo.
 
-## Saídas
-[O que renderiza na UI, o que grava no banco]
+### Passo 4: Sincronização
+O usuário, ao clicar em **"Sincronizar Cérebro IA"** na Loja de Módulos, fará com que o Master:
+1. Baixe o seu manifesto.
+2. Grave as Skills, Prompts e Agentes no banco de dados dele, vinculando-os ao seu `module_id`.
+3. Habilite imediatamente o uso dessas ferramentas no Chat Inteligente.
 
-## Fluxo de Execução
-1. [Passo a passo lógico]
-2. ...
+---
 
-## Dependências Internas e Externas
-- [Tabelas do Supabase, Componentes, Funções que dependem desta]
+## 5. Segurança e Isolamento
+- **Sandbox:** O Master carrega o módulo em um Iframe com políticas estritas (`allow-scripts`, `allow-forms`).
+- **RLS:** Suas Skills executadas via `local_js` herdam as permissões do usuário logado no Supabase.
+- **Limpeza:** Se o usuário desinstalar seu módulo, o Master remove automaticamente toda a inteligência (Skills/Prompts) vinculada ao seu `module_id`.
 
-## Riscos / Possíveis Efeitos Colaterais
-- [Tratamento de injeção, falhas de estado, RLS, erros previstos]
+---
 
-## Histórico de Alterações (Changelog)
-- Data: [DD/MM/AAAA]
-- Alteração: [Arquivos modificados e descrição da mudança]
-- Motivo: [Por que foi feito]
-```
-
-### 5.3. A Regra Crítica Final
-**NUNCA:**
-- Altere código sem análise prévia.
-- Esconda erros ou ignore falhas de banco de dados (Fail Safe é lei).
-- Deixe de registrar o *Changelog* e atualizar a documentação central.
+## 6. Histórico de Alterações
+- **Data:** Sessão Atual
+- **Alteração:** Criação do manual de integração de Micro-frontends e IA.
+- **Motivo:** Padronizar a expansão do ecossistema JOTA.
