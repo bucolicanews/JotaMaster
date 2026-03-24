@@ -189,8 +189,64 @@ return { status: 'ok', cliente: data };`}
                     </div>
 
                     <div className="space-y-2">
-                      <p className="text-[10px] uppercase font-bold text-indigo-600 flex items-center gap-1"><Zap className="h-3 w-3" /> 2. Webhook: Enviar JSON para n8n</p>
+                      <p className="text-[10px] uppercase font-bold text-indigo-600 flex items-center gap-1"><Database className="h-3 w-3" /> 2. JS Local: Inserção no Supabase</p>
                       <div className="bg-slate-950 p-3 rounded-md border border-white/10">
+                        <code className="text-emerald-500 font-mono block whitespace-pre">
+{`// Registra um novo serviço prestado
+const { data, error } = await supabase
+  .from('servicos')
+  .insert([{ 
+    tipo: args.tipo, 
+    valor: args.valor, 
+    data: new Date().toISOString() 
+  }]);
+
+return error ? { status: 'erro' } : { status: 'sucesso', data };`}
+                        </code>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <p className="text-[10px] uppercase font-bold text-indigo-600 flex items-center gap-1"><Search className="h-3 w-3" /> 3. Navegação Web: Consultar Site</p>
+                      <div className="bg-slate-950 p-3 rounded-md border border-white/10">
+                        <p className="text-blue-400 font-mono text-[9px] mb-1">// Configuração da Skill:</p>
+                        <p className="text-blue-300 font-mono text-[9px] mb-2">URL: https://www.google.com/search?q=cotacao+dolar<br/>Seletor: .g .L69e7c</p>
+                        <code className="text-emerald-500 font-mono block whitespace-pre">
+{`// O sistema acessa a URL, extrai o texto do seletor 
+// e entrega para a IA processar o valor atual.`}
+                        </code>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <p className="text-[10px] uppercase font-bold text-indigo-600 flex items-center gap-1"><Activity className="h-3 w-3" /> 4. JS Local: Cálculo de Imposto (Helpers)</p>
+                      <div className="bg-slate-950 p-3 rounded-md border border-white/10">
+                        <code className="text-emerald-500 font-mono block whitespace-pre">
+{`// Usa o motor nativo de cálculo do Simples Nacional
+const taxa = helpers.calculateSimplesNacionalEffectiveRate(
+  args.anexo, 
+  args.faturamento_12m
+);
+return { aliquota: taxa.toFixed(2) + "%" };`}
+                        </code>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <p className="text-[10px] uppercase font-bold text-indigo-600 flex items-center gap-1"><FileText className="h-3 w-3" /> 5. Base de Conhecimento: Consultar Texto</p>
+                      <div className="bg-slate-950 p-3 rounded-md border border-white/10">
+                        <code className="text-emerald-500 font-mono block whitespace-pre">
+{`// Você cola o manual da empresa no campo de conteúdo.
+// Quando a IA precisar, ela recupera o texto exato 
+// para responder ao usuário.`}
+                        </code>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <p className="text-[10px] uppercase font-bold text-indigo-600 flex items-center gap-1"><Zap className="h-3 w-3" /> 6. Webhook: Enviar JSON para n8n</p>
+                      <div className="bg-slate-950 p-3 rounded-md border border-white/10">
+                        <p className="text-blue-400 font-mono text-[9px] mb-1">// Configuração da Skill:</p>
                         <p className="text-blue-300 font-mono text-[9px] mb-2">Webhook URL: https://n8n.seu-servidor.com/webhook/...</p>
                         <code className="text-emerald-500 font-mono block whitespace-pre">
 {`// A IA envia os dados estruturados (JSON) para o n8n.
