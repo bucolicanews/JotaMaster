@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { 
   Settings, Building, KeyRound, Save, Loader2, Globe, Search, Activity,
-  BookOpen, Code, Terminal, Workflow, Blocks, Github, ExternalLink, MessageSquareQuote
+  BookOpen, Code, Terminal, Workflow, Blocks, Github, ExternalLink, MessageSquareQuote,
+  Wrench
 } from 'lucide-react';
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
