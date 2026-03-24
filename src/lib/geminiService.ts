@@ -44,27 +44,6 @@ export interface ChatMessage {
 
 export const DEFAULT_PRE_ANALYSIS_PROMPT = `Você é o Perito Tributário Sênior da Jota Contabilidade. Sua missão é entregar um MANUAL DE ESTRUTURAÇÃO FISCAL E VIABILIDADE (Nível 10/10).`;
 
-export const DEFAULT_AGENTS: AgentConfig[] = [
-  {
-    id: '33333333-3333-3333-3333-333333333333',
-    nome: 'Perito Tributário Sênior',
-    systemPrompt: 'Você é o Perito Tributário Sênior da Jota Contabilidade.',
-    order: 1,
-    useN8n: false,
-    n8nResponseUrl: 'http://localhost:3001/agent-result'
-  }
-];
-
-export const DEFAULT_PROMPTS: PromptConfig[] = [
-  {
-    id: '44444444-4444-4444-4444-444444444444',
-    title: 'Viabilidade e Estruturação (Padrão JOTA)',
-    role: 'Perito Tributário Sênior',
-    content: DEFAULT_PRE_ANALYSIS_PROMPT,
-    isActive: true
-  }
-];
-
 // Busca do Banco de Dados
 export async function fetchDbAgents(userId: string, isAdmin: boolean = false): Promise<AgentConfig[]> {
   const res = await supabase.from('ai_agents').select('*').or(`user_id.eq.${userId},is_global.eq.true`).order('order_index', { ascending: true });
@@ -96,13 +75,22 @@ export async function callGeminiAgent(
   if (!apiKey) throw new Error('Chave API Gemini não configurada.');
   
   const model = localStorage.getItem('jota-gemini-model') || 'gemini-2.0-flash';
+  const useGrounding = localStorage.getItem('jota-gemini-search') === 'true';
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
   
-  // Se não houver skills permitidas (Modo Grátis), toolsArray fica vazio
   const dynamicSkills = skillsOverride || [];
-  const dynamicManifests = dynamicSkills.map(s => ({ name: s.name, description: s.description, parameters: s.parameters }));
   const toolsArray: any[] = [];
-  if (dynamicManifests.length > 0) toolsArray.push({ functionDeclarations: dynamicManifests });
+
+  // Adiciona Skills customizadas se houver
+  const dynamicManifests = dynamicSkills.map(s => ({ name: s.name, description: s.description, parameters: s.parameters }));
+  if (dynamicManifests.length > 0) {
+    toolsArray.push({ functionDeclarations: dynamicManifests });
+  }
+
+  // Adiciona Grounding (Google Search) se ativado nas configurações
+  if (useGrounding) {
+    toolsArray.push({ googleSearchRetrieval: {} });
+  }
 
   const initialBody = {
     system_instruction: { parts: [{ text: systemPrompt }] },
@@ -118,6 +106,7 @@ export async function callGeminiAgent(
   let message = data?.candidates?.[0]?.content;
   if (!message) return "Sem resposta da IA.";
 
+  // Se a IA chamou uma função (Skill), executa e retorna
   if (message.parts?.some((p: any) => p.functionCall)) {
     const toolResults: any[] = [];
     for (const part of message.parts) {
@@ -152,12 +141,21 @@ export async function sendChatMessage(
   if (!apiKey) throw new Error('Chave API Gemini não configurada.');
   
   const model = localStorage.getItem('jota-gemini-model') || 'gemini-2.0-flash';
+  const useGrounding = localStorage.getItem('jota-gemini-search') === 'true';
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
   
+  const toolsArray: any[] = [];
   const dynamicManifests = skillsOverride.map(s => ({ name: s.name, description: s.description, parameters: s.parameters }));
-  const toolsArray = dynamicManifests.length > 0 ? [{ functionDeclarations: dynamicManifests }] : undefined;
-  const skillsList = skillsOverride.map(s => `- ${s.name}: ${s.description}`).join('\n');
+  
+  if (dynamicManifests.length > 0) {
+    toolsArray.push({ functionDeclarations: dynamicManifests });
+  }
 
+  if (useGrounding) {
+    toolsArray.push({ googleSearchRetrieval: {} });
+  }
+
+  const skillsList = skillsOverride.map(s => `- ${s.name}: ${s.description}`).join('\n');
   const systemPrompt = `Você é o Assistente Inteligente da Jota Contabilidade. 
   FERRAMENTAS DISPONÍVEIS:\n${skillsList || "Nenhuma ferramenta no momento (Modo Grátis)."}\n
   Responda de forma profissional e use Markdown.`;
@@ -165,7 +163,7 @@ export async function sendChatMessage(
   const body = {
     system_instruction: { parts: [{ text: systemPrompt }] },
     contents: history,
-    tools: toolsArray,
+    tools: toolsArray.length > 0 ? toolsArray : undefined,
     generationConfig: { temperature: 0.2, maxOutputTokens: 4096 },
   };
 
