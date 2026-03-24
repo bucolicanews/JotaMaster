@@ -18,6 +18,7 @@ import Agents from "./pages/Agents";
 import Modules from "./pages/Modules";
 import CRM from "./pages/CRM"; 
 import Credits from "./pages/Credits";
+import AdminFinance from "./pages/AdminFinance";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
 import AdminDashboard from "./pages/AdminDashboard";
@@ -53,12 +54,14 @@ const AppRoutes = () => (
       {/* Rotas Protegidas (Core & Inteligência) */}
       <Route path="/" element={<RotaProtegida><Index /></RotaProtegida>} />
       <Route path="/chat" element={<RotaProtegida><Chat /></RotaProtegida>} />
-      <Route path="/skills" element={<RotaProtegida><ModuleProtectedRoute moduleId="skills"><Skills /></ModuleProtectedRoute></RotaProtegida>} />
       <Route path="/prompts" element={<RotaProtegida><Prompts /></RotaProtegida>} />
-      <Route path="/agents" element={<RotaProtegida><ModuleProtectedRoute moduleId="agents"><Agents /></ModuleProtectedRoute></RotaProtegida>} />
-      <Route path="/credits" element={<RotaProtegida><Credits /></RotaProtegida>} />
       <Route path="/configuracao" element={<RotaProtegida><Configuracao /></RotaProtegida>} />
       <Route path="/modules" element={<RotaProtegida><Modules /></RotaProtegida>} />
+
+      {/* Módulos Premium (Exigem Ativação no Marketplace) */}
+      <Route path="/skills" element={<RotaProtegida><ModuleProtectedRoute moduleId="skills"><Skills /></ModuleProtectedRoute></RotaProtegida>} />
+      <Route path="/agents" element={<RotaProtegida><ModuleProtectedRoute moduleId="agents"><Agents /></ModuleProtectedRoute></RotaProtegida>} />
+      <Route path="/credits" element={<RotaProtegida><Credits /></RotaProtegida>} />
 
       {/* Módulos Legados (Privatizados) */}
       <Route path="/precificacao" element={<RotaProtegida><Pricing /></RotaProtegida>} />
@@ -70,6 +73,7 @@ const AppRoutes = () => (
       
       {/* Administração */}
       <Route path="/admin" element={<RotaProtegida><AdminDashboard /></RotaProtegida>} />
+      <Route path="/admin/finance" element={<RotaProtegida><AdminFinance /></RotaProtegida>} />
       
       {/* ROTA CATCH-ALL PARA MICRO-FRONTENDS (EXTERNAL CDN) */}
       <Route path="/app/:moduleId" element={<RotaProtegida><DynamicRouteHandler /></RotaProtegida>} />
