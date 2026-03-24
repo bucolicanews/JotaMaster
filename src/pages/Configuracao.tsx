@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { 
   Settings, Building, KeyRound, Save, Loader2, Globe, Search, Activity,
-  BookOpen, Code, Terminal, Workflow, Blocks
+  BookOpen, Code, Terminal, Workflow, Blocks, Github, ExternalLink
 } from 'lucide-react';
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -109,6 +109,30 @@ const Configuracao = () => {
             </h3>
             
             <Accordion type="single" collapsible className="w-full">
+              <AccordionItem value="community">
+                <AccordionTrigger className="text-sm font-bold text-primary"><Github className="h-4 w-4 mr-2" /> Repositórios da Comunidade</AccordionTrigger>
+                <AccordionContent className="text-xs space-y-4 p-4 bg-primary/5 rounded-md border border-primary/10">
+                  <p className="font-bold">Baixe inteligências prontas e importe no seu sistema:</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <a href="https://github.com/bucolicanews/prompts" target="_blank" className="flex items-center justify-between p-3 bg-card border rounded-lg hover:border-primary transition-colors">
+                      <div className="flex items-center gap-2">
+                        <MessageSquareQuote className="h-4 w-4 text-indigo-500" />
+                        <span>Biblioteca de Prompts</span>
+                      </div>
+                      <ExternalLink className="h-3 w-3 opacity-50" />
+                    </a>
+                    <a href="https://github.com/bucolicanews/Skills" target="_blank" className="flex items-center justify-between p-3 bg-card border rounded-lg hover:border-primary transition-colors">
+                      <div className="flex items-center gap-2">
+                        <Wrench className="h-4 w-4 text-emerald-500" />
+                        <span>Biblioteca de Skills</span>
+                      </div>
+                      <ExternalLink className="h-3 w-3 opacity-50" />
+                    </a>
+                  </div>
+                  <p className="text-muted-foreground italic">Dica: Baixe o arquivo .json do repositório e use o botão "Importar" na página correspondente.</p>
+                </AccordionContent>
+              </AccordionItem>
+
               <AccordionItem value="skills">
                 <AccordionTrigger className="text-sm font-bold"><Code className="h-4 w-4 mr-2" /> Como construir uma Skill</AccordionTrigger>
                 <AccordionContent className="text-xs space-y-6 text-muted-foreground leading-relaxed">
@@ -118,86 +142,77 @@ const Configuracao = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <p className="font-bold text-foreground">Objetos Disponíveis no Escopo:</p>
-                    <ul className="list-disc pl-4 space-y-1">
-                      <li><code className="text-primary">args</code>: Objeto contendo os parâmetros extraídos pela IA (ex: args.cnpj).</li>
-                      <li><code className="text-primary">helpers</code>: Funções nativas do sistema (Cálculo de Simples Nacional, NCM, etc).</li>
-                      <li><code className="text-primary">supabase</code>: Cliente oficial para ler/gravar dados no seu banco de dados.</li>
-                    </ul>
+                    <p className="font-bold text-foreground">Estrutura do JSON para Importação:</p>
+                    <div className="bg-slate-950 p-3 rounded-md border border-white/10">
+                      <code className="text-blue-400 font-mono block whitespace-pre">
+{`[
+  {
+    "name": "nome_da_skill",
+    "description": "O que ela faz",
+    "parameters": { "type": "object", "properties": {} },
+    "executionType": "local_js",
+    "jsCode": "return { status: 'ok' };"
+  }
+]`}
+                      </code>
+                    </div>
                   </div>
 
-                  <div className="space-y-4">
-                    <p className="font-bold text-foreground">Exemplos Práticos:</p>
-                    
-                    {/* Exemplo 1 */}
-                    <div className="space-y-2">
-                      <p className="text-[10px] uppercase font-bold text-indigo-600">1. Integração com API Externa (ViaCEP)</p>
-                      <div className="bg-slate-950 p-3 rounded-md border border-white/10">
-                        <code className="text-emerald-500 font-mono block whitespace-pre">
-{`const cleanCep = String(args.cep).replace(/\\D/g, '');
-const res = await fetch(\`https://viacep.com.br/ws/\${cleanCep}/json/\`);
-const data = await res.json();
-return data;`}
-                        </code>
-                      </div>
-                    </div>
-
-                    {/* Exemplo 2 */}
-                    <div className="space-y-2">
-                      <p className="text-[10px] uppercase font-bold text-indigo-600">2. Uso de Motores Internos (Cálculo Simples Nacional)</p>
-                      <div className="bg-slate-950 p-3 rounded-md border border-white/10">
-                        <code className="text-emerald-500 font-mono block whitespace-pre">
-{`// helpers.calculateSimplesNacionalEffectiveRate(anexo, faturamento12m)
-const taxa = helpers.calculateSimplesNacionalEffectiveRate(args.anexo, args.faturamento);
-return { 
-  aliquota_efetiva: taxa.toFixed(2) + "%",
-  imposto_estimado: args.faturamento * (taxa / 100)
-};`}
-                        </code>
-                      </div>
-                    </div>
-
-                    {/* Exemplo 3 */}
-                    <div className="space-y-2">
-                      <p className="text-[10px] uppercase font-bold text-indigo-600">3. Persistência no Banco de Dados (CRM)</p>
-                      <div className="bg-slate-950 p-3 rounded-md border border-white/10">
-                        <code className="text-emerald-500 font-mono block whitespace-pre">
-{`// Busca clientes ativos diretamente no Supabase
-const { data, error } = await supabase
-  .from('crm_clientes')
-  .select('*')
-  .eq('status', 'ativo');
-
-if (error) throw error;
-return data;`}
-                        </code>
-                      </div>
-                    </div>
+                  <div className="space-y-2">
+                    <p className="font-bold text-foreground">Objetos Disponíveis no Escopo:</p>
+                    <ul className="list-disc pl-4 space-y-1">
+                      <li><code className="text-primary">args</code>: Parâmetros extraídos pela IA.</li>
+                      <li><code className="text-primary">helpers</code>: Funções nativas (Simples Nacional, NCM).</li>
+                      <li><code className="text-primary">supabase</code>: Cliente oficial para ler/gravar dados.</li>
+                    </ul>
                   </div>
                 </AccordionContent>
               </AccordionItem>
               
               <AccordionItem value="prompts">
                 <AccordionTrigger className="text-sm font-bold"><Terminal className="h-4 w-4 mr-2" /> Como construir um Prompt</AccordionTrigger>
-                <AccordionContent className="text-xs space-y-2 text-muted-foreground leading-relaxed">
-                  <p>Prompts definem a Persona (Role) e as Instruções de Sistema. Eles são a base do comportamento da IA.</p>
+                <AccordionContent className="text-xs space-y-4 text-muted-foreground leading-relaxed">
+                  <p>Prompts definem a Persona (Role) e as Instruções de Sistema.</p>
+                  <div className="space-y-2">
+                    <p className="font-bold text-foreground">Estrutura do JSON para Importação:</p>
+                    <div className="bg-slate-950 p-3 rounded-md border border-white/10">
+                      <code className="text-blue-400 font-mono block whitespace-pre">
+{`[
+  {
+    "title": "Nome do Especialista",
+    "role": "Persona",
+    "content": "Instruções detalhadas..."
+  }
+]`}
+                      </code>
+                    </div>
+                  </div>
                   <ul className="list-disc pl-4 space-y-1">
                     <li><strong>Persona:</strong> Defina quem a IA é (ex: Especialista Tributário).</li>
                     <li><strong>Variáveis:</strong> Use o símbolo <strong>@</strong> para injetar dados do contexto (ex: @empresa.razaoSocial).</li>
-                    <li><strong>Instruções:</strong> Seja específico sobre o formato de saída (Markdown, JSON, etc).</li>
                   </ul>
                 </AccordionContent>
               </AccordionItem>
 
               <AccordionItem value="agents">
                 <AccordionTrigger className="text-sm font-bold"><Workflow className="h-4 w-4 mr-2" /> Como construir um Agente</AccordionTrigger>
-                <AccordionContent className="text-xs space-y-2 text-muted-foreground leading-relaxed">
+                <AccordionContent className="text-xs space-y-4 text-muted-foreground leading-relaxed">
                   <p>Agentes são orquestradores que podem executar sequências de Skills ou workflows complexos.</p>
-                  <ul className="list-disc pl-4 space-y-1">
-                    <li><strong>Ordem:</strong> Define a prioridade na cadeia de execução.</li>
-                    <li><strong>Modo n8n:</strong> Ative para processamentos longos ou integrações que exigem resposta assíncrona via URL.</li>
-                    <li><strong>Skills Vinculadas:</strong> Selecione quais ferramentas este agente tem permissão para usar.</li>
-                  </ul>
+                  <div className="space-y-2">
+                    <p className="font-bold text-foreground">Estrutura do JSON para Importação:</p>
+                    <div className="bg-slate-950 p-3 rounded-md border border-white/10">
+                      <code className="text-blue-400 font-mono block whitespace-pre">
+{`[
+  {
+    "nome": "Nome do Agente",
+    "systemPrompt": "Instruções de orquestração...",
+    "order": 1,
+    "useN8n": false
+  }
+]`}
+                      </code>
+                    </div>
+                  </div>
                 </AccordionContent>
               </AccordionItem>
 
@@ -208,7 +223,7 @@ return data;`}
                   <ol className="list-decimal pl-4 space-y-2">
                     <li><strong>Desenvolvimento:</strong> Crie seu App em React/Vite e hospede em uma CDN segura (HTTPS).</li>
                     <li><strong>Manifesto:</strong> Crie um arquivo <strong>ai-manifest.json</strong> na raiz do seu projeto detalhando as Skills e Agentes que seu módulo oferece.</li>
-                    <li><strong>Integração:</strong> Cadastre a URL no Painel Admin como tipo <strong>iframe</strong>. O Master injetará seu app em um sandbox isolado.</li>
+                    <li><strong>Integração:</strong> Cadastre a URL no Painel Admin como tipo <strong>iframe</strong>.</li>
                   </ol>
                 </AccordionContent>
               </AccordionItem>

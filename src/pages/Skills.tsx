@@ -10,15 +10,12 @@ import { Badge } from "@/components/ui/badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { 
   Wrench, Plus, Trash2, Globe, Code, Search, Book, 
-  Play, Loader2, Eraser, Upload, Save, ShieldCheck, Terminal
+  Play, Loader2, Upload, Save, Download, FileJson
 } from 'lucide-react';
 import { DynamicSkill, fetchDbSkills, executeSkill } from '@/lib/skills/taxSkills';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import * as XLSX from 'xlsx';
-
-const generateUUID = () => crypto.randomUUID();
 
 export default function Skills() {
   const { session, isAdmin } = useAuth();
@@ -26,9 +23,8 @@ export default function Skills() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isTestingSkill, setIsTestingSkill] = useState<string | null>(null);
-  const [isExtracting, setIsExtracting] = useState(false);
-  const [activeSkillIdForUpload, setActiveSkillIdForUpload] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const importRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const loadData = async () => {
@@ -51,7 +47,7 @@ export default function Skills() {
 
   const addSkill = () => {
     const newSkill: DynamicSkill = {
-      id: generateUUID(),
+      id: crypto.randomUUID(),
       name: 'nova_skill',
       description: 'Descrição da funcionalidade',
       parameters: { type: 'object', properties: {} },
@@ -63,13 +59,37 @@ export default function Skills() {
     setDynamicSkills([newSkill, ...dynamicSkills]);
   };
 
-  const handleDeleteSkill = async (id: string) => {
-    if (!confirm("Excluir esta skill permanentemente?")) return;
-    setDynamicSkills(prev => prev.filter(s => s.id !== id));
-    if (session?.user && id.includes('-')) {
-      await supabase.from('ai_skills').delete().eq('id', id);
-      toast.success("Skill removida.");
-    }
+  const handleExport = () => {
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(dynamicSkills, null, 2));
+    const downloadAnchorNode = document.createElement('a');
+    downloadAnchorNode.setAttribute("href", dataStr);
+    downloadAnchorNode.setAttribute("download", "jota_skills_export.json");
+    document.body.appendChild(downloadAnchorNode);
+    downloadAnchorNode.click();
+    downloadAnchorNode.remove();
+    toast.success("Arquivo de exportação gerado!");
+  };
+
+  const handleImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const imported = JSON.parse(e.target?.result as string);
+        const skillsWithNewIds = (Array.isArray(imported) ? imported : [imported]).map(s => ({
+          ...s,
+          id: crypto.randomUUID(),
+          userId: session?.user.id,
+          isGlobal: false
+        }));
+        setDynamicSkills([...skillsWithNewIds, ...dynamicSkills]);
+        toast.success(`${skillsWithNewIds.length} Skills importadas! Clique em Salvar para persistir.`);
+      } catch (err) {
+        toast.error("Arquivo JSON inválido.");
+      }
+    };
+    reader.readAsText(file);
   };
 
   const handleSave = async () => {
@@ -105,49 +125,9 @@ export default function Skills() {
     }
   };
 
-  const handleTestSkill = async (skill: DynamicSkill) => {
-    setIsTestingSkill(skill.id);
-    try {
-      const result = await executeSkill(skill.name, {}, dynamicSkills);
-      if (result.error) toast.error(`Erro: ${result.error}`);
-      else toast.success("Teste concluído com sucesso!");
-    } catch (err: any) {
-      toast.error(`Falha: ${err.message}`);
-    } finally {
-      setIsTestingSkill(null);
-    }
-  };
-
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file || !activeSkillIdForUpload) return;
-    setIsExtracting(true);
-    try {
-      let text = "";
-      const fileName = file.name.toLowerCase();
-      if (fileName.endsWith(".pdf")) {
-        // Lógica de extração PDF simplificada para o exemplo
-        text = "Conteúdo extraído do PDF..."; 
-      } else if (fileName.endsWith(".xlsx") || fileName.endsWith(".xls")) {
-        const data = await file.arrayBuffer();
-        const workbook = XLSX.read(data, { type: 'array' });
-        text = workbook.SheetNames.map(n => XLSX.utils.sheet_to_txt(workbook.Sheets[n])).join("\n");
-      } else {
-        text = await file.text();
-      }
-      updateSkill(activeSkillIdForUpload, 'knowledgeBaseText', text.trim());
-      toast.success("Conteúdo absorvido!");
-    } catch (e: any) {
-      toast.error("Erro na extração.");
-    } finally {
-      setIsExtracting(false);
-      setActiveSkillIdForUpload(null);
-    }
-  };
-
   return (
     <div className="container mx-auto px-4 py-8 space-y-6">
-      <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileUpload} />
+      <input type="file" ref={importRef} className="hidden" accept=".json" onChange={handleImport} />
       
       <div className="flex items-center justify-between border-b border-border pb-4">
         <div className="flex items-center gap-3">
@@ -156,10 +136,12 @@ export default function Skills() {
           </div>
           <div>
             <h1 className="text-2xl font-bold">Skills e Ferramentas</h1>
-            <p className="text-sm text-muted-foreground">Ensine novas habilidades e conecte bases de dados à sua IA.</p>
+            <p className="text-sm text-muted-foreground">Importe ou crie novas habilidades para sua IA.</p>
           </div>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" onClick={() => importRef.current?.click()}><FileJson className="h-4 w-4 mr-2" /> Importar</Button>
+          <Button variant="outline" onClick={handleExport}><Download className="h-4 w-4 mr-2" /> Exportar</Button>
           <Button variant="outline" onClick={addSkill}><Plus className="h-4 w-4 mr-2" /> Nova Skill</Button>
           <Button onClick={handleSave} disabled={isSaving} className="bg-emerald-600 hover:bg-emerald-700">
             {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />} Salvar Alterações
@@ -225,45 +207,25 @@ export default function Skills() {
                     <Input value={skill.description} disabled={!canEdit || !!skill.moduleId} onChange={e => updateSkill(skill.id, 'description', e.target.value)} />
                   </div>
 
-                  {skill.executionType === 'knowledge_base' ? (
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <Label className="text-blue-600 font-bold">Conteúdo da Base de Conhecimento</Label>
-                        <Button type="button" variant="outline" size="sm" className="h-7 text-[10px]" onClick={() => { setActiveSkillIdForUpload(skill.id); fileInputRef.current?.click(); }} disabled={!canEdit || isExtracting}>
-                          {isExtracting ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Upload className="h-3 w-3 mr-1" />} Carregar Arquivo
-                        </Button>
-                      </div>
-                      <Textarea className="font-sans text-xs h-48 bg-slate-950 text-blue-300" disabled={!canEdit} value={skill.knowledgeBaseText || ''} onChange={e => updateSkill(skill.id, 'knowledgeBaseText', e.target.value)} />
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Parâmetros JSON (Schema)</Label>
+                      <Textarea className="font-mono text-[10px] h-40 bg-slate-900 text-blue-300" disabled={!canEdit} value={typeof skill.parameters === 'string' ? skill.parameters : JSON.stringify(skill.parameters, null, 2)} onChange={e => { try { updateSkill(skill.id, 'parameters', JSON.parse(e.target.value)); } catch (err) { updateSkill(skill.id, 'parameters', e.target.value); } }} />
                     </div>
-                  ) : (
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    {skill.executionType === 'local_js' && (
                       <div className="space-y-2">
-                        <Label>Parâmetros JSON (Schema)</Label>
-                        <Textarea className="font-mono text-[10px] h-40 bg-slate-900 text-blue-300" disabled={!canEdit} value={typeof skill.parameters === 'string' ? skill.parameters : JSON.stringify(skill.parameters, null, 2)} onChange={e => { try { updateSkill(skill.id, 'parameters', JSON.parse(e.target.value)); } catch (err) { updateSkill(skill.id, 'parameters', e.target.value); } }} />
+                        <Label className="text-emerald-600 font-bold">Código JavaScript (Async)</Label>
+                        <Textarea className="font-mono text-[11px] h-40 bg-slate-950 text-emerald-400" disabled={!canEdit} value={skill.jsCode || ''} onChange={e => updateSkill(skill.id, 'jsCode', e.target.value)} />
                       </div>
-                      {skill.executionType === 'local_js' && (
-                        <div className="space-y-2">
-                          <Label className="text-emerald-600 font-bold">Código JavaScript (Async)</Label>
-                          <Textarea className="font-mono text-[11px] h-40 bg-slate-950 text-emerald-400" disabled={!canEdit} value={skill.jsCode || ''} onChange={e => updateSkill(skill.id, 'jsCode', e.target.value)} />
-                        </div>
-                      )}
-                    </div>
-                  )}
+                    )}
+                  </div>
 
                   <div className="flex justify-between items-center pt-4 border-t border-border/50">
-                    <div className="flex gap-4 items-center">
-                      <Button type="button" variant="outline" size="sm" className="text-emerald-600 border-emerald-200" onClick={() => handleTestSkill(skill)} disabled={isTestingSkill === skill.id}>
-                        {isTestingSkill === skill.id ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Play className="h-4 w-4 mr-2" />} Testar Agora
-                      </Button>
-                      {isAdmin && (
-                        <div className="flex items-center gap-2 bg-amber-500/5 px-3 py-1.5 rounded-md border border-amber-500/10">
-                          <Switch checked={skill.isGlobal || false} onCheckedChange={v => updateSkill(skill.id, 'isGlobal', v)} />
-                          <Label className="text-amber-700 font-bold text-[10px] uppercase">Global</Label>
-                        </div>
-                      )}
-                    </div>
+                    <Button type="button" variant="outline" size="sm" className="text-emerald-600 border-emerald-200" onClick={() => executeSkill(skill.name, {}, dynamicSkills)}>
+                      <Play className="h-4 w-4 mr-2" /> Testar Agora
+                    </Button>
                     {canEdit && !skill.moduleId && (
-                      <Button type="button" variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10" onClick={() => handleDeleteSkill(skill.id)}>
+                      <Button type="button" variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10" onClick={() => setDynamicSkills(prev => prev.filter(s => s.id !== skill.id))}>
                         <Trash2 className="h-4 w-4 mr-2" /> Remover Skill
                       </Button>
                     )}
