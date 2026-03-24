@@ -42,17 +42,13 @@ export interface ChatMessage {
   parts: any[];
 }
 
-export const DEFAULT_PRE_ANALYSIS_PROMPT = `Você é o Perito Tributário Sênior da Jota Contabilidade. Sua missão é entregar um MANUAL DE ESTRUTURAÇÃO FISCAL E VIABILIDADE (Nível 10/10).
-
-INICIE COM: “Parecer técnico-contábil estratégico, com visão preventiva, fiscalizatória, pericial e de planejamento tributário estruturado”
-
-INSTRUÇÃO DE INÍCIO: Comece com "RELATÓRIO DE VIABILIDADE TÉCNICA".`;
+export const DEFAULT_PRE_ANALYSIS_PROMPT = `Você é o Perito Tributário Sênior da Jota Contabilidade. Sua missão é entregar um MANUAL DE ESTRUTURAÇÃO FISCAL E VIABILIDADE (Nível 10/10).`;
 
 export const DEFAULT_AGENTS: AgentConfig[] = [
   {
     id: '33333333-3333-3333-3333-333333333333',
     nome: 'Perito Tributário Sênior',
-    systemPrompt: 'Você é o Perito Tributário Sênior da Jota Contabilidade. Sua missão é realizar auditorias profundas e encontrar economias fiscais. Utilize a skill #comparar_regimes_tributarios para validações matemáticas.',
+    systemPrompt: 'Você é o Perito Tributário Sênior da Jota Contabilidade.',
     order: 1,
     useN8n: false,
     n8nResponseUrl: 'http://localhost:3001/agent-result'
@@ -71,42 +67,9 @@ export const DEFAULT_PROMPTS: PromptConfig[] = [
 
 // Busca do Banco de Dados
 export async function fetchDbAgents(userId: string, isAdmin: boolean = false): Promise<AgentConfig[]> {
-  let data: any = null;
-  let error: any = null;
-
-  if (isAdmin) {
-    const res = await supabase.from('ai_agents').select('*').order('order_index', { ascending: true });
-    data = res.data; error = res.error;
-  } else {
-    const res = await supabase.from('ai_agents').select('*').or(`user_id.eq.${userId},is_global.eq.true`).order('order_index', { ascending: true });
-    if (res.error && res.error.message.includes('is_global')) {
-      const fallback = await supabase.from('ai_agents').select('*').eq('user_id', userId).order('order_index', { ascending: true });
-      data = fallback.data; error = fallback.error;
-    } else {
-      data = res.data; error = res.error;
-    }
-  }
-
-  if (error) return [];
-  
-  const myItems = data ? data.filter((d: any) => d.user_id === userId) : [];
-  if (myItems.length === 0) {
-    const defaults = DEFAULT_AGENTS.map(a => ({
-      user_id: userId, nome: a.nome, system_prompt: a.systemPrompt, order_index: a.order,
-      use_n8n: a.useN8n, n8n_response_url: a.n8nResponseUrl, is_active: true
-    }));
-    const { data: inserted } = await supabase.from('ai_agents').insert(defaults).select();
-    const combinedData = [...(data || []), ...(inserted || [])];
-    return combinedData.map((d: any) => ({
-      id: d.id, nome: d.nome, systemPrompt: d.system_prompt, order: d.order_index,
-      selectedSkills: d.selected_skills || [], enableMonitoring: d.enable_monitoring,
-      monitoringInterval: d.monitoring_interval, useN8n: d.use_n8n,
-      n8nResponseUrl: d.n8n_response_url, webhookUrl: d.webhook_url, moduleId: d.module_id,
-      isGlobal: d.is_global, userId: d.user_id
-    }));
-  }
-
-  return data.map((d: any) => ({
+  const res = await supabase.from('ai_agents').select('*').or(`user_id.eq.${userId},is_global.eq.true`).order('order_index', { ascending: true });
+  if (res.error) return [];
+  return res.data.map((d: any) => ({
     id: d.id, nome: d.nome, systemPrompt: d.system_prompt, order: d.order_index,
     selectedSkills: d.selected_skills || [], enableMonitoring: d.enable_monitoring,
     monitoringInterval: d.monitoring_interval, useN8n: d.use_n8n,
@@ -116,46 +79,12 @@ export async function fetchDbAgents(userId: string, isAdmin: boolean = false): P
 }
 
 export async function fetchDbPrompts(userId: string, isAdmin: boolean = false): Promise<PromptConfig[]> {
-  let data: any = null;
-  let error: any = null;
-
-  if (isAdmin) {
-    const res = await supabase.from('ai_prompts').select('*');
-    data = res.data; error = res.error;
-  } else {
-    const res = await supabase.from('ai_prompts').select('*').or(`user_id.eq.${userId},is_global.eq.true`);
-    if (res.error && res.error.message.includes('is_global')) {
-      const fallback = await supabase.from('ai_prompts').select('*').eq('user_id', userId);
-      data = fallback.data; error = fallback.error;
-    } else {
-      data = res.data; error = res.error;
-    }
-  }
-
-  if (error) return [];
-
-  const myItems = data ? data.filter((d: any) => d.user_id === userId) : [];
-  if (myItems.length === 0) {
-    const defaults = DEFAULT_PROMPTS.map(p => ({
-      user_id: userId, title: p.title, role: p.role, content: p.content, is_active: p.isActive
-    }));
-    const { data: inserted } = await supabase.from('ai_prompts').insert(defaults).select();
-    const combinedData = [...(data || []), ...(inserted || [])];
-    return combinedData.map((d: any) => ({
-      id: d.id, title: d.title, role: d.role, content: d.content, isActive: d.is_active, moduleId: d.module_id, isGlobal: d.is_global, userId: d.user_id
-    }));
-  }
-
-  return data.map((d: any) => ({
+  const res = await supabase.from('ai_prompts').select('*').or(`user_id.eq.${userId},is_global.eq.true`);
+  if (res.error) return [];
+  return res.data.map((d: any) => ({
     id: d.id, title: d.title, role: d.role, content: d.content, isActive: d.is_active, moduleId: d.module_id, isGlobal: d.is_global, userId: d.user_id
   }));
 }
-
-// Fallbacks locais
-export function loadAgentsFromStorage(): AgentConfig[] { return DEFAULT_AGENTS; }
-export function saveAgentsToStorage(agents: AgentConfig[]): void {}
-export function loadPromptsFromStorage(): PromptConfig[] { return DEFAULT_PROMPTS; }
-export function savePromptsToStorage(prompts: PromptConfig[]): void {}
 
 // Execução Gemini
 export async function callGeminiAgent(
@@ -169,11 +98,11 @@ export async function callGeminiAgent(
   const model = localStorage.getItem('jota-gemini-model') || 'gemini-2.0-flash';
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
   
+  // Se não houver skills permitidas (Modo Grátis), toolsArray fica vazio
   const dynamicSkills = skillsOverride || [];
   const dynamicManifests = dynamicSkills.map(s => ({ name: s.name, description: s.description, parameters: s.parameters }));
-  const allFunctionTools = [...JOTA_TOOLS_MANIFEST, ...dynamicManifests];
   const toolsArray: any[] = [];
-  if (allFunctionTools.length > 0) toolsArray.push({ functionDeclarations: allFunctionTools });
+  if (dynamicManifests.length > 0) toolsArray.push({ functionDeclarations: dynamicManifests });
 
   const initialBody = {
     system_instruction: { parts: [{ text: systemPrompt }] },
@@ -230,8 +159,7 @@ export async function sendChatMessage(
   const skillsList = skillsOverride.map(s => `- ${s.name}: ${s.description}`).join('\n');
 
   const systemPrompt = `Você é o Assistente Inteligente da Jota Contabilidade. 
-  FERRAMENTAS DISPONÍVEIS:\n${skillsList || "Nenhuma ferramenta no momento."}\n
-  Sempre que o usuário perguntar algo relacionado a estas ferramentas, chame-as obrigatoriamente.
+  FERRAMENTAS DISPONÍVEIS:\n${skillsList || "Nenhuma ferramenta no momento (Modo Grátis)."}\n
   Responda de forma profissional e use Markdown.`;
 
   const body = {
