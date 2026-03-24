@@ -203,7 +203,7 @@ return { status: 'ok', cliente: data };`}
               </AccordionItem>
               
               <AccordionItem value="prompts">
-                <AccordionTrigger className="text-sm font-bold"><Terminal className="h-4 w-4 mr-2" /> Como construir um Prompt</AccordionTrigger>
+                <AccordionTrigger className="text-sm font-bold"><Terminal className="h-4 w-4 mr-2" /> Como construir um Prompt (Personas)</AccordionTrigger>
                 <AccordionContent className="text-xs space-y-6 text-muted-foreground leading-relaxed">
                   <div className="space-y-2">
                     <p className="font-bold text-foreground">O que são Prompts?</p>
@@ -228,19 +228,19 @@ return { status: 'ok', cliente: data };`}
                   <div className="space-y-4 p-4 border rounded-lg bg-primary/5 border-primary/20">
                     <p className="font-bold text-primary flex items-center gap-2"><Database className="h-4 w-4" /> Variáveis de Contexto (O Poder da Placa-mãe)</p>
                     <p>Use o símbolo <strong>@</strong> para injetar dados reais do cliente no prompt. A IA substituirá automaticamente pelos valores atuais.</p>
-                    <ul className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2">
+                    <ul className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2 font-mono text-[10px]">
                       <li><code className="text-indigo-600">@empresa.razaoSocial</code></li>
                       <li><code className="text-indigo-600">@empresa.classificacaoFiscal</code></li>
                       <li><code className="text-indigo-600">@financeiro.faturamento.anual_total</code></li>
                       <li><code className="text-indigo-600">@financeiro.fator_r.percentual_atual</code></li>
                       <li><code className="text-indigo-600">@operacional.cnaes</code></li>
+                      <li><code className="text-indigo-600">@operacional.descricaoAtividades</code></li>
                     </ul>
                   </div>
 
                   <div className="space-y-4">
                     <p className="font-bold text-foreground border-b pb-1">Exemplos Práticos de Especialistas:</p>
                     
-                    {/* Exemplo 1: Especialista em Simples Nacional */}
                     <div className="space-y-2">
                       <p className="text-[10px] uppercase font-bold text-indigo-600 flex items-center gap-1"><MessageSquareQuote className="h-3 w-3" /> 1. Especialista em Simples Nacional</p>
                       <div className="bg-slate-950 p-3 rounded-md border border-white/10">
@@ -253,7 +253,6 @@ Seu foco é validar se o Fator R (@financeiro.fator_r.percentual_atual) permite 
                       </div>
                     </div>
 
-                    {/* Exemplo 2: Analista de Viabilidade */}
                     <div className="space-y-2">
                       <p className="text-[10px] uppercase font-bold text-indigo-600 flex items-center gap-1"><Sparkles className="h-3 w-3" /> 2. Analista de Novos Negócios</p>
                       <div className="bg-slate-950 p-3 rounded-md border border-white/10">
@@ -270,9 +269,13 @@ Verifique se existe algum impedimento legal para o Simples Nacional.`}
               </AccordionItem>
 
               <AccordionItem value="agents">
-                <AccordionTrigger className="text-sm font-bold"><Workflow className="h-4 w-4 mr-2" /> Como construir um Agente</AccordionTrigger>
+                <AccordionTrigger className="text-sm font-bold"><Workflow className="h-4 w-4 mr-2" /> Como construir um Agente (Workflows)</AccordionTrigger>
                 <AccordionContent className="text-xs space-y-4 text-muted-foreground leading-relaxed">
-                  <p>Agentes são orquestradores que podem executar sequências de Skills ou workflows complexos.</p>
+                  <div className="space-y-2">
+                    <p className="font-bold text-foreground">O que são Agentes?</p>
+                    <p>Agentes são orquestradores. Eles não apenas respondem, eles executam uma sequência de tarefas (cadeia de raciocínio) usando as Skills disponíveis.</p>
+                  </div>
+
                   <div className="space-y-2">
                     <p className="font-bold text-foreground">Estrutura do JSON para Importação:</p>
                     <div className="bg-slate-950 p-3 rounded-md border border-white/10">
@@ -282,11 +285,17 @@ Verifique se existe algum impedimento legal para o Simples Nacional.`}
     "nome": "Nome do Agente",
     "systemPrompt": "Instruções de orquestração...",
     "order": 1,
-    "useN8n": false
+    "useN8n": false,
+    "n8nResponseUrl": "URL para retorno assíncrono"
   }
 ]`}
                       </code>
                     </div>
+                  </div>
+
+                  <div className="space-y-2 p-3 bg-orange-500/5 border border-orange-500/20 rounded-lg">
+                    <p className="font-bold text-orange-700 flex items-center gap-2"><Zap className="h-4 w-4" /> Integração com n8n (Modo Assíncrono)</p>
+                    <p>Para processos pesados (ex: gerar um relatório de 20 páginas), ative o <strong>Modo n8n</strong>. O Agente enviará os dados para o seu workflow e aguardará a resposta na URL configurada.</p>
                   </div>
                 </AccordionContent>
               </AccordionItem>
