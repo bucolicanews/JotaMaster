@@ -12,6 +12,9 @@ import ProductList from "./pages/ProductList";
 import Configuracao from "./pages/Configuracao";
 import Viabilidade from "./pages/Viabilidade";
 import Chat from "./pages/Chat";
+import Skills from "./pages/Skills";
+import Prompts from "./pages/Prompts";
+import Agents from "./pages/Agents";
 import Modules from "./pages/Modules";
 import CRM from "./pages/CRM"; 
 import NotFound from "./pages/NotFound";
@@ -25,7 +28,6 @@ import { ModuleProtectedRoute } from "./components/ModuleProtectedRoute";
 
 const queryClient = new QueryClient();
 
-// Componente para proteger rotas privadas garantindo que aguarda o check de sessão
 const RotaProtegida: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { autenticado, isLoading } = useAuth();
   
@@ -33,7 +35,7 @@ const RotaProtegida: React.FC<{ children: React.ReactNode }> = ({ children }) =>
     return (
       <div className="flex h-[60vh] flex-col items-center justify-center gap-4 text-muted-foreground">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="text-sm font-medium">Validando credenciais de acesso...</p>
+        <p className="text-sm font-medium">Validando credenciais...</p>
       </div>
     );
   }
@@ -44,19 +46,27 @@ const RotaProtegida: React.FC<{ children: React.ReactNode }> = ({ children }) =>
 const AppRoutes = () => (
   <Layout>
     <Routes>
-      <Route path="/" element={<Index />} />
+      {/* Rotas Públicas (Apenas Login) */}
       <Route path="/login" element={<Login />} />
-      <Route path="/precificacao" element={<Pricing />} />
-      <Route path="/products" element={<ProductList />} />
-      <Route path="/audit" element={<Audit />} />
-      <Route path="/configuracao" element={<Configuracao />} />
       
-      {/* Rotas Protegidas Padrão */}
+      {/* Rotas Protegidas (Core & Inteligência) */}
+      <Route path="/" element={<RotaProtegida><Index /></RotaProtegida>} />
       <Route path="/chat" element={<RotaProtegida><Chat /></RotaProtegida>} />
+      <Route path="/skills" element={<RotaProtegida><Skills /></RotaProtegida>} />
+      <Route path="/prompts" element={<RotaProtegida><Prompts /></RotaProtegida>} />
+      <Route path="/agents" element={<RotaProtegida><Agents /></RotaProtegida>} />
+      <Route path="/configuracao" element={<RotaProtegida><Configuracao /></RotaProtegida>} />
+      <Route path="/modules" element={<RotaProtegida><Modules /></RotaProtegida>} />
+
+      {/* Módulos Legados (Privatizados) */}
+      <Route path="/precificacao" element={<RotaProtegida><Pricing /></RotaProtegida>} />
+      <Route path="/products" element={<RotaProtegida><ProductList /></RotaProtegida>} />
+      <Route path="/audit" element={<RotaProtegida><Audit /></RotaProtegida>} />
       <Route path="/comparison" element={<RotaProtegida><Comparison /></RotaProtegida>} />
       <Route path="/impact" element={<RotaProtegida><ImpactAnalysis /></RotaProtegida>} />
       <Route path="/new-business" element={<RotaProtegida><Viabilidade /></RotaProtegida>} />
-      <Route path="/modules" element={<RotaProtegida><Modules /></RotaProtegida>} />
+      
+      {/* Administração */}
       <Route path="/admin" element={<RotaProtegida><AdminDashboard /></RotaProtegida>} />
 
       {/* ROTA NATIVA/LEGACY (INTERNAL) */}
@@ -74,7 +84,6 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
-      {/* Adicionando future flags para silenciar avisos de migração do React Router v7 */}
       <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <AuthProvider>
           <AppRoutes />

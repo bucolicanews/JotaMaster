@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { 
   Upload, BarChart3, Settings, Tags, TrendingUp, ShieldCheck, 
   Sparkles, Lock, LogOut, Home, MessageSquare, Blocks, 
-  ShieldAlert, Menu, UserCircle, LayoutGrid, ExternalLink 
+  ShieldAlert, Menu, UserCircle, LayoutGrid, ExternalLink,
+  Wrench, MessageSquareQuote, Zap
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -17,17 +18,21 @@ interface LayoutProps {
   children: React.ReactNode;
 }
 
-const publicNavItems = [
+// Itens que agora exigem login e serão módulos futuramente
+const legacyModuleItems = [
   { to: '/', label: 'Início', icon: Home },
   { to: '/precificacao', label: 'Precificação', icon: Upload },
   { to: '/products', label: 'Lista de Produtos', icon: Tags },
   { to: '/audit', label: 'Auditoria Fiscal', icon: ShieldCheck },
+  { to: '/new-business', label: 'Análise de Viabilidade', icon: Sparkles },
 ];
 
-const privateNavItems = [
-  { to: '/modules', label: 'Marketplace', icon: Blocks },
+// Itens de Inteligência (Core)
+const intelligenceNavItems = [
   { to: '/chat', label: 'Chat Inteligente', icon: MessageSquare },
-  { to: '/new-business', label: 'Análise de Viabilidade', icon: Sparkles },
+  { to: '/skills', label: 'Minhas Skills', icon: Wrench },
+  { to: '/prompts', label: 'Biblioteca Prompts', icon: MessageSquareQuote },
+  { to: '/agents', label: 'Agentes Especialistas', icon: Zap },
 ];
 
 const adminNavItems = [
@@ -41,7 +46,6 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [dynamicModules, setDynamicModules] = useState<any[]>([]);
 
-  // Busca módulos instalados com lógica desacoplada (Resiliência a falta de FK)
   useEffect(() => {
     const fetchInstalledModules = async () => {
       if (!autenticado || !session?.user) {
@@ -50,7 +54,6 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       }
 
       try {
-        // 1. Busca apenas os IDs dos módulos instalados e ativos para o usuário
         const { data: installedData, error: installedError } = await supabase
           .from('installed_modules')
           .select('module_id')
@@ -64,8 +67,6 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         }
 
         const moduleIds = installedData.map(item => item.module_id);
-
-        // 2. Busca os detalhes desses módulos no catálogo
         const { data: systemData, error: systemError } = await supabase
           .from('system_modules')
           .select('id, name, module_type')
@@ -73,7 +74,6 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
         if (systemError) throw systemError;
 
-        // 3. Formata para o menu
         const formatted = (systemData || []).map((mod: any) => ({
           to: mod.module_type === 'internal' ? `/${mod.id}` : `/app/${mod.id}`,
           label: mod.name,
@@ -97,10 +97,10 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const handleLogout = async () => {
     try {
       await logout();
-      toast.info('Sessão encerrada com sucesso.');
-      navigate('/');
+      toast.info('Sessão encerrada.');
+      navigate('/login');
     } catch (error) {
-      toast.error('Erro ao sair do sistema.');
+      toast.error('Erro ao sair.');
     }
   };
 
@@ -137,42 +137,52 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
           </div>
           <div className="overflow-hidden">
             <h1 className="text-lg font-bold text-black truncate leading-tight">JOTA</h1>
-            <p className="text-[10px] text-black/70 truncate leading-tight">Análise Tributária</p>
+            <p className="text-[10px] text-black/70 truncate leading-tight">Placa-mãe Inteligente</p>
           </div>
         </div>
 
         <div className="flex-1 overflow-y-auto py-4 px-3 custom-scrollbar">
-          <div className="space-y-1">
-            <div className="mb-2 px-3 text-[10px] font-bold uppercase text-muted-foreground tracking-wider">Acesso Público</div>
-            {publicNavItems.map(item => <NavButton key={item.to} item={item} />)}
-          </div>
-
-          {autenticado && (
+          
+          {autenticado ? (
             <>
-              {dynamicModules.length > 0 && (
+              {/* SEÇÃO 1: INTELIGÊNCIA (CORE) */}
+              <div className="space-y-1">
+                <div className="mb-2 px-3 text-[10px] font-bold uppercase text-primary tracking-wider flex items-center gap-2">
+                  <Zap className="h-3 w-3" /> Inteligência Core
+                </div>
+                {intelligenceNavItems.map(item => <NavButton key={item.to} item={item} />)}
+              </div>
+
+              {/* SEÇÃO 2: MÓDULOS INSTALADOS */}
+              <div className="space-y-1 mt-6">
+                <div className="mb-2 px-3 text-[10px] font-bold uppercase text-muted-foreground tracking-wider flex items-center gap-2">
+                  <Blocks className="h-3 w-3" /> Marketplace
+                </div>
+                <NavButton item={{ to: '/modules', label: 'Loja de Módulos', icon: Blocks }} />
+                {dynamicModules.map(item => (
+                  <NavButton key={item.id} item={item} isDynamic />
+                ))}
+              </div>
+
+              {/* SEÇÃO 3: MÓDULOS LEGADOS (FUTUROS PLUGINS) */}
+              <div className="space-y-1 mt-6">
+                <div className="mb-2 px-3 text-[10px] font-bold uppercase text-muted-foreground tracking-wider">Módulos Legados</div>
+                {legacyModuleItems.map(item => <NavButton key={item.to} item={item} />)}
+              </div>
+
+              {isAdmin && (
                 <div className="space-y-1 mt-6">
-                  <div className="mb-2 px-3 text-[10px] font-bold uppercase text-primary tracking-wider flex items-center gap-2">
-                    <LayoutGrid className="h-3 w-3" /> Meus Módulos
+                  <div className="mb-2 px-3 text-[10px] font-bold uppercase text-destructive tracking-wider flex items-center gap-1">
+                    <ShieldAlert className="h-3 w-3" /> Administração
                   </div>
-                  {dynamicModules.map(item => (
-                    <NavButton key={item.id} item={item} isDynamic />
-                  ))}
+                  {adminNavItems.map(item => <NavButton key={item.to} item={item} />)}
                 </div>
               )}
-
-              <div className="space-y-1 mt-6">
-                <div className="mb-2 px-3 text-[10px] font-bold uppercase text-muted-foreground tracking-wider">SaaS & Inteligência</div>
-                {privateNavItems.map(item => <NavButton key={item.to} item={item} />)}
-              </div>
             </>
-          )}
-
-          {autenticado && isAdmin && (
-            <div className="space-y-1 mt-6">
-              <div className="mb-2 px-3 text-[10px] font-bold uppercase text-destructive tracking-wider flex items-center gap-1">
-                <ShieldAlert className="h-3 w-3" /> Administração
-              </div>
-              {adminNavItems.map(item => <NavButton key={item.to} item={item} />)}
+          ) : (
+            <div className="p-4 text-center space-y-4">
+              <Lock className="h-12 w-12 mx-auto text-muted-foreground opacity-20" />
+              <p className="text-xs text-muted-foreground">Faça login para acessar as ferramentas de inteligência e módulos.</p>
             </div>
           )}
 
@@ -195,7 +205,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                 </div>
               </div>
               <Button size="sm" variant="outline" className="w-full text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/20" onClick={handleLogout}>
-                <LogOut className="h-4 w-4 mr-2" /> Sair do Sistema
+                <LogOut className="h-4 w-4 mr-2" /> Sair
               </Button>
             </div>
           ) : (
@@ -220,24 +230,23 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
               <Button variant="ghost" size="icon"><Menu className="h-6 w-6" /></Button>
             </SheetTrigger>
             <SheetContent side="left" className="p-0 w-72">
-              <SheetTitle className="sr-only">Menu de Navegação</SheetTitle>
-              {/* Reutiliza o conteúdo da sidebar aqui se necessário, ou simplifica */}
+              <SheetTitle className="sr-only">Menu</SheetTitle>
               <div className="flex flex-col h-full">
                 <div className="p-4 border-b border-border bg-gradient-primary">
                   <h1 className="text-lg font-bold text-black">JOTA</h1>
                 </div>
                 <div className="flex-1 overflow-y-auto p-4">
-                  <div className="space-y-1">
-                    {publicNavItems.map(item => <NavButton key={item.to} item={item} />)}
-                    {autenticado && (
-                      <>
-                        {dynamicModules.map(item => <NavButton key={item.id} item={item} isDynamic />)}
-                        {privateNavItems.map(item => <NavButton key={item.to} item={item} />)}
-                      </>
-                    )}
-                    {autenticado && isAdmin && adminNavItems.map(item => <NavButton key={item.to} item={item} />)}
-                    <NavButton item={{ to: '/configuracao', label: 'Configurações', icon: Settings }} isLocked={!autenticado} />
-                  </div>
+                  {autenticado ? (
+                    <>
+                      {intelligenceNavItems.map(item => <NavButton key={item.to} item={item} />)}
+                      {dynamicModules.map(item => <NavButton key={item.id} item={item} isDynamic />)}
+                      {legacyModuleItems.map(item => <NavButton key={item.to} item={item} />)}
+                      {isAdmin && adminNavItems.map(item => <NavButton key={item.to} item={item} />)}
+                    </>
+                  ) : (
+                    <NavButton item={{ to: '/login', label: 'Login', icon: Lock }} />
+                  )}
+                  <NavButton item={{ to: '/configuracao', label: 'Configurações', icon: Settings }} isLocked={!autenticado} />
                 </div>
               </div>
             </SheetContent>
