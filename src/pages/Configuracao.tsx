@@ -111,17 +111,69 @@ const Configuracao = () => {
             <Accordion type="single" collapsible className="w-full">
               <AccordionItem value="skills">
                 <AccordionTrigger className="text-sm font-bold"><Code className="h-4 w-4 mr-2" /> Como construir uma Skill</AccordionTrigger>
-                <AccordionContent className="text-xs space-y-2 text-muted-foreground leading-relaxed">
-                  <p>As Skills são funções JavaScript assíncronas executadas no contexto do Master. Elas permitem que a IA interaja com o mundo real.</p>
-                  <div className="bg-slate-950 p-3 rounded-md border border-white/10">
-                    <p className="text-emerald-400 font-mono mb-2">// Exemplo de Skill de consulta</p>
-                    <code className="text-emerald-500 font-mono">
-                      const res = await fetch('https://api.exemplo.com/dados');<br/>
-                      const data = await res.json();<br/>
-                      return data;
-                    </code>
+                <AccordionContent className="text-xs space-y-6 text-muted-foreground leading-relaxed">
+                  <div className="space-y-2">
+                    <p className="font-bold text-foreground">O que são Skills?</p>
+                    <p>As Skills são funções JavaScript assíncronas executadas no contexto do Master. Elas permitem que a IA interaja com o mundo real, consulte bancos de dados e APIs externas.</p>
                   </div>
-                  <p>Use o objeto <strong>args</strong> para receber parâmetros da IA e <strong>helpers</strong> para acessar funções nativas do sistema (como cálculo de impostos).</p>
+
+                  <div className="space-y-2">
+                    <p className="font-bold text-foreground">Objetos Disponíveis no Escopo:</p>
+                    <ul className="list-disc pl-4 space-y-1">
+                      <li><code className="text-primary">args</code>: Objeto contendo os parâmetros extraídos pela IA (ex: args.cnpj).</li>
+                      <li><code className="text-primary">helpers</code>: Funções nativas do sistema (Cálculo de Simples Nacional, NCM, etc).</li>
+                      <li><code className="text-primary">supabase</code>: Cliente oficial para ler/gravar dados no seu banco de dados.</li>
+                    </ul>
+                  </div>
+
+                  <div className="space-y-4">
+                    <p className="font-bold text-foreground">Exemplos Práticos:</p>
+                    
+                    {/* Exemplo 1 */}
+                    <div className="space-y-2">
+                      <p className="text-[10px] uppercase font-bold text-indigo-600">1. Integração com API Externa (ViaCEP)</p>
+                      <div className="bg-slate-950 p-3 rounded-md border border-white/10">
+                        <code className="text-emerald-500 font-mono block whitespace-pre">
+{`const cleanCep = String(args.cep).replace(/\\D/g, '');
+const res = await fetch(\`https://viacep.com.br/ws/\${cleanCep}/json/\`);
+const data = await res.json();
+return data;`}
+                        </code>
+                      </div>
+                    </div>
+
+                    {/* Exemplo 2 */}
+                    <div className="space-y-2">
+                      <p className="text-[10px] uppercase font-bold text-indigo-600">2. Uso de Motores Internos (Cálculo Simples Nacional)</p>
+                      <div className="bg-slate-950 p-3 rounded-md border border-white/10">
+                        <code className="text-emerald-500 font-mono block whitespace-pre">
+{`// helpers.calculateSimplesNacionalEffectiveRate(anexo, faturamento12m)
+const taxa = helpers.calculateSimplesNacionalEffectiveRate(args.anexo, args.faturamento);
+return { 
+  aliquota_efetiva: taxa.toFixed(2) + "%",
+  imposto_estimado: args.faturamento * (taxa / 100)
+};`}
+                        </code>
+                      </div>
+                    </div>
+
+                    {/* Exemplo 3 */}
+                    <div className="space-y-2">
+                      <p className="text-[10px] uppercase font-bold text-indigo-600">3. Persistência no Banco de Dados (CRM)</p>
+                      <div className="bg-slate-950 p-3 rounded-md border border-white/10">
+                        <code className="text-emerald-500 font-mono block whitespace-pre">
+{`// Busca clientes ativos diretamente no Supabase
+const { data, error } = await supabase
+  .from('crm_clientes')
+  .select('*')
+  .eq('status', 'ativo');
+
+if (error) throw error;
+return data;`}
+                        </code>
+                      </div>
+                    </div>
+                  </div>
                 </AccordionContent>
               </AccordionItem>
               

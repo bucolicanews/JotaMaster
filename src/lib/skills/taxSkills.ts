@@ -132,7 +132,6 @@ export async function fetchDbSkills(userId: string, isAdmin: boolean = false): P
   } else {
     const res = await supabase.from('ai_skills').select('*').or(`user_id.eq.${userId},is_global.eq.true`);
     if (res.error && res.error.message.includes('is_global')) {
-      // Fallback: A coluna is_global não existe ainda no banco
       const fallback = await supabase.from('ai_skills').select('*').eq('user_id', userId);
       data = fallback.data; error = fallback.error;
     } else {
@@ -143,25 +142,6 @@ export async function fetchDbSkills(userId: string, isAdmin: boolean = false): P
   if (error) {
     console.error("Erro ao buscar skills do DB:", error);
     return [];
-  }
-
-  const myItems = data ? data.filter((d: any) => d.user_id === userId) : [];
-
-  if (myItems.length === 0) {
-    const defaultsToInsert = DEFAULT_DYNAMIC_SKILLS.map(s => ({
-       user_id: userId, name: s.name, description: s.description,
-       suggested_instruction: s.suggestedInstruction, parameters: s.parameters,
-       execution_type: s.executionType, js_code: s.jsCode, is_active: s.isActive
-    }));
-    const { data: inserted } = await supabase.from('ai_skills').insert(defaultsToInsert).select();
-    const combinedData = [...(data || []), ...(inserted || [])];
-    return combinedData.map((d: any) => ({
-      id: d.id, name: d.name, description: d.description,
-      suggestedInstruction: d.suggested_instruction, parameters: d.parameters,
-      executionType: d.execution_type as any, jsCode: d.js_code, webhookUrl: d.webhook_url,
-      knowledgeBaseText: d.knowledge_base_text, url: d.url, selector: d.selector,
-      isActive: d.is_active, moduleId: d.module_id, isGlobal: d.is_global, userId: d.user_id
-    }));
   }
 
   return data.map((d: any) => ({
@@ -244,8 +224,9 @@ export async function executeSkill(name: string, args: any, skillsOverride?: Dyn
           const lastBrace = codeToExecute.lastIndexOf('}');
           if (firstBrace !== -1 && lastBrace !== -1) codeToExecute = codeToExecute.substring(firstBrace + 1, lastBrace);
       }
-      const fn = new AsyncFunction('args', 'helpers', codeToExecute);
-      return await fn(args, helpers);
+      // Injetando supabase no escopo da função
+      const fn = new AsyncFunction('args', 'helpers', 'supabase', codeToExecute);
+      return await fn(args, helpers, supabase);
     } catch (e: any) {
       return { error: "Erro no JS da Skill: " + e.message };
     }
