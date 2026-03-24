@@ -19,12 +19,28 @@ serve(async (req) => {
     const { data: { user }, error: authError } = await supabaseClient.auth.getUser(authHeader.replace('Bearer ', ''))
     if (authError || !user) return new Response('Unauthorized', { status: 401, headers: corsHeaders })
 
-    const { packageId } = await req.json()
+    const { packageId, paymentMethod } = await req.json() // paymentMethod: 'pix' ou 'CREDIT_CARD'
 
     const { data: pkg } = await supabaseClient.from('credit_packages').select('*').eq('id', packageId).single()
     const { data: settings } = await supabaseClient.from('system_settings').select('*').eq('id', 'global_config').single()
 
     if (!pkg || !settings) throw new Error("Configurações incompletas.")
+
+    // --- LÓGICA DE TAXAS ---
+    let baseAmount = Number(pkg.price_brl);
+    let finalAmount = baseAmount;
+
+    if (settings.pagbank_pass_fees_to_customer) {
+      const isPix = paymentMethod === 'pix';
+      const fixed = isPix ? Number(settings.pagbank_pix_fee_fixed || 0) : Number(settings.pagbank_card_fee_fixed || 0);
+      const percent = isPix ? Number(settings.pagbank_pix_fee_percentage || 0) : Number(settings.pagbank_card_fee_percentage || 0);
+      
+      // Fórmula para garantir que o lojista receba o valor base: (Base + Fixo) / (1 - %)
+      finalAmount = (baseAmount + fixed) / (1 - (percent / 100));
+    }
+
+    const amountCents = Math.round(finalAmount * 100);
+    // -----------------------
 
     const isProd = settings.pagbank_env === 'production'
     const token = isProd ? settings.pagbank_token_production : settings.pagbank_token_sandbox
@@ -32,11 +48,10 @@ serve(async (req) => {
 
     const referenceId = crypto.randomUUID()
     
-    // 1. Registrar intenção de pagamento na tabela de controle
     await supabaseClient.from('pagbank_payments').insert({
       user_id: user.id,
       reference_id: referenceId,
-      amount_cents: Math.round(Number(pkg.price_brl) * 100),
+      amount_cents: amountCents,
       credits_to_add: pkg.credits_amount,
       status: 'PENDING'
     })
@@ -53,7 +68,7 @@ serve(async (req) => {
         reference_id: pkg.id,
         name: `Recarga JOTA: ${pkg.name}`,
         quantity: 1,
-        unit_amount: Math.round(Number(pkg.price_brl) * 100)
+        unit_amount: amountCents
       }],
       notification_urls: [`${Deno.env.get('SUPABASE_URL')}/functions/v1/pagbank-webhook`]
     }

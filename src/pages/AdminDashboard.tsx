@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ShieldAlert, Users, Activity, Search, Blocks, Edit, Save, X, Globe, Code, Coins, KeyRound, TrendingUp, Loader2, Plus, Trash2, Star, CreditCard } from 'lucide-react';
+import { ShieldAlert, Users, Activity, Search, Blocks, Edit, Save, X, Globe, Code, Coins, KeyRound, TrendingUp, Loader2, Plus, Trash2, Star, CreditCard, Percent, DollarSign } from 'lucide-react';
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from '@/integrations/supabase/client';
@@ -18,7 +18,6 @@ import { cn } from '@/lib/utils';
 export default function AdminDashboard() {
   const { isAdmin } = useAuth();
   const [clientes, setClientes] = useState<any[]>([]);
-  const [catalogo, setCatalogo] = useState<any[]>([]);
   const [packages, setPackages] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
@@ -29,9 +28,25 @@ export default function AdminDashboard() {
     price_per_1m_output_tokens: 2.50,
     profit_multiplier: 4.0,
     credit_conversion_rate: 10.0,
+    // PagBank
     pagbank_token_sandbox: '',
     pagbank_token_production: '',
-    pagbank_env: 'sandbox'
+    pagbank_env: 'sandbox',
+    pagbank_pass_fees_to_customer: false,
+    pagbank_pix_fee_fixed: 1.20,
+    pagbank_pix_fee_percentage: 0.3,
+    pagbank_card_fee_fixed: 1.20,
+    pagbank_card_fee_percentage: 6.0,
+    // Stripe
+    stripe_enabled: false,
+    stripe_env: 'test',
+    stripe_pass_fees: false,
+    stripe_fee_fixed: 1.20,
+    stripe_fee_percentage: 6.0,
+    stripe_secret_key_prod: '',
+    stripe_webhook_secret_prod: '',
+    stripe_secret_key_test: '',
+    stripe_webhook_secret_test: ''
   });
 
   const [isAddingPackage, setIsAddingPackage] = useState(false);
@@ -60,14 +75,19 @@ export default function AdminDashboard() {
       const { data, error } = await supabase.from('system_settings').select('*').eq('id', 'global_config').single();
       if (data) {
         setSettings({
-          vertex_api_key: data.vertex_api_key || '',
-          price_per_1m_input_tokens: Number(data.price_per_1m_input_tokens) || 1.25,
-          price_per_1m_output_tokens: Number(data.price_per_1m_output_tokens) || 2.50,
-          profit_multiplier: Number(data.profit_multiplier) || 4.0,
-          credit_conversion_rate: Number(data.credit_conversion_rate) || 10.0,
-          pagbank_token_sandbox: data.pagbank_token_sandbox || '',
-          pagbank_token_production: data.pagbank_token_production || '',
-          pagbank_env: data.pagbank_env || 'sandbox'
+          ...settings,
+          ...data,
+          // Garantir que números sejam números
+          price_per_1m_input_tokens: Number(data.price_per_1m_input_tokens),
+          price_per_1m_output_tokens: Number(data.price_per_1m_output_tokens),
+          profit_multiplier: Number(data.profit_multiplier),
+          credit_conversion_rate: Number(data.credit_conversion_rate),
+          pagbank_pix_fee_fixed: Number(data.pagbank_pix_fee_fixed),
+          pagbank_pix_fee_percentage: Number(data.pagbank_pix_fee_percentage),
+          pagbank_card_fee_fixed: Number(data.pagbank_card_fee_fixed),
+          pagbank_card_fee_percentage: Number(data.pagbank_card_fee_percentage),
+          stripe_fee_fixed: Number(data.stripe_fee_fixed),
+          stripe_fee_percentage: Number(data.stripe_fee_percentage)
         });
       }
     } catch (e) { console.warn("Configurações globais não localizadas."); }
@@ -153,7 +173,7 @@ export default function AdminDashboard() {
           <TabsTrigger value="clientes"><Users className="h-4 w-4 mr-2" /> Locatários</TabsTrigger>
           <TabsTrigger value="pacotes"><Coins className="h-4 w-4 mr-2" /> Pacotes</TabsTrigger>
           <TabsTrigger value="economia"><TrendingUp className="h-4 w-4 mr-2" /> Economia IA</TabsTrigger>
-          <TabsTrigger value="pagamentos"><CreditCard className="h-4 w-4 mr-2" /> PagBank</TabsTrigger>
+          <TabsTrigger value="pagamentos"><CreditCard className="h-4 w-4 mr-2" /> Pagamentos</TabsTrigger>
         </TabsList>
 
         <TabsContent value="clientes" className="space-y-4">
@@ -329,56 +349,132 @@ export default function AdminDashboard() {
         </TabsContent>
 
         <TabsContent value="pagamentos" className="space-y-6">
-          <Card className="shadow-elegant border-primary/20">
-            <CardHeader className="bg-muted/10 border-b border-border/50">
-              <CardTitle className="text-lg flex items-center gap-2"><CreditCard className="h-5 w-5 text-primary" />Gateway PagBank</CardTitle>
-              <CardDescription>Configure as credenciais para recebimento de pagamentos.</CardDescription>
-            </CardHeader>
-            <CardContent className="p-6 space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label>Ambiente</Label>
-                  <Select value={settings.pagbank_env} onValueChange={(v) => setSettings({...settings, pagbank_env: v})}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="sandbox">Sandbox (Teste)</SelectItem>
-                      <SelectItem value="production">Produção (Real)</SelectItem>
-                    </SelectContent>
-                  </Select>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* PAGBANK CONFIG */}
+            <Card className="shadow-elegant border-primary/20">
+              <CardHeader className="bg-muted/10 border-b border-border/50">
+                <CardTitle className="text-lg flex items-center gap-2"><CreditCard className="h-5 w-5 text-primary" />Gateway PagBank</CardTitle>
+              </CardHeader>
+              <CardContent className="p-6 space-y-6">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Ambiente</Label>
+                    <Select value={settings.pagbank_env} onValueChange={(v) => setSettings({...settings, pagbank_env: v})}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="sandbox">Sandbox (Teste)</SelectItem>
+                        <SelectItem value="production">Produção (Real)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex items-center justify-between pt-8">
+                    <Label className="text-xs font-bold">Repassar Taxas?</Label>
+                    <Switch checked={settings.pagbank_pass_fees_to_customer} onCheckedChange={v => setSettings({...settings, pagbank_pass_fees_to_customer: v})} />
+                  </div>
                 </div>
-              </div>
 
-              <div className="space-y-4 pt-4 border-t border-border/50">
+                <div className="space-y-4 p-4 border rounded-lg bg-muted/5">
+                  <h4 className="text-xs font-bold uppercase flex items-center gap-2 text-primary"><Percent className="h-3 w-3" /> Custo do PIX</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <Label className="text-[10px]">Taxa Fixa (R$)</Label>
+                      <Input type="number" step="0.01" value={settings.pagbank_pix_fee_fixed} onChange={e => setSettings({...settings, pagbank_pix_fee_fixed: parseFloat(e.target.value) || 0})} />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px]">Taxa Percentual (%)</Label>
+                      <Input type="number" step="0.01" value={settings.pagbank_pix_fee_percentage} onChange={e => setSettings({...settings, pagbank_pix_fee_percentage: parseFloat(e.target.value) || 0})} />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4 p-4 border rounded-lg bg-muted/5">
+                  <h4 className="text-xs font-bold uppercase flex items-center gap-2 text-primary"><CreditCard className="h-3 w-3" /> Custo do Cartão</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <Label className="text-[10px]">Taxa Fixa (R$)</Label>
+                      <Input type="number" step="0.01" value={settings.pagbank_card_fee_fixed} onChange={e => setSettings({...settings, pagbank_card_fee_fixed: parseFloat(e.target.value) || 0})} />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px]">Taxa Percentual (%)</Label>
+                      <Input type="number" step="0.01" value={settings.pagbank_card_fee_percentage} onChange={e => setSettings({...settings, pagbank_card_fee_percentage: parseFloat(e.target.value) || 0})} />
+                    </div>
+                  </div>
+                </div>
+
                 <div className="space-y-2">
                   <Label>Token Sandbox</Label>
-                  <Input 
-                    type="password" 
-                    value={settings.pagbank_token_sandbox}
-                    onChange={(e) => setSettings({...settings, pagbank_token_sandbox: e.target.value})}
-                    className="font-mono text-xs"
-                  />
+                  <Input type="password" value={settings.pagbank_token_sandbox} onChange={(e) => setSettings({...settings, pagbank_token_sandbox: e.target.value})} className="font-mono text-xs" />
                 </div>
                 <div className="space-y-2">
                   <Label>Token Produção</Label>
-                  <Input 
-                    type="password" 
-                    value={settings.pagbank_token_production}
-                    onChange={(e) => setSettings({...settings, pagbank_token_production: e.target.value})}
-                    className="font-mono text-xs"
-                  />
+                  <Input type="password" value={settings.pagbank_token_production} onChange={(e) => setSettings({...settings, pagbank_token_production: e.target.value})} className="font-mono text-xs" />
                 </div>
-              </div>
+              </CardContent>
+            </Card>
 
-              <Button 
-                className="w-full bg-primary hover:bg-primary/90" 
-                onClick={handleSaveSettings}
-                disabled={isSavingSettings}
-              >
-                {isSavingSettings ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
-                Salvar Configurações PagBank
-              </Button>
-            </CardContent>
-          </Card>
+            {/* STRIPE CONFIG */}
+            <Card className="shadow-elegant border-blue-500/20">
+              <CardHeader className="bg-blue-500/5 border-b border-blue-500/10">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-lg flex items-center gap-2"><Globe className="h-5 w-5 text-blue-500" />Gateway Stripe</CardTitle>
+                  <Switch checked={settings.stripe_enabled} onCheckedChange={v => setSettings({...settings, stripe_enabled: v})} />
+                </div>
+              </CardHeader>
+              <CardContent className="p-6 space-y-6">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Ambiente</Label>
+                    <Select value={settings.stripe_env} onValueChange={(v) => setSettings({...settings, stripe_env: v})}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="test">Modo Teste</SelectItem>
+                        <SelectItem value="production">Modo Produção</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex items-center justify-between pt-8">
+                    <Label className="text-xs font-bold">Repassar Taxas?</Label>
+                    <Switch checked={settings.stripe_pass_fees} onCheckedChange={v => setSettings({...settings, stripe_pass_fees: v})} />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 p-4 border rounded-lg bg-blue-500/5">
+                  <div className="space-y-1">
+                    <Label className="text-[10px]">Taxa Fixa (R$)</Label>
+                    <Input type="number" step="0.01" value={settings.stripe_fee_fixed} onChange={e => setSettings({...settings, stripe_fee_fixed: parseFloat(e.target.value) || 0})} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px]">Taxa Percentual (%)</Label>
+                    <Input type="number" step="0.01" value={settings.stripe_fee_percentage} onChange={e => setSettings({...settings, stripe_fee_percentage: parseFloat(e.target.value) || 0})} />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Secret Key (Produção)</Label>
+                  <Input type="password" value={settings.stripe_secret_key_prod} onChange={(e) => setSettings({...settings, stripe_secret_key_prod: e.target.value})} className="font-mono text-xs" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Webhook Secret (Produção)</Label>
+                  <Input type="password" value={settings.stripe_webhook_secret_prod} onChange={(e) => setSettings({...settings, stripe_webhook_secret_prod: e.target.value})} className="font-mono text-xs" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Secret Key (Teste)</Label>
+                  <Input type="password" value={settings.stripe_secret_key_test} onChange={(e) => setSettings({...settings, stripe_secret_key_test: e.target.value})} className="font-mono text-xs" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Webhook Secret (Teste)</Label>
+                  <Input type="password" value={settings.stripe_webhook_secret_test} onChange={(e) => setSettings({...settings, stripe_webhook_secret_test: e.target.value})} className="font-mono text-xs" />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="flex justify-end">
+            <Button className="bg-primary hover:bg-primary/90 px-12" onClick={handleSaveSettings} disabled={isSavingSettings}>
+              {isSavingSettings ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+              Salvar Todas as Configurações de Pagamento
+            </Button>
+          </div>
         </TabsContent>
       </Tabs>
     </div>
