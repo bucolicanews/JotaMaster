@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ShieldAlert, Users, Activity, Search, Blocks, Edit, Save, X, Globe, Code, Coins, KeyRound, TrendingUp } from 'lucide-react';
+import { ShieldAlert, Users, Activity, Search, Blocks, Edit, Save, X, Globe, Code, Coins, KeyRound, TrendingUp, Loader2 } from 'lucide-react';
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from '@/integrations/supabase/client';
@@ -19,9 +19,8 @@ export default function AdminDashboard() {
   const [clientes, setClientes] = useState<any[]>([]);
   const [catalogo, setCatalogo] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [busca, setBusca] = useState('');
   
-  // Estados para Economia de IA
+  // Estados para Economia de IA com valores padrão para evitar "uncontrolled input"
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [settings, setSettings] = useState({
     vertex_api_key: '',
@@ -29,13 +28,6 @@ export default function AdminDashboard() {
     price_per_1m_output_tokens: 2.50,
     profit_multiplier: 4.0,
     credit_conversion_rate: 10.0
-  });
-
-  const [editingModuleId, setEditingModuleId] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState({
-    price: '',
-    module_type: 'internal',
-    bundle_url: ''
   });
 
   useEffect(() => {
@@ -46,8 +38,21 @@ export default function AdminDashboard() {
   }, [isAdmin]);
 
   const carregarSettings = async () => {
-    const { data } = await supabase.from('system_settings').select('*').eq('id', 'global_config').single();
-    if (data) setSettings(data);
+    try {
+      const { data, error } = await supabase.from('system_settings').select('*').eq('id', 'global_config').single();
+      if (error) throw error;
+      if (data) {
+        setSettings({
+          vertex_api_key: data.vertex_api_key || '',
+          price_per_1m_input_tokens: Number(data.price_per_1m_input_tokens) || 1.25,
+          price_per_1m_output_tokens: Number(data.price_per_1m_output_tokens) || 2.50,
+          profit_multiplier: Number(data.profit_multiplier) || 4.0,
+          credit_conversion_rate: Number(data.credit_conversion_rate) || 10.0
+        });
+      }
+    } catch (e) {
+      console.warn("Configurações globais ainda não criadas no banco.");
+    }
   };
 
   const handleSaveSettings = async () => {
@@ -85,7 +90,7 @@ export default function AdminDashboard() {
       setCatalogo(catalogData || []);
 
     } catch (error: any) {
-      toast.error('Erro ao carregar painel: ' + error.message);
+      console.error('Erro ao carregar painel:', error.message);
     } finally {
       setIsLoading(false);
     }
@@ -113,7 +118,6 @@ export default function AdminDashboard() {
         </TabsList>
 
         <TabsContent value="clientes" className="space-y-4">
-          {/* ... (Conteúdo de clientes mantido) */}
           <Card className="shadow-elegant border-primary/20">
             <CardContent className="p-0 overflow-x-auto">
               <Table>
@@ -149,9 +153,14 @@ export default function AdminDashboard() {
           </Card>
         </TabsContent>
 
+        <TabsContent value="catalogo" className="space-y-4">
+           <Card className="p-8 text-center text-muted-foreground italic">
+              Gestão de catálogo em desenvolvimento.
+           </Card>
+        </TabsContent>
+
         <TabsContent value="economia" className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* COLUNA 1: CHAVES E SEGURANÇA */}
             <Card className="lg:col-span-2 shadow-elegant border-primary/20">
               <CardHeader className="bg-muted/10 border-b border-border/50">
                 <CardTitle className="text-lg flex items-center gap-2"><KeyRound className="h-5 w-5 text-primary" />Infraestrutura Vertex AI</CardTitle>
@@ -162,12 +171,12 @@ export default function AdminDashboard() {
                   <Label>Vertex AI Master Key (Google Cloud)</Label>
                   <Input 
                     type="password" 
-                    placeholder="Cole sua chave AQ.Ab8..." 
+                    placeholder="Cole sua chave Master..." 
                     value={settings.vertex_api_key}
                     onChange={(e) => setSettings({...settings, vertex_api_key: e.target.value})}
                     className="font-mono text-xs"
                   />
-                  <p className="text-[10px] text-muted-foreground italic">Esta chave é usada para todas as requisições do sistema. Nunca a compartilhe.</p>
+                  <p className="text-[10px] text-muted-foreground italic">Esta chave é usada para todas as requisições do sistema.</p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-border/50">
@@ -178,7 +187,7 @@ export default function AdminDashboard() {
                       <Input 
                         type="number" step="0.01" className="pl-12"
                         value={settings.price_per_1m_input_tokens}
-                        onChange={(e) => setSettings({...settings, price_per_1m_input_tokens: parseFloat(e.target.value)})}
+                        onChange={(e) => setSettings({...settings, price_per_1m_input_tokens: parseFloat(e.target.value) || 0})}
                       />
                     </div>
                   </div>
@@ -189,7 +198,7 @@ export default function AdminDashboard() {
                       <Input 
                         type="number" step="0.01" className="pl-12"
                         value={settings.price_per_1m_output_tokens}
-                        onChange={(e) => setSettings({...settings, price_per_1m_output_tokens: parseFloat(e.target.value)})}
+                        onChange={(e) => setSettings({...settings, price_per_1m_output_tokens: parseFloat(e.target.value) || 0})}
                       />
                     </div>
                   </div>
@@ -197,7 +206,6 @@ export default function AdminDashboard() {
               </CardContent>
             </Card>
 
-            {/* COLUNA 2: MARGEM E CONVERSÃO */}
             <Card className="shadow-elegant border-primary/20 bg-primary/5">
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2"><TrendingUp className="h-5 w-5 text-primary" />Regras de Negócio</CardTitle>
@@ -208,9 +216,8 @@ export default function AdminDashboard() {
                   <Input 
                     type="number" step="0.1"
                     value={settings.profit_multiplier}
-                    onChange={(e) => setSettings({...settings, profit_multiplier: parseFloat(e.target.value)})}
+                    onChange={(e) => setSettings({...settings, profit_multiplier: parseFloat(e.target.value) || 0})}
                   />
-                  <p className="text-[10px] text-muted-foreground">Fator aplicado sobre o custo do Google para cobrar o cliente.</p>
                 </div>
 
                 <div className="space-y-2">
@@ -218,7 +225,7 @@ export default function AdminDashboard() {
                   <Input 
                     type="number"
                     value={settings.credit_conversion_rate}
-                    onChange={(e) => setSettings({...settings, credit_conversion_rate: parseFloat(e.target.value)})}
+                    onChange={(e) => setSettings({...settings, credit_conversion_rate: parseFloat(e.target.value) || 0})}
                   />
                 </div>
 
