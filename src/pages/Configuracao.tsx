@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { 
   Settings, Building, KeyRound, Save, Loader2, Globe, Search, Activity,
   BookOpen, Code, Terminal, Workflow, Blocks, Github, ExternalLink, MessageSquareQuote,
-  Wrench, Database, Zap, FileText
+  Wrench, Database, Zap, FileText, Sparkles
 } from 'lucide-react';
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
