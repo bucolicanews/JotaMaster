@@ -17,6 +17,7 @@ import Prompts from "./pages/Prompts";
 import Agents from "./pages/Agents";
 import Modules from "./pages/Modules";
 import CRM from "./pages/CRM"; 
+import Credits from "./pages/Credits";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
 import AdminDashboard from "./pages/AdminDashboard";
@@ -52,14 +53,12 @@ const AppRoutes = () => (
       {/* Rotas Protegidas (Core & Inteligência) */}
       <Route path="/" element={<RotaProtegida><Index /></RotaProtegida>} />
       <Route path="/chat" element={<RotaProtegida><Chat /></RotaProtegida>} />
+      <Route path="/skills" element={<RotaProtegida><ModuleProtectedRoute moduleId="skills"><Skills /></ModuleProtectedRoute></RotaProtegida>} />
       <Route path="/prompts" element={<RotaProtegida><Prompts /></RotaProtegida>} />
+      <Route path="/agents" element={<RotaProtegida><ModuleProtectedRoute moduleId="agents"><Agents /></ModuleProtectedRoute></RotaProtegida>} />
+      <Route path="/credits" element={<RotaProtegida><Credits /></RotaProtegida>} />
       <Route path="/configuracao" element={<RotaProtegida><Configuracao /></RotaProtegida>} />
       <Route path="/modules" element={<RotaProtegida><Modules /></RotaProtegida>} />
-
-      {/* Módulos Premium (Exigem Ativação no Marketplace) */}
-      <Route path="/skills" element={<RotaProtegida><ModuleProtectedRoute moduleId="skills"><Skills /></ModuleProtectedRoute></RotaProtegida>} />
-      <Route path="/agents" element={<RotaProtegida><ModuleProtectedRoute moduleId="agents"><Agents /></ModuleProtectedRoute></RotaProtegida>} />
-      <Route path="/crm" element={<RotaProtegida><ModuleProtectedRoute moduleId="crm"><CRM /></ModuleProtectedRoute></RotaProtegida>} />
 
       {/* Módulos Legados (Privatizados) */}
       <Route path="/precificacao" element={<RotaProtegida><Pricing /></RotaProtegida>} />

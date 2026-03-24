@@ -6,7 +6,7 @@ import {
   Upload, Settings, Tags, ShieldCheck, 
   Sparkles, Lock, LogOut, Home, MessageSquare, Blocks, 
   ShieldAlert, Menu, UserCircle, LayoutGrid, ExternalLink,
-  Wrench, MessageSquareQuote, Zap
+  Wrench, MessageSquareQuote, Zap, Wallet
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -25,7 +25,7 @@ const coreNavItems = [
   { to: '/prompts', label: 'Biblioteca Prompts', icon: MessageSquareQuote },
 ];
 
-// Módulos Legados (Agora restritos ao Admin)
+// Módulos Legados (Privatizados)
 const legacyModuleItems = [
   { to: '/precificacao', label: 'Precificação', icon: Upload },
   { to: '/products', label: 'Lista de Produtos', icon: Tags },
@@ -43,6 +43,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { autenticado, logout, isAdmin, profile, session } = useAuth();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [dynamicModules, setDynamicModules] = useState<any[]>([]);
+  const [balance, setBalance] = useState<number | null>(null);
 
   useEffect(() => {
     const fetchInstalledModules = async () => {
@@ -82,7 +83,37 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       }
     };
 
+    const fetchBalance = async () => {
+      if (!autenticado || !session?.user) return;
+      const { data } = await supabase
+        .from('wallets')
+        .select('balance')
+        .eq('user_id', session.user.id)
+        .single();
+      if (data) setBalance(data.balance);
+    };
+
     fetchInstalledModules();
+    fetchBalance();
+
+    // Inscrição em tempo real para mudanças no saldo
+    if (autenticado && session?.user) {
+      const channel = supabase
+        .channel('wallet_changes')
+        .on('postgres_changes', { 
+          event: 'UPDATE', 
+          schema: 'public', 
+          table: 'wallets',
+          filter: `user_id=eq.${session.user.id}`
+        }, (payload) => {
+          setBalance(payload.new.balance);
+        })
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }
   }, [autenticado, session]);
 
   const handleLogout = async () => {
@@ -134,13 +165,34 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                 {coreNavItems.map(item => <NavButton key={item.to} item={item} />)}
               </div>
 
+              {/* SEÇÃO DE SALDO / FINANCEIRO */}
+              <div className="space-y-1 mt-6">
+                <div className="mb-2 px-3 text-[10px] font-bold uppercase text-muted-foreground tracking-wider">Financeiro</div>
+                <Link to="/credits" className="block w-full">
+                  <Button
+                    variant="ghost"
+                    className={cn(
+                      "w-full justify-start py-2 px-3 h-12 transition-all border border-primary/20 bg-primary/5 hover:bg-primary/10",
+                      location.pathname === '/credits' && "bg-primary/20 border-primary/40"
+                    )}
+                  >
+                    <Wallet className="h-5 w-5 mr-3 text-primary" />
+                    <div className="flex flex-col items-start">
+                      <span className="text-[10px] uppercase font-bold text-muted-foreground leading-none mb-1">Saldo</span>
+                      <span className="text-sm font-black text-primary leading-none">
+                        {balance !== null ? `${balance} Créditos` : '...'}
+                      </span>
+                    </div>
+                  </Button>
+                </Link>
+              </div>
+
               <div className="space-y-1 mt-6">
                 <div className="mb-2 px-3 text-[10px] font-bold uppercase text-muted-foreground tracking-wider">Marketplace</div>
                 <NavButton item={{ to: '/modules', label: 'Loja de Módulos', icon: Blocks }} />
                 {dynamicModules.map(item => <NavButton key={item.id} item={item} isDynamic />)}
               </div>
 
-              {/* SEÇÃO RESTRITA AO ADMIN */}
               {isAdmin && (
                 <div className="space-y-1 mt-6">
                   <div className="mb-2 px-3 text-[10px] font-bold uppercase text-muted-foreground tracking-wider">Módulos Legados</div>
