@@ -143,6 +143,23 @@ const Configuracao = () => {
                   </div>
 
                   <div className="space-y-2">
+                    <p className="font-bold text-foreground">Estrutura do JSON para Importação:</p>
+                    <div className="bg-slate-950 p-3 rounded-md border border-white/10">
+                      <code className="text-blue-400 font-mono block whitespace-pre">
+{`[
+  {
+    "name": "nome_da_skill",
+    "description": "O que ela faz",
+    "parameters": { "type": "object", "properties": {} },
+    "executionType": "local_js",
+    "jsCode": "return { status: 'ok' };"
+  }
+]`}
+                      </code>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
                     <p className="font-bold text-foreground">Objetos Disponíveis no Escopo:</p>
                     <ul className="list-disc pl-4 space-y-1">
                       <li><code className="text-primary">args</code>: Parâmetros extraídos pela IA.</li>
@@ -154,7 +171,6 @@ const Configuracao = () => {
                   <div className="space-y-4">
                     <p className="font-bold text-foreground border-b pb-1">Exemplos Práticos por Tipo:</p>
                     
-                    {/* Exemplo 1: Supabase Search */}
                     <div className="space-y-2">
                       <p className="text-[10px] uppercase font-bold text-indigo-600 flex items-center gap-1"><Database className="h-3 w-3" /> 1. JS Local: Busca no Supabase</p>
                       <div className="bg-slate-950 p-3 rounded-md border border-white/10">
@@ -172,75 +188,13 @@ return { status: 'ok', cliente: data };`}
                       </div>
                     </div>
 
-                    {/* Exemplo 2: Supabase Insert */}
                     <div className="space-y-2">
-                      <p className="text-[10px] uppercase font-bold text-indigo-600 flex items-center gap-1"><Database className="h-3 w-3" /> 2. JS Local: Inserção no Supabase</p>
+                      <p className="text-[10px] uppercase font-bold text-indigo-600 flex items-center gap-1"><Zap className="h-3 w-3" /> 2. Webhook: Enviar JSON para n8n</p>
                       <div className="bg-slate-950 p-3 rounded-md border border-white/10">
-                        <code className="text-emerald-500 font-mono block whitespace-pre">
-{`// Registra um novo serviço prestado
-const { data, error } = await supabase
-  .from('servicos')
-  .insert([{ 
-    tipo: args.tipo, 
-    valor: args.valor, 
-    data: new Date().toISOString() 
-  }]);
-
-return error ? { status: 'erro' } : { status: 'sucesso', data };`}
-                        </code>
-                      </div>
-                    </div>
-
-                    {/* Exemplo 3: Web Scraping */}
-                    <div className="space-y-2">
-                      <p className="text-[10px] uppercase font-bold text-indigo-600 flex items-center gap-1"><Search className="h-3 w-3" /> 3. Navegação Web: Consultar Site</p>
-                      <div className="bg-slate-950 p-3 rounded-md border border-white/10">
-                        <p className="text-blue-400 font-mono text-[9px] mb-1">// Configuração da Skill:</p>
-                        <p className="text-blue-300 font-mono text-[9px] mb-2">URL: https://www.google.com/search?q=cotacao+dolar<br/>Seletor: .g .L69e7c</p>
-                        <code className="text-emerald-500 font-mono block whitespace-pre">
-{`// O sistema acessa a URL, extrai o texto do seletor 
-// e entrega para a IA processar o valor atual.`}
-                        </code>
-                      </div>
-                    </div>
-
-                    {/* Exemplo 4: Helpers */}
-                    <div className="space-y-2">
-                      <p className="text-[10px] uppercase font-bold text-indigo-600 flex items-center gap-1"><Activity className="h-3 w-3" /> 4. JS Local: Cálculo de Imposto (Helpers)</p>
-                      <div className="bg-slate-950 p-3 rounded-md border border-white/10">
-                        <code className="text-emerald-500 font-mono block whitespace-pre">
-{`// Usa o motor nativo de cálculo do Simples Nacional
-const taxa = helpers.calculateSimplesNacionalEffectiveRate(
-  args.anexo, 
-  args.faturamento_12m
-);
-return { aliquota: taxa.toFixed(2) + "%" };`}
-                        </code>
-                      </div>
-                    </div>
-
-                    {/* Exemplo 5: Knowledge Base */}
-                    <div className="space-y-2">
-                      <p className="text-[10px] uppercase font-bold text-indigo-600 flex items-center gap-1"><FileText className="h-3 w-3" /> 5. Base de Conhecimento: Consultar Texto</p>
-                      <div className="bg-slate-950 p-3 rounded-md border border-white/10">
-                        <code className="text-emerald-500 font-mono block whitespace-pre">
-{`// Você cola o manual da empresa no campo de conteúdo.
-// Quando a IA precisar, ela recupera o texto exato 
-// para responder ao usuário.`}
-                        </code>
-                      </div>
-                    </div>
-
-                    {/* Exemplo 6: Webhook n8n */}
-                    <div className="space-y-2">
-                      <p className="text-[10px] uppercase font-bold text-indigo-600 flex items-center gap-1"><Zap className="h-3 w-3" /> 6. Webhook: Enviar JSON para n8n</p>
-                      <div className="bg-slate-950 p-3 rounded-md border border-white/10">
-                        <p className="text-blue-400 font-mono text-[9px] mb-1">// Configuração da Skill:</p>
                         <p className="text-blue-300 font-mono text-[9px] mb-2">Webhook URL: https://n8n.seu-servidor.com/webhook/...</p>
                         <code className="text-emerald-500 font-mono block whitespace-pre">
 {`// A IA envia os dados estruturados (JSON) para o n8n.
-// O n8n pode então gerar um PDF, enviar e-mail ou 
-// atualizar planilhas externas.`}
+// O n8n pode então gerar um PDF ou enviar e-mail.`}
                         </code>
                       </div>
                     </div>
@@ -250,8 +204,12 @@ return { aliquota: taxa.toFixed(2) + "%" };`}
               
               <AccordionItem value="prompts">
                 <AccordionTrigger className="text-sm font-bold"><Terminal className="h-4 w-4 mr-2" /> Como construir um Prompt</AccordionTrigger>
-                <AccordionContent className="text-xs space-y-4 text-muted-foreground leading-relaxed">
-                  <p>Prompts definem a Persona (Role) e as Instruções de Sistema.</p>
+                <AccordionContent className="text-xs space-y-6 text-muted-foreground leading-relaxed">
+                  <div className="space-y-2">
+                    <p className="font-bold text-foreground">O que são Prompts?</p>
+                    <p>Prompts definem a Persona (Papel) e as Instruções de Sistema. Eles ensinam a IA como ela deve agir e quais dados do cliente ela deve priorizar.</p>
+                  </div>
+
                   <div className="space-y-2">
                     <p className="font-bold text-foreground">Estrutura do JSON para Importação:</p>
                     <div className="bg-slate-950 p-3 rounded-md border border-white/10">
@@ -259,17 +217,55 @@ return { aliquota: taxa.toFixed(2) + "%" };`}
 {`[
   {
     "title": "Nome do Especialista",
-    "role": "Persona",
-    "content": "Instruções detalhadas..."
+    "role": "Persona (ex: Consultor Tributário)",
+    "content": "Instruções detalhadas de comportamento..."
   }
 ]`}
                       </code>
                     </div>
                   </div>
-                  <ul className="list-disc pl-4 space-y-1">
-                    <li><strong>Persona:</strong> Defina quem a IA é (ex: Especialista Tributário).</li>
-                    <li><strong>Variáveis:</strong> Use o símbolo <strong>@</strong> para injetar dados do contexto (ex: @empresa.razaoSocial).</li>
-                  </ul>
+
+                  <div className="space-y-4 p-4 border rounded-lg bg-primary/5 border-primary/20">
+                    <p className="font-bold text-primary flex items-center gap-2"><Database className="h-4 w-4" /> Variáveis de Contexto (O Poder da Placa-mãe)</p>
+                    <p>Use o símbolo <strong>@</strong> para injetar dados reais do cliente no prompt. A IA substituirá automaticamente pelos valores atuais.</p>
+                    <ul className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2">
+                      <li><code className="text-indigo-600">@empresa.razaoSocial</code></li>
+                      <li><code className="text-indigo-600">@empresa.classificacaoFiscal</code></li>
+                      <li><code className="text-indigo-600">@financeiro.faturamento.anual_total</code></li>
+                      <li><code className="text-indigo-600">@financeiro.fator_r.percentual_atual</code></li>
+                      <li><code className="text-indigo-600">@operacional.cnaes</code></li>
+                    </ul>
+                  </div>
+
+                  <div className="space-y-4">
+                    <p className="font-bold text-foreground border-b pb-1">Exemplos Práticos de Especialistas:</p>
+                    
+                    {/* Exemplo 1: Especialista em Simples Nacional */}
+                    <div className="space-y-2">
+                      <p className="text-[10px] uppercase font-bold text-indigo-600 flex items-center gap-1"><MessageSquareQuote className="h-3 w-3" /> 1. Especialista em Simples Nacional</p>
+                      <div className="bg-slate-950 p-3 rounded-md border border-white/10">
+                        <code className="text-blue-300 font-mono block whitespace-pre">
+{`Você é o Especialista em Simples Nacional da JOTA.
+Analise a empresa @empresa.razaoSocial.
+Ela é uma @empresa.classificacaoFiscal com faturamento de @financeiro.faturamento.anual_total.
+Seu foco é validar se o Fator R (@financeiro.fator_r.percentual_atual) permite a migração para o Anexo III.`}
+                        </code>
+                      </div>
+                    </div>
+
+                    {/* Exemplo 2: Analista de Viabilidade */}
+                    <div className="space-y-2">
+                      <p className="text-[10px] uppercase font-bold text-indigo-600 flex items-center gap-1"><Sparkles className="h-3 w-3" /> 2. Analista de Novos Negócios</p>
+                      <div className="bg-slate-950 p-3 rounded-md border border-white/10">
+                        <code className="text-blue-300 font-mono block whitespace-pre">
+{`Você é o Analista de Viabilidade.
+O cliente quer abrir um negócio com os seguintes CNAEs: @operacional.cnaes.
+A descrição das atividades é: @operacional.descricaoAtividades.
+Verifique se existe algum impedimento legal para o Simples Nacional.`}
+                        </code>
+                      </div>
+                    </div>
+                  </div>
                 </AccordionContent>
               </AccordionItem>
 
