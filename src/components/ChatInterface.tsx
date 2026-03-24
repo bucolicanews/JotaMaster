@@ -26,34 +26,29 @@ export const ChatInterface = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [activeTool, setActiveTool] = useState<string | null>(null);
   
-  // Listas de Itens para Gatilhos
   const [availableSkills, setAvailableSkills] = useState<DynamicSkill[]>([]);
   const [availableAgents, setAvailableAgents] = useState<any[]>([]);
   const [availablePrompts, setAvailablePrompts] = useState<any[]>([]);
   const [installedModuleIds, setInstalledModuleIds] = useState<string[]>([]);
 
   const [isManuallyResized, setIsManuallyResized] = useState(false);
-  
-  // Menu de Menção (@, #, /)
   const [mentionMenu, setMentionMenu] = useState<{ type: 'skill' | 'agent' | 'prompt', filter: string } | null>(null);
   const [selectedIndex, setSelectedIndex] = useState(0);
   
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const lastHeightRef = useRef<number>(0);
 
   const apiKey = localStorage.getItem('jota-gemini-key') || '';
 
+  // 1. Carregamento Inicial
   useEffect(() => {
     const loadInitialData = async () => {
       if (!session?.user) return;
 
-      // 1. Verifica Módulos Instalados
+      // Busca permissões
       const { data: inst } = await supabase.from('installed_modules').select('module_id').eq('user_id', session.user.id).eq('is_active', true);
-      const modIds = (inst || []).map(m => m.module_id);
-      setInstalledModuleIds(modIds);
+      setInstalledModuleIds((inst || []).map(m => m.module_id));
 
-      // 2. Busca Itens (Skills e Agentes dependem de módulos, Prompts são grátis)
       const [skills, agents, prompts] = await Promise.all([
         fetchDbSkills(session.user.id),
         fetchDbAgents(session.user.id),
@@ -64,13 +59,16 @@ export const ChatInterface = () => {
       setAvailableAgents(agents);
       setAvailablePrompts(prompts.filter(p => p.isActive));
 
-      // 3. Carrega Sessões
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
+      // Carrega Sessões
+      const savedSessions = localStorage.getItem(STORAGE_KEY);
+      if (savedSessions) {
+        const parsed = JSON.parse(savedSessions);
         setSessions(parsed);
         if (parsed.length > 0) {
-          loadSession(parsed[0].id);
+          const lastSessionId = parsed[0].id;
+          setActiveSessionId(lastSessionId);
+          const savedMsgs = localStorage.getItem(`jota-chat-msg-${lastSessionId}`);
+          setMessages(savedMsgs ? JSON.parse(savedMsgs) : []);
         } else {
           createNewChat();
         }
@@ -78,7 +76,7 @@ export const ChatInterface = () => {
         createNewChat();
       }
 
-      // 4. Verifica se veio da Home com prompt inicial
+      // Prompt inicial da Home
       const initialPrompt = sessionStorage.getItem('jota-initial-prompt');
       if (initialPrompt) {
         setInput(initialPrompt);
@@ -87,26 +85,38 @@ export const ChatInterface = () => {
     };
 
     loadInitialData();
-  }, [session]);
+  }, [session?.user?.id]);
 
+  // 2. Persistência de Mensagens e Título
   useEffect(() => {
-    if (activeSessionId && messages.length > 0) {
-      localStorage.setItem(`jota-chat-msg-${activeSessionId}`, JSON.stringify(messages));
-      setSessions(prev => prev.map(s => {
-        if (s.id === activeSessionId && s.title === 'Nova Conversa' && messages.length > 0) {
+    if (!activeSessionId) return;
+
+    // Salva mensagens
+    localStorage.setItem(`jota-chat-msg-${activeSessionId}`, JSON.stringify(messages));
+
+    // Atualiza título se for a primeira mensagem
+    if (messages.length > 0) {
+      setSessions(prev => {
+        const sessionIndex = prev.findIndex(s => s.id === activeSessionId);
+        if (sessionIndex !== -1 && (prev[sessionIndex].title === 'Nova Conversa' || prev[sessionIndex].title === '')) {
           const firstUserMsg = messages.find(m => m.role === 'user');
           if (firstUserMsg) {
-            const text = firstUserMsg.parts[0].text;
-            return { ...s, title: text.substring(0, 40) + (text.length > 40 ? '...' : '') };
+            const newTitle = firstUserMsg.parts[0].text.substring(0, 40) + (firstUserMsg.parts[0].text.length > 40 ? '...' : '');
+            const newSessions = [...prev];
+            newSessions[sessionIndex] = { ...newSessions[sessionIndex], title: newTitle };
+            return newSessions;
           }
         }
-        return s;
-      }));
+        return prev;
+      });
     }
   }, [messages, activeSessionId]);
 
+  // 3. Persistência da lista de sessões
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
+    if (sessions.length > 0) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
+    }
   }, [sessions]);
 
   const createNewChat = () => {
@@ -125,11 +135,13 @@ export const ChatInterface = () => {
 
   const deleteSession = (id: string) => {
     if (!confirm("Excluir esta conversa?")) return;
-    setSessions(prev => prev.filter(s => s.id !== id));
+    const newSessions = sessions.filter(s => s.id !== id);
+    setSessions(newSessions);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(newSessions));
     localStorage.removeItem(`jota-chat-msg-${id}`);
+    
     if (activeSessionId === id) {
-      const remaining = sessions.filter(s => s.id !== id);
-      if (remaining.length > 0) loadSession(remaining[0].id);
+      if (newSessions.length > 0) loadSession(newSessions[0].id);
       else createNewChat();
     }
   };
@@ -142,9 +154,7 @@ export const ChatInterface = () => {
     if (inputRef.current && !isManuallyResized) {
       inputRef.current.style.height = 'inherit';
       const scrollHeight = inputRef.current.scrollHeight;
-      const newHeight = Math.max(44, Math.min(scrollHeight, 600));
-      inputRef.current.style.height = `${newHeight}px`;
-      lastHeightRef.current = newHeight;
+      inputRef.current.style.height = `${Math.max(44, Math.min(scrollHeight, 600))}px`;
     }
   }, [input, isManuallyResized]);
 
@@ -159,22 +169,6 @@ export const ChatInterface = () => {
     return () => clearTimeout(timer);
   }, [messages, isLoading, activeTool]);
 
-  // Lógica de Gatilhos
-  const getFilteredItems = () => {
-    if (!mentionMenu) return [];
-    const filter = mentionMenu.filter.toLowerCase();
-    
-    if (mentionMenu.type === 'skill') {
-      return availableSkills.filter(s => s.name.toLowerCase().includes(filter));
-    } else if (mentionMenu.type === 'agent') {
-      return availableAgents.filter(a => a.nome.toLowerCase().includes(filter));
-    } else {
-      return availablePrompts.filter(p => p.title.toLowerCase().includes(filter));
-    }
-  };
-
-  const filteredItems = getFilteredItems();
-
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value;
     const cursor = e.target.selectionStart || 0;
@@ -184,7 +178,6 @@ export const ChatInterface = () => {
     const lastAt = textBefore.lastIndexOf('@');
     const lastHash = textBefore.lastIndexOf('#');
     const lastSlash = textBefore.lastIndexOf('/');
-    
     const lastTrigger = Math.max(lastAt, lastHash, lastSlash);
 
     if (lastTrigger !== -1) {
@@ -195,7 +188,6 @@ export const ChatInterface = () => {
           let type: any = 'skill';
           if (lastTrigger === lastHash) type = 'agent';
           if (lastTrigger === lastSlash) type = 'prompt';
-          
           setMentionMenu({ type, filter: query });
           setSelectedIndex(0);
           return;
@@ -210,10 +202,8 @@ export const ChatInterface = () => {
     const textBefore = input.substring(0, cursor);
     const textAfter = input.substring(cursor);
     const lastTrigger = Math.max(textBefore.lastIndexOf('@'), textBefore.lastIndexOf('#'), textBefore.lastIndexOf('/'));
-    
     const prefix = mentionMenu?.type === 'skill' ? '@' : mentionMenu?.type === 'agent' ? '#' : '/';
     const name = item.name || item.nome || item.title;
-    
     const newValue = input.substring(0, lastTrigger) + `${prefix}${name} ` + textAfter;
     setInput(newValue);
     setMentionMenu(null);
@@ -248,12 +238,8 @@ export const ChatInterface = () => {
     setActiveTool(null);
 
     try {
-      // Filtra Skills e Agentes baseado no modo grátis (módulos instalados)
       const hasSkillsModule = installedModuleIds.includes('skills');
-      const hasAgentsModule = installedModuleIds.includes('agents');
-      
       const allowedSkills = hasSkillsModule ? availableSkills : [];
-
       const responseText = await sendChatMessage(newHistory, apiKey, allowedSkills, (toolName) => {
         setActiveTool(toolName);
       });
@@ -265,6 +251,16 @@ export const ChatInterface = () => {
       setActiveTool(null);
     }
   };
+
+  const getFilteredItems = () => {
+    if (!mentionMenu) return [];
+    const filter = mentionMenu.filter.toLowerCase();
+    if (mentionMenu.type === 'skill') return availableSkills.filter(s => s.name.toLowerCase().includes(filter));
+    if (mentionMenu.type === 'agent') return availableAgents.filter(a => a.nome.toLowerCase().includes(filter));
+    return availablePrompts.filter(p => p.title.toLowerCase().includes(filter));
+  };
+
+  const filteredItems = getFilteredItems();
 
   return (
     <Card className="flex h-[calc(100vh-200px)] shadow-elegant border-primary/20 relative overflow-hidden">
