@@ -8,7 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { 
   MessageSquareQuote, Plus, Trash2, Bot, Save, Loader2, 
-  ShieldCheck, Sparkles, Lightbulb
+  ShieldCheck, Sparkles, Lightbulb, Terminal
 } from 'lucide-react';
 import { PromptConfig, fetchDbPrompts } from '@/lib/geminiService';
 import { useAuth } from '@/contexts/AuthContext';
