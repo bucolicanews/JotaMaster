@@ -41,6 +41,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { autenticado, logout, isAdmin, profile, session } = useAuth();
   const [dynamicModules, setDynamicModules] = useState<any[]>([]);
   const [balance, setBalance] = useState<number | null>(null);
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
 
   useEffect(() => {
     const fetchInstalledModules = async () => {
@@ -81,7 +82,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     };
 
     const fetchBalance = async () => {
-      if (!autenticado || !session?.user || isAdmin) return; // Admin não precisa de saldo
+      if (!autenticado || !session?.user || isAdmin) return;
       const { data } = await supabase
         .from('wallets')
         .select('balance')
@@ -120,7 +121,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const NavButton = ({ item, isLocked = false, isDynamic = false }: { item: any, isLocked?: boolean, isDynamic?: boolean }) => {
     const isActive = location.pathname === item.to;
     return (
-      <Link to={item.to} className="block w-full">
+      <Link to={item.to} className="block w-full" onClick={() => setIsMobileOpen(false)}>
         <Button
           variant="ghost"
           className={cn(
@@ -140,8 +141,110 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     );
   };
 
+  const NavigationContent = () => (
+    <div className="flex flex-col h-full">
+      <div className="flex-1 overflow-y-auto py-4 px-3 custom-scrollbar">
+        {autenticado ? (
+          <>
+            <div className="space-y-1">
+              <div className="mb-2 px-3 text-[10px] font-bold uppercase text-primary tracking-wider">Inteligência Core</div>
+              {coreNavItems.map(item => <NavButton key={item.to} item={item} />)}
+            </div>
+
+            <div className="space-y-1 mt-6">
+              <div className="mb-2 px-3 text-[10px] font-bold uppercase text-muted-foreground tracking-wider">Financeiro</div>
+              {isAdmin ? (
+                <Link to="/admin/finance" className="block w-full" onClick={() => setIsMobileOpen(false)}>
+                  <Button
+                    variant="ghost"
+                    className={cn(
+                      "w-full justify-start py-2 px-3 h-12 transition-all border border-blue-500/20 bg-blue-500/5 hover:bg-blue-500/10",
+                      location.pathname === '/admin/finance' && "bg-blue-500/20 border-blue-500/40"
+                    )}
+                  >
+                    <BarChart3 className="h-5 w-5 mr-3 text-blue-500" />
+                    <div className="flex flex-col items-start">
+                      <span className="text-[10px] uppercase font-bold text-muted-foreground leading-none mb-1">Gestão</span>
+                      <span className="text-sm font-black text-blue-600 leading-none">Dashboard Master</span>
+                    </div>
+                  </Button>
+                </Link>
+              ) : (
+                <Link to="/credits" className="block w-full" onClick={() => setIsMobileOpen(false)}>
+                  <Button
+                    variant="ghost"
+                    className={cn(
+                      "w-full justify-start py-2 px-3 h-12 transition-all border border-primary/20 bg-primary/5 hover:bg-primary/10",
+                      location.pathname === '/credits' && "bg-primary/20 border-primary/40"
+                    )}
+                  >
+                    <Wallet className="h-5 w-5 mr-3 text-primary" />
+                    <div className="flex flex-col items-start">
+                      <span className="text-[10px] uppercase font-bold text-muted-foreground leading-none mb-1">Saldo</span>
+                      <span className="text-sm font-black text-primary leading-none">
+                        {balance !== null ? `${balance} Créditos` : '...'}
+                      </span>
+                    </div>
+                  </Button>
+                </Link>
+              )}
+            </div>
+
+            <div className="space-y-1 mt-6">
+              <div className="mb-2 px-3 text-[10px] font-bold uppercase text-muted-foreground tracking-wider">Marketplace</div>
+              <NavButton item={{ to: '/modules', label: 'Loja de Módulos', icon: Blocks }} />
+              {dynamicModules.map(item => <NavButton key={item.id} item={item} isDynamic />)}
+            </div>
+
+            {isAdmin && (
+              <div className="space-y-1 mt-6">
+                <div className="mb-2 px-3 text-[10px] font-bold uppercase text-muted-foreground tracking-wider">Módulos Legados</div>
+                {legacyModuleItems.map(item => <NavButton key={item.to} item={item} />)}
+              </div>
+            )}
+
+            {isAdmin && (
+              <div className="space-y-1 mt-6">
+                <div className="mb-2 px-3 text-[10px] font-bold uppercase text-destructive tracking-wider">Administração</div>
+                {adminNavItems.map(item => <NavButton key={item.to} item={item} />)}
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="p-4 text-center space-y-4">
+            <Lock className="h-12 w-12 mx-auto text-muted-foreground opacity-20" />
+            <p className="text-xs text-muted-foreground">Faça login para acessar.</p>
+          </div>
+        )}
+
+        <div className="space-y-1 mt-6">
+          <div className="mb-2 px-3 text-[10px] font-bold uppercase text-muted-foreground tracking-wider">Sistema</div>
+          <NavButton item={{ to: '/configuracao', label: 'Configurações', icon: Settings }} isLocked={!autenticado} />
+        </div>
+      </div>
+
+      <div className="p-4 border-t border-border shrink-0 bg-muted/10">
+        {autenticado && (
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center gap-3 px-2 bg-background p-2 rounded-lg border border-border/50">
+              <UserCircle className="h-8 w-8 text-primary shrink-0" />
+              <div className="overflow-hidden flex-1">
+                <p className="text-xs font-bold truncate">{profile?.company_name || profile?.first_name || 'Usuário'}</p>
+                <Badge variant={isAdmin ? "destructive" : "outline"} className="text-[8px] uppercase mt-0.5">{profile?.role || 'empresa'}</Badge>
+              </div>
+            </div>
+            <Button size="sm" variant="outline" className="w-full text-destructive border-destructive/20" onClick={handleLogout}>
+              <LogOut className="h-4 w-4 mr-2" /> Sair
+            </Button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
   return (
     <div className="flex min-h-screen w-full bg-background">
+      {/* SIDEBAR DESKTOP */}
       <aside className="hidden lg:flex flex-col w-64 border-r border-border bg-card sticky top-0 h-screen">
         <div className="p-4 border-b border-border bg-gradient-primary flex items-center gap-3 shrink-0">
           <div className="rounded-lg bg-black/30 p-2 backdrop-blur shrink-0">
@@ -152,109 +255,40 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
             <p className="text-[10px] text-black/70 truncate leading-tight">Placa-mãe Inteligente</p>
           </div>
         </div>
-
-        <div className="flex-1 overflow-y-auto py-4 px-3 custom-scrollbar">
-          {autenticado ? (
-            <>
-              <div className="space-y-1">
-                <div className="mb-2 px-3 text-[10px] font-bold uppercase text-primary tracking-wider">Inteligência Core</div>
-                {coreNavItems.map(item => <NavButton key={item.to} item={item} />)}
-              </div>
-
-              {/* SEÇÃO FINANCEIRA DIFERENCIADA */}
-              <div className="space-y-1 mt-6">
-                <div className="mb-2 px-3 text-[10px] font-bold uppercase text-muted-foreground tracking-wider">Financeiro</div>
-                {isAdmin ? (
-                  <Link to="/admin/finance" className="block w-full">
-                    <Button
-                      variant="ghost"
-                      className={cn(
-                        "w-full justify-start py-2 px-3 h-12 transition-all border border-blue-500/20 bg-blue-500/5 hover:bg-blue-500/10",
-                        location.pathname === '/admin/finance' && "bg-blue-500/20 border-blue-500/40"
-                      )}
-                    >
-                      <BarChart3 className="h-5 w-5 mr-3 text-blue-500" />
-                      <div className="flex flex-col items-start">
-                        <span className="text-[10px] uppercase font-bold text-muted-foreground leading-none mb-1">Gestão</span>
-                        <span className="text-sm font-black text-blue-600 leading-none">Dashboard Master</span>
-                      </div>
-                    </Button>
-                  </Link>
-                ) : (
-                  <Link to="/credits" className="block w-full">
-                    <Button
-                      variant="ghost"
-                      className={cn(
-                        "w-full justify-start py-2 px-3 h-12 transition-all border border-primary/20 bg-primary/5 hover:bg-primary/10",
-                        location.pathname === '/credits' && "bg-primary/20 border-primary/40"
-                      )}
-                    >
-                      <Wallet className="h-5 w-5 mr-3 text-primary" />
-                      <div className="flex flex-col items-start">
-                        <span className="text-[10px] uppercase font-bold text-muted-foreground leading-none mb-1">Saldo</span>
-                        <span className="text-sm font-black text-primary leading-none">
-                          {balance !== null ? `${balance} Créditos` : '...'}
-                        </span>
-                      </div>
-                    </Button>
-                  </Link>
-                )}
-              </div>
-
-              <div className="space-y-1 mt-6">
-                <div className="mb-2 px-3 text-[10px] font-bold uppercase text-muted-foreground tracking-wider">Marketplace</div>
-                <NavButton item={{ to: '/modules', label: 'Loja de Módulos', icon: Blocks }} />
-                {dynamicModules.map(item => <NavButton key={item.id} item={item} isDynamic />)}
-              </div>
-
-              {isAdmin && (
-                <div className="space-y-1 mt-6">
-                  <div className="mb-2 px-3 text-[10px] font-bold uppercase text-muted-foreground tracking-wider">Módulos Legados</div>
-                  {legacyModuleItems.map(item => <NavButton key={item.to} item={item} />)}
-                </div>
-              )}
-
-              {isAdmin && (
-                <div className="space-y-1 mt-6">
-                  <div className="mb-2 px-3 text-[10px] font-bold uppercase text-destructive tracking-wider">Administração</div>
-                  {adminNavItems.map(item => <NavButton key={item.to} item={item} />)}
-                </div>
-              )}
-            </>
-          ) : (
-            <div className="p-4 text-center space-y-4">
-              <Lock className="h-12 w-12 mx-auto text-muted-foreground opacity-20" />
-              <p className="text-xs text-muted-foreground">Faça login para acessar.</p>
-            </div>
-          )}
-
-          <div className="space-y-1 mt-6">
-            <div className="mb-2 px-3 text-[10px] font-bold uppercase text-muted-foreground tracking-wider">Sistema</div>
-            <NavButton item={{ to: '/configuracao', label: 'Configurações', icon: Settings }} isLocked={!autenticado} />
-          </div>
-        </div>
-
-        <div className="p-4 border-t border-border shrink-0 bg-muted/10">
-          {autenticado && (
-            <div className="flex flex-col gap-3">
-              <div className="flex items-center gap-3 px-2 bg-background p-2 rounded-lg border border-border/50">
-                <UserCircle className="h-8 w-8 text-primary shrink-0" />
-                <div className="overflow-hidden flex-1">
-                  <p className="text-xs font-bold truncate">{profile?.company_name || profile?.first_name || 'Usuário'}</p>
-                  <Badge variant={isAdmin ? "destructive" : "outline"} className="text-[8px] uppercase mt-0.5">{profile?.role || 'empresa'}</Badge>
-                </div>
-              </div>
-              <Button size="sm" variant="outline" className="w-full text-destructive border-destructive/20" onClick={handleLogout}>
-                <LogOut className="h-4 w-4 mr-2" /> Sair
-              </Button>
-            </div>
-          )}
-        </div>
+        <NavigationContent />
       </aside>
 
-      <main className="flex-1 overflow-x-hidden">
-        {children}
-      </main>
+      <div className="flex flex-col flex-1 w-full">
+        {/* HEADER MOBILE */}
+        <header className="lg:hidden flex items-center justify-between p-4 border-b border-border bg-card sticky top-0 z-50">
+          <div className="flex items-center gap-2">
+            <img src="/jota-contabilidade-logo.png" alt="Logo" className="h-6 w-6" />
+            <span className="font-bold text-sm">JOTA</span>
+          </div>
+          
+          <Sheet open={isMobileOpen} onOpenChange={setIsMobileOpen}>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="icon">
+                <Menu className="h-6 w-6" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="p-0 w-72 bg-card border-r border-border">
+              <SheetTitle className="sr-only">Menu de Navegação</SheetTitle>
+              <div className="p-4 border-b border-border bg-gradient-primary flex items-center gap-3 shrink-0">
+                <div className="rounded-lg bg-black/30 p-2 backdrop-blur shrink-0">
+                  <img src="/jota-contabilidade-logo.png" alt="Logo" className="h-6 w-6" />
+                </div>
+                <h1 className="text-lg font-bold text-black">JOTA</h1>
+              </div>
+              <NavigationContent />
+            </SheetContent>
+          </Sheet>
+        </header>
+
+        <main className="flex-1 overflow-x-hidden">
+          {children}
+        </main>
+      </div>
     </div>
   );
 };
