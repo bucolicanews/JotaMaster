@@ -6,7 +6,7 @@ import {
   Upload, Settings, Tags, ShieldCheck, 
   Sparkles, Lock, LogOut, Home, MessageSquare, Blocks, 
   ShieldAlert, Menu, UserCircle, LayoutGrid, ExternalLink,
-  Wrench, MessageSquareQuote, Zap, Wallet
+  Wrench, MessageSquareQuote, Zap, Wallet, BarChart3
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -18,14 +18,12 @@ interface LayoutProps {
   children: React.ReactNode;
 }
 
-// Itens Core (Sempre visíveis para logados)
 const coreNavItems = [
   { to: '/', label: 'Início', icon: Home },
   { to: '/chat', label: 'Chat Inteligente', icon: MessageSquare },
   { to: '/prompts', label: 'Biblioteca Prompts', icon: MessageSquareQuote },
 ];
 
-// Módulos Legados (Privatizados)
 const legacyModuleItems = [
   { to: '/precificacao', label: 'Precificação', icon: Upload },
   { to: '/products', label: 'Lista de Produtos', icon: Tags },
@@ -41,7 +39,6 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { autenticado, logout, isAdmin, profile, session } = useAuth();
-  const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [dynamicModules, setDynamicModules] = useState<any[]>([]);
   const [balance, setBalance] = useState<number | null>(null);
 
@@ -84,7 +81,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     };
 
     const fetchBalance = async () => {
-      if (!autenticado || !session?.user) return;
+      if (!autenticado || !session?.user || isAdmin) return; // Admin não precisa de saldo
       const { data } = await supabase
         .from('wallets')
         .select('balance')
@@ -96,8 +93,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     fetchInstalledModules();
     fetchBalance();
 
-    // Inscrição em tempo real para mudanças no saldo
-    if (autenticado && session?.user) {
+    if (autenticado && session?.user && !isAdmin) {
       const channel = supabase
         .channel('wallet_changes')
         .on('postgres_changes', { 
@@ -114,7 +110,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         supabase.removeChannel(channel);
       };
     }
-  }, [autenticado, session]);
+  }, [autenticado, session, isAdmin]);
 
   const handleLogout = async () => {
     await logout();
@@ -165,26 +161,44 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                 {coreNavItems.map(item => <NavButton key={item.to} item={item} />)}
               </div>
 
-              {/* SEÇÃO DE SALDO / FINANCEIRO */}
+              {/* SEÇÃO FINANCEIRA DIFERENCIADA */}
               <div className="space-y-1 mt-6">
                 <div className="mb-2 px-3 text-[10px] font-bold uppercase text-muted-foreground tracking-wider">Financeiro</div>
-                <Link to="/credits" className="block w-full">
-                  <Button
-                    variant="ghost"
-                    className={cn(
-                      "w-full justify-start py-2 px-3 h-12 transition-all border border-primary/20 bg-primary/5 hover:bg-primary/10",
-                      location.pathname === '/credits' && "bg-primary/20 border-primary/40"
-                    )}
-                  >
-                    <Wallet className="h-5 w-5 mr-3 text-primary" />
-                    <div className="flex flex-col items-start">
-                      <span className="text-[10px] uppercase font-bold text-muted-foreground leading-none mb-1">Saldo</span>
-                      <span className="text-sm font-black text-primary leading-none">
-                        {balance !== null ? `${balance} Créditos` : '...'}
-                      </span>
-                    </div>
-                  </Button>
-                </Link>
+                {isAdmin ? (
+                  <Link to="/admin/finance" className="block w-full">
+                    <Button
+                      variant="ghost"
+                      className={cn(
+                        "w-full justify-start py-2 px-3 h-12 transition-all border border-blue-500/20 bg-blue-500/5 hover:bg-blue-500/10",
+                        location.pathname === '/admin/finance' && "bg-blue-500/20 border-blue-500/40"
+                      )}
+                    >
+                      <BarChart3 className="h-5 w-5 mr-3 text-blue-500" />
+                      <div className="flex flex-col items-start">
+                        <span className="text-[10px] uppercase font-bold text-muted-foreground leading-none mb-1">Gestão</span>
+                        <span className="text-sm font-black text-blue-600 leading-none">Dashboard Master</span>
+                      </div>
+                    </Button>
+                  </Link>
+                ) : (
+                  <Link to="/credits" className="block w-full">
+                    <Button
+                      variant="ghost"
+                      className={cn(
+                        "w-full justify-start py-2 px-3 h-12 transition-all border border-primary/20 bg-primary/5 hover:bg-primary/10",
+                        location.pathname === '/credits' && "bg-primary/20 border-primary/40"
+                      )}
+                    >
+                      <Wallet className="h-5 w-5 mr-3 text-primary" />
+                      <div className="flex flex-col items-start">
+                        <span className="text-[10px] uppercase font-bold text-muted-foreground leading-none mb-1">Saldo</span>
+                        <span className="text-sm font-black text-primary leading-none">
+                          {balance !== null ? `${balance} Créditos` : '...'}
+                        </span>
+                      </div>
+                    </Button>
+                  </Link>
+                )}
               </div>
 
               <div className="space-y-1 mt-6">
