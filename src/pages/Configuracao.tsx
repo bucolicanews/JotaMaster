@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { 
   Settings, Building, KeyRound, Save, Loader2, Globe, Search, Activity,
   BookOpen, Code, Terminal, Workflow, Blocks, Github, ExternalLink, MessageSquareQuote,
-  Wrench
+  Wrench, Database, Zap, FileText
 } from 'lucide-react';
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -143,29 +143,107 @@ const Configuracao = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <p className="font-bold text-foreground">Estrutura do JSON para Importação:</p>
-                    <div className="bg-slate-950 p-3 rounded-md border border-white/10">
-                      <code className="text-blue-400 font-mono block whitespace-pre">
-{`[
-  {
-    "name": "nome_da_skill",
-    "description": "O que ela faz",
-    "parameters": { "type": "object", "properties": {} },
-    "executionType": "local_js",
-    "jsCode": "return { status: 'ok' };"
-  }
-]`}
-                      </code>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
                     <p className="font-bold text-foreground">Objetos Disponíveis no Escopo:</p>
                     <ul className="list-disc pl-4 space-y-1">
                       <li><code className="text-primary">args</code>: Parâmetros extraídos pela IA.</li>
                       <li><code className="text-primary">helpers</code>: Funções nativas (Simples Nacional, NCM).</li>
                       <li><code className="text-primary">supabase</code>: Cliente oficial para ler/gravar dados.</li>
                     </ul>
+                  </div>
+
+                  <div className="space-y-4">
+                    <p className="font-bold text-foreground border-b pb-1">Exemplos Práticos por Tipo:</p>
+                    
+                    {/* Exemplo 1: Supabase Search */}
+                    <div className="space-y-2">
+                      <p className="text-[10px] uppercase font-bold text-indigo-600 flex items-center gap-1"><Database className="h-3 w-3" /> 1. JS Local: Busca no Supabase</p>
+                      <div className="bg-slate-950 p-3 rounded-md border border-white/10">
+                        <code className="text-emerald-500 font-mono block whitespace-pre">
+{`// Busca cliente por CPF ou CNPJ
+const { data, error } = await supabase
+  .from('crm_clientes')
+  .select('*')
+  .eq('documento', args.documento)
+  .single();
+
+if (error) return { status: 'erro', msg: error.message };
+return { status: 'ok', cliente: data };`}
+                        </code>
+                      </div>
+                    </div>
+
+                    {/* Exemplo 2: Supabase Insert */}
+                    <div className="space-y-2">
+                      <p className="text-[10px] uppercase font-bold text-indigo-600 flex items-center gap-1"><Database className="h-3 w-3" /> 2. JS Local: Inserção no Supabase</p>
+                      <div className="bg-slate-950 p-3 rounded-md border border-white/10">
+                        <code className="text-emerald-500 font-mono block whitespace-pre">
+{`// Registra um novo serviço prestado
+const { data, error } = await supabase
+  .from('servicos')
+  .insert([{ 
+    tipo: args.tipo, 
+    valor: args.valor, 
+    data: new Date().toISOString() 
+  }]);
+
+return error ? { status: 'erro' } : { status: 'sucesso', data };`}
+                        </code>
+                      </div>
+                    </div>
+
+                    {/* Exemplo 3: Web Scraping */}
+                    <div className="space-y-2">
+                      <p className="text-[10px] uppercase font-bold text-indigo-600 flex items-center gap-1"><Search className="h-3 w-3" /> 3. Navegação Web: Consultar Site</p>
+                      <div className="bg-slate-950 p-3 rounded-md border border-white/10">
+                        <p className="text-blue-400 font-mono text-[9px] mb-1">// Configuração da Skill:</p>
+                        <p className="text-blue-300 font-mono text-[9px] mb-2">URL: https://www.google.com/search?q=cotacao+dolar<br/>Seletor: .g .L69e7c</p>
+                        <code className="text-emerald-500 font-mono block whitespace-pre">
+{`// O sistema acessa a URL, extrai o texto do seletor 
+// e entrega para a IA processar o valor atual.`}
+                        </code>
+                      </div>
+                    </div>
+
+                    {/* Exemplo 4: Helpers */}
+                    <div className="space-y-2">
+                      <p className="text-[10px] uppercase font-bold text-indigo-600 flex items-center gap-1"><Activity className="h-3 w-3" /> 4. JS Local: Cálculo de Imposto (Helpers)</p>
+                      <div className="bg-slate-950 p-3 rounded-md border border-white/10">
+                        <code className="text-emerald-500 font-mono block whitespace-pre">
+{`// Usa o motor nativo de cálculo do Simples Nacional
+const taxa = helpers.calculateSimplesNacionalEffectiveRate(
+  args.anexo, 
+  args.faturamento_12m
+);
+return { aliquota: taxa.toFixed(2) + "%" };`}
+                        </code>
+                      </div>
+                    </div>
+
+                    {/* Exemplo 5: Knowledge Base */}
+                    <div className="space-y-2">
+                      <p className="text-[10px] uppercase font-bold text-indigo-600 flex items-center gap-1"><FileText className="h-3 w-3" /> 5. Base de Conhecimento: Consultar Texto</p>
+                      <div className="bg-slate-950 p-3 rounded-md border border-white/10">
+                        <code className="text-emerald-500 font-mono block whitespace-pre">
+{`// Você cola o manual da empresa no campo de conteúdo.
+// Quando a IA precisar, ela recupera o texto exato 
+// para responder ao usuário.`}
+                        </code>
+                      </div>
+                    </div>
+
+                    {/* Exemplo 6: Webhook n8n */}
+                    <div className="space-y-2">
+                      <p className="text-[10px] uppercase font-bold text-indigo-600 flex items-center gap-1"><Zap className="h-3 w-3" /> 6. Webhook: Enviar JSON para n8n</p>
+                      <div className="bg-slate-950 p-3 rounded-md border border-white/10">
+                        <p className="text-blue-400 font-mono text-[9px] mb-1">// Configuração da Skill:</p>
+                        <p className="text-blue-300 font-mono text-[9px] mb-2">Webhook URL: https://n8n.seu-servidor.com/webhook/...</p>
+                        <code className="text-emerald-500 font-mono block whitespace-pre">
+{`// A IA envia os dados estruturados (JSON) para o n8n.
+// O n8n pode então gerar um PDF, enviar e-mail ou 
+// atualizar planilhas externas.`}
+                        </code>
+                      </div>
+                    </div>
                   </div>
                 </AccordionContent>
               </AccordionItem>
