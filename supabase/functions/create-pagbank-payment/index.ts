@@ -15,14 +15,12 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // 1. Validar Usuário
     const authHeader = req.headers.get('Authorization')!
     const { data: { user }, error: authError } = await supabaseClient.auth.getUser(authHeader.replace('Bearer ', ''))
     if (authError || !user) return new Response('Unauthorized', { status: 401, headers: corsHeaders })
 
     const { packageId } = await req.json()
 
-    // 2. Buscar Dados do Pacote e Configurações do PagBank
     const { data: pkg } = await supabaseClient.from('credit_packages').select('*').eq('id', packageId).single()
     const { data: settings } = await supabaseClient.from('system_settings').select('*').eq('id', 'global_config').single()
 
@@ -32,22 +30,30 @@ serve(async (req) => {
     const token = isProd ? settings.pagbank_token_production : settings.pagbank_token_sandbox
     const baseUrl = isProd ? 'https://api.pagseguro.com' : 'https://sandbox.api.pagseguro.com'
 
-    // 3. Criar Pedido no PagBank (Exemplo simplificado de Checkout)
     const referenceId = crypto.randomUUID()
     
+    // 1. Registrar intenção de pagamento na tabela de controle
+    await supabaseClient.from('pagbank_payments').insert({
+      user_id: user.id,
+      reference_id: referenceId,
+      amount_cents: Math.round(Number(pkg.price_brl) * 100),
+      credits_to_add: pkg.credits_amount,
+      status: 'PENDING'
+    })
+
     const pagbankPayload = {
       reference_id: referenceId,
       customer: {
         name: user.user_metadata?.first_name || "Cliente JOTA",
         email: user.email,
-        tax_id: "12345678909", // Idealmente pegar do perfil
+        tax_id: "12345678909", 
         phones: [{ country: "55", area: "11", number: "999999999", type: "MOBILE" }]
       },
       items: [{
         reference_id: pkg.id,
         name: `Recarga JOTA: ${pkg.name}`,
         quantity: 1,
-        unit_amount: Math.round(Number(pkg.price_brl) * 100) // PagBank usa centavos
+        unit_amount: Math.round(Number(pkg.price_brl) * 100)
       }],
       notification_urls: [`${Deno.env.get('SUPABASE_URL')}/functions/v1/pagbank-webhook`]
     }
@@ -63,15 +69,6 @@ serve(async (req) => {
 
     const result = await response.json()
     
-    // Registrar intenção de pagamento
-    await supabaseClient.from('credit_transactions').insert({
-      user_id: user.id,
-      amount: pkg.credits_amount,
-      type: 'purchase',
-      description: `Início de compra: ${pkg.name}`,
-      reference_id: referenceId
-    })
-
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
