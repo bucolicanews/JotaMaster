@@ -88,8 +88,9 @@ export async function callGeminiAgent(
   }
 
   // Adiciona Grounding (Google Search) se ativado nas configurações
+  // Corrigido para o novo formato exigido pela API: google_search
   if (useGrounding) {
-    toolsArray.push({ googleSearchRetrieval: {} });
+    toolsArray.push({ google_search: {} });
   }
 
   const initialBody = {
@@ -151,8 +152,9 @@ export async function sendChatMessage(
     toolsArray.push({ functionDeclarations: dynamicManifests });
   }
 
+  // Corrigido para o novo formato exigido pela API: google_search
   if (useGrounding) {
-    toolsArray.push({ googleSearchRetrieval: {} });
+    toolsArray.push({ google_search: {} });
   }
 
   const skillsList = skillsOverride.map(s => `- ${s.name}: ${s.description}`).join('\n');
