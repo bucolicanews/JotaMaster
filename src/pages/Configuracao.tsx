@@ -311,7 +311,17 @@ Verifique se existe algum impedimento legal para o Simples Nacional.`}
                   </ol>
                   <div className="mt-4 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
                     <p className="font-bold text-blue-700 flex items-center gap-2"><FileText className="h-4 w-4" /> Manual Completo do Desenvolvedor</p>
-                    <p className="text-[10px] mt-1">Consulte o arquivo <code>docs/15-GUIA_DESENVOLVEDOR_MODULOS.md</code> para o guia passo a passo de integração.</p>
+                    <p className="text-[10px] mt-1">
+                      Consulte o guia passo a passo de integração no GitHub: 
+                      <a 
+                        href="https://github.com/bucolicanews/JotaMaster/blob/main/docs/15-GUIA_DESENVOLVEDOR_MODULOS.md" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-primary hover:underline ml-1 font-bold"
+                      >
+                        docs/15-GUIA_DESENVOLVEDOR_MODULOS.md
+                      </a>
+                    </p>
                   </div>
                 </AccordionContent>
               </AccordionItem>
