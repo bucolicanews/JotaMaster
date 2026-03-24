@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ShieldAlert, Users, Activity, Search, Blocks, Edit, Save, X, Globe, Code, Coins, KeyRound, TrendingUp, Loader2 } from 'lucide-react';
+import { ShieldAlert, Users, Activity, Search, Blocks, Edit, Save, X, Globe, Code, Coins, KeyRound, TrendingUp, Loader2, Plus, Trash2, Star } from 'lucide-react';
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from '@/integrations/supabase/client';
@@ -18,9 +18,9 @@ export default function AdminDashboard() {
   const { isAdmin } = useAuth();
   const [clientes, setClientes] = useState<any[]>([]);
   const [catalogo, setCatalogo] = useState<any[]>([]);
+  const [packages, setPackages] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
-  // Estados para Economia de IA com valores padrão para evitar "uncontrolled input"
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [settings, setSettings] = useState({
     vertex_api_key: '',
@@ -30,17 +30,31 @@ export default function AdminDashboard() {
     credit_conversion_rate: 10.0
   });
 
+  // Estado para novo pacote
+  const [isAddingPackage, setIsAddingPackage] = useState(false);
+  const [newPackage, setNewPackage] = useState({
+    name: '',
+    credits_amount: 0,
+    price_brl: 0,
+    is_popular: false
+  });
+
   useEffect(() => {
     if (isAdmin) {
       carregarDados();
       carregarSettings();
+      carregarPacotes();
     }
   }, [isAdmin]);
+
+  const carregarPacotes = async () => {
+    const { data } = await supabase.from('credit_packages').select('*').order('credits_amount', { ascending: true });
+    setPackages(data || []);
+  };
 
   const carregarSettings = async () => {
     try {
       const { data, error } = await supabase.from('system_settings').select('*').eq('id', 'global_config').single();
-      if (error) throw error;
       if (data) {
         setSettings({
           vertex_api_key: data.vertex_api_key || '',
@@ -50,9 +64,7 @@ export default function AdminDashboard() {
           credit_conversion_rate: Number(data.credit_conversion_rate) || 10.0
         });
       }
-    } catch (e) {
-      console.warn("Configurações globais ainda não criadas no banco.");
-    }
+    } catch (e) { console.warn("Configurações globais não localizadas."); }
   };
 
   const handleSaveSettings = async () => {
@@ -72,6 +84,30 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleAddPackage = async () => {
+    if (!newPackage.name || newPackage.credits_amount <= 0 || newPackage.price_brl <= 0) {
+      return toast.error("Preencha todos os campos do pacote.");
+    }
+    try {
+      const { error } = await supabase.from('credit_packages').insert([newPackage]);
+      if (error) throw error;
+      toast.success("Pacote criado com sucesso!");
+      setIsAddingPackage(false);
+      setNewPackage({ name: '', credits_amount: 0, price_brl: 0, is_popular: false });
+      carregarPacotes();
+    } catch (e: any) { toast.error("Erro ao criar pacote."); }
+  };
+
+  const handleDeletePackage = async (id: string) => {
+    if (!confirm("Excluir este pacote permanentemente?")) return;
+    try {
+      const { error } = await supabase.from('credit_packages').delete().eq('id', id);
+      if (error) throw error;
+      toast.success("Pacote removido.");
+      carregarPacotes();
+    } catch (e: any) { toast.error("Erro ao remover."); }
+  };
+
   const carregarDados = async () => {
     setIsLoading(true);
     try {
@@ -85,10 +121,6 @@ export default function AdminDashboard() {
         installed_modules: (modulesData || []).filter(m => m.user_id === profile.id)
       }));
       setClientes(clientesMapeados);
-
-      const { data: catalogData } = await supabase.from('system_modules').select('*').order('name', { ascending: true });
-      setCatalogo(catalogData || []);
-
     } catch (error: any) {
       console.error('Erro ao carregar painel:', error.message);
     } finally {
@@ -111,10 +143,11 @@ export default function AdminDashboard() {
       </div>
 
       <Tabs defaultValue="clientes" className="w-full">
-        <TabsList className="grid w-full md:w-[600px] grid-cols-3 mb-6">
+        <TabsList className="grid w-full md:w-[800px] grid-cols-4 mb-6">
           <TabsTrigger value="clientes"><Users className="h-4 w-4 mr-2" /> Locatários</TabsTrigger>
-          <TabsTrigger value="catalogo"><Blocks className="h-4 w-4 mr-2" /> Catálogo SaaS</TabsTrigger>
-          <TabsTrigger value="economia"><Coins className="h-4 w-4 mr-2" /> Economia de IA</TabsTrigger>
+          <TabsTrigger value="pacotes"><Coins className="h-4 w-4 mr-2" /> Pacotes</TabsTrigger>
+          <TabsTrigger value="economia"><TrendingUp className="h-4 w-4 mr-2" /> Economia IA</TabsTrigger>
+          <TabsTrigger value="catalogo"><Blocks className="h-4 w-4 mr-2" /> Catálogo</TabsTrigger>
         </TabsList>
 
         <TabsContent value="clientes" className="space-y-4">
@@ -153,10 +186,58 @@ export default function AdminDashboard() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="catalogo" className="space-y-4">
-           <Card className="p-8 text-center text-muted-foreground italic">
-              Gestão de catálogo em desenvolvimento.
-           </Card>
+        <TabsContent value="pacotes" className="space-y-6">
+          <div className="flex justify-between items-center">
+            <h3 className="text-lg font-bold flex items-center gap-2"><Coins className="h-5 w-5 text-primary" /> Gestão de Planos de Crédito</h3>
+            <Button onClick={() => setIsAddingPackage(!isAddingPackage)} variant={isAddingPackage ? "ghost" : "default"}>
+              {isAddingPackage ? <X className="h-4 w-4 mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
+              {isAddingPackage ? "Cancelar" : "Novo Pacote"}
+            </Button>
+          </div>
+
+          {isAddingPackage && (
+            <Card className="border-primary/30 bg-primary/5 animate-in slide-in-from-top-2">
+              <CardContent className="p-6 grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                <div className="space-y-2">
+                  <Label>Nome do Plano</Label>
+                  <Input placeholder="Ex: Starter" value={newPackage.name} onChange={e => setNewPackage({...newPackage, name: e.target.value})} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Qtd. Créditos</Label>
+                  <Input type="number" value={newPackage.credits_amount} onChange={e => setNewPackage({...newPackage, credits_amount: parseInt(e.target.value) || 0})} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Preço (R$)</Label>
+                  <Input type="number" step="0.01" value={newPackage.price_brl} onChange={e => setNewPackage({...newPackage, price_brl: parseFloat(e.target.value) || 0})} />
+                </div>
+                <div className="flex items-center gap-4 h-10">
+                  <div className="flex items-center gap-2">
+                    <Switch checked={newPackage.is_popular} onCheckedChange={v => setNewPackage({...newPackage, is_popular: v})} />
+                    <Label className="text-xs">Destaque</Label>
+                  </div>
+                  <Button onClick={handleAddPackage} className="flex-1 bg-primary">Criar</Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {packages.map((pkg) => (
+              <Card key={pkg.id} className={cn("relative border-2", pkg.is_popular ? "border-primary shadow-md" : "border-border")}>
+                {pkg.is_popular && <Badge className="absolute top-2 right-2 bg-primary"><Star className="h-3 w-3 mr-1 fill-current" /> Popular</Badge>}
+                <CardHeader className="pb-2">
+                  <CardTitle>{pkg.name}</CardTitle>
+                  <CardDescription>{pkg.credits_amount} Créditos</CardDescription>
+                </CardHeader>
+                <CardContent className="flex justify-between items-center">
+                  <span className="text-2xl font-black text-foreground">R$ {Number(pkg.price_brl).toFixed(2)}</span>
+                  <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10" onClick={() => handleDeletePackage(pkg.id)}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         </TabsContent>
 
         <TabsContent value="economia" className="space-y-6">
@@ -176,7 +257,6 @@ export default function AdminDashboard() {
                     onChange={(e) => setSettings({...settings, vertex_api_key: e.target.value})}
                     className="font-mono text-xs"
                   />
-                  <p className="text-[10px] text-muted-foreground italic">Esta chave é usada para todas as requisições do sistema.</p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-border/50">
@@ -240,6 +320,12 @@ export default function AdminDashboard() {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        <TabsContent value="catalogo" className="space-y-4">
+           <Card className="p-8 text-center text-muted-foreground italic">
+              Gestão de catálogo em desenvolvimento.
+           </Card>
         </TabsContent>
       </Tabs>
     </div>

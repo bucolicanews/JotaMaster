@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Wallet, PlusCircle, History, Zap, CreditCard, ArrowUpRight, Loader2 } from 'lucide-react';
+import { Wallet, PlusCircle, History, Zap, CreditCard, ArrowUpRight, Loader2, Star } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -13,18 +13,28 @@ export default function Credits() {
   const { session } = useAuth();
   const [balance, setBalance] = useState<number | null>(null);
   const [transactions, setTransactions] = useState<any[]>([]);
+  const [packages, setPackages] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     if (session?.user) {
       fetchWalletData();
+      fetchPackages();
     }
   }, [session]);
+
+  const fetchPackages = async () => {
+    const { data } = await supabase
+      .from('credit_packages')
+      .select('*')
+      .eq('is_active', true)
+      .order('credits_amount', { ascending: true });
+    setPackages(data || []);
+  };
 
   const fetchWalletData = async () => {
     setIsLoading(true);
     try {
-      // Busca Saldo
       const { data: wallet } = await supabase
         .from('wallets')
         .select('balance')
@@ -33,7 +43,6 @@ export default function Credits() {
       
       setBalance(wallet?.balance ?? 0);
 
-      // Busca Histórico
       const { data: txs } = await supabase
         .from('credit_transactions')
         .select('*')
@@ -49,9 +58,8 @@ export default function Credits() {
     }
   };
 
-  const handleBuyCredits = (amount: number, price: number) => {
-    toast.info(`Iniciando checkout PagBank para ${amount} créditos (R$ ${price.toFixed(2)})...`);
-    // Aqui entrará a chamada para a Edge Function do PagBank
+  const handleBuyCredits = (pkg: any) => {
+    toast.info(`Iniciando checkout PagBank para ${pkg.credits_amount} créditos (R$ ${Number(pkg.price_brl).toFixed(2)})...`);
   };
 
   return (
@@ -67,7 +75,6 @@ export default function Credits() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* CARD DE SALDO */}
         <Card className="lg:col-span-1 shadow-elegant border-primary/30 bg-gradient-to-br from-card to-primary/5">
           <CardHeader>
             <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Saldo Disponível</CardTitle>
@@ -84,29 +91,28 @@ export default function Credits() {
           </CardContent>
         </Card>
 
-        {/* PACOTES DE RECARGA */}
         <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-4">
-          {[
-            { qty: 50, price: 10, label: 'Starter' },
-            { qty: 250, price: 45, label: 'Pro', popular: true },
-            { qty: 1000, price: 150, label: 'Enterprise' }
-          ].map((pkg) => (
-            <Card key={pkg.qty} className={cn(
+          {packages.length === 0 ? (
+            <div className="col-span-3 p-12 text-center border-2 border-dashed rounded-lg bg-muted/20">
+              <p className="text-muted-foreground italic">Nenhum pacote de recarga disponível no momento.</p>
+            </div>
+          ) : packages.map((pkg) => (
+            <Card key={pkg.id} className={cn(
               "relative overflow-hidden transition-all hover:scale-105 cursor-pointer border-2",
-              pkg.popular ? "border-primary shadow-lg" : "border-border hover:border-primary/50"
-            )} onClick={() => handleBuyCredits(pkg.qty, pkg.price)}>
-              {pkg.popular && (
-                <div className="absolute top-0 right-0 bg-primary text-primary-foreground text-[10px] font-bold px-2 py-1 rounded-bl-lg uppercase">
-                  Melhor Valor
+              pkg.is_popular ? "border-primary shadow-lg" : "border-border hover:border-primary/50"
+            )} onClick={() => handleBuyCredits(pkg)}>
+              {pkg.is_popular && (
+                <div className="absolute top-0 right-0 bg-primary text-primary-foreground text-[10px] font-bold px-2 py-1 rounded-bl-lg uppercase flex items-center gap-1">
+                  <Star className="h-2 w-2 fill-current" /> Popular
                 </div>
               )}
               <CardHeader className="pb-2">
-                <CardTitle className="text-lg">{pkg.label}</CardTitle>
-                <CardDescription>{pkg.qty} Créditos</CardDescription>
+                <CardTitle className="text-lg">{pkg.name}</CardTitle>
+                <CardDescription>{pkg.credits_amount} Créditos</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold mb-4">R$ {pkg.price}</div>
-                <Button className="w-full gap-2" variant={pkg.popular ? "default" : "outline"}>
+                <div className="text-2xl font-bold mb-4">R$ {Number(pkg.price_brl).toFixed(2)}</div>
+                <Button className="w-full gap-2" variant={pkg.is_popular ? "default" : "outline"}>
                   <CreditCard className="h-4 w-4" /> Comprar
                 </Button>
               </CardContent>
@@ -115,7 +121,6 @@ export default function Credits() {
         </div>
       </div>
 
-      {/* HISTÓRICO */}
       <Card className="shadow-sm">
         <CardHeader className="flex flex-row items-center justify-between border-b border-border/50 bg-muted/10">
           <div className="flex items-center gap-2">
