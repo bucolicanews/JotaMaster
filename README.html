@@ -12,10 +12,12 @@
         body { font-family: 'Inter', sans-serif; background-color: #f8fafc; color: #1e293b; }
         .glass { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.3); }
         .hero-gradient { background: radial-gradient(circle at top right, rgba(249, 115, 22, 0.15), transparent), radial-gradient(circle at bottom left, rgba(15, 23, 42, 0.05), transparent); }
-        .code-block { background: #1e293b; color: #e2e8f0; padding: 1.5rem; border-radius: 0.75rem; font-family: 'Fira Code', monospace; font-size: 0.875rem; overflow-x: auto; }
+        .code-block { background: #1e293b; color: #e2e8f0; padding: 1.5rem; border-radius: 0.75rem; font-family: 'Fira Code', monospace; font-size: 0.875rem; overflow-x: auto; line-height: 1.6; }
         .nav-link { position: relative; transition: color 0.3s; }
         .nav-link::after { content: ''; position: absolute; width: 0; height: 2px; bottom: -4px; left: 0; background-color: var(--primary); transition: width 0.3s; }
         .nav-link:hover::after { width: 100%; }
+        .sql-keyword { color: #ff79c6; }
+        .sql-table { color: #50fa7b; }
     </style>
 </head>
 <body class="hero-gradient">
@@ -28,9 +30,9 @@
                     <span class="text-xl font-extrabold tracking-tighter text-slate-900">JOTA <span class="text-orange-500 text-sm font-medium">MASTER</span></span>
                 </div>
                 <div class="hidden md:flex space-x-8 text-sm font-medium text-slate-600">
-                    <a href="#visao-geral" class="nav-link hover:text-orange-500">Visão Geral</a>
-                    <a href="#arquitetura" class="nav-link hover:text-orange-500">Arquitetura</a>
+                    <a href="#hero" class="nav-link hover:text-orange-500">Início</a>
                     <a href="#database" class="nav-link hover:text-orange-500">Banco de Dados</a>
+                    <a href="#arquitetura" class="nav-link hover:text-orange-500">Arquitetura</a>
                     <a href="#instalacao" class="nav-link hover:text-orange-500">Instalação</a>
                 </div>
             </div>
@@ -42,60 +44,111 @@
         <section id="hero" class="mb-24">
             <h1 class="text-5xl lg:text-7xl font-extrabold text-slate-900 mb-6 leading-tight">A Placa-mãe da <span class="text-orange-500">Inteligência Fiscal</span></h1>
             <p class="text-xl text-slate-600 mb-10 max-w-2xl leading-relaxed">Documentação técnica completa do ecossistema JOTA Master: Modelagem, Segurança e Integração.</p>
+            <div class="flex gap-4">
+                <a href="#database" class="bg-orange-500 text-white px-6 py-3 rounded-xl font-bold shadow-lg hover:bg-orange-600 transition-all">Ver Scripts SQL</a>
+                <a href="#arquitetura" class="bg-white text-slate-900 border border-slate-200 px-6 py-3 rounded-xl font-bold hover:bg-slate-50 transition-all">Estrutura do Sistema</a>
+            </div>
         </section>
 
+        <!-- SEÇÃO DE BANCO DE DADOS -->
         <section id="database" class="mb-32 scroll-mt-24">
             <h2 class="text-3xl font-bold text-slate-900 mb-8 flex items-center gap-3"><i class="lucide-database text-orange-500"></i> Modelagem de Dados & RLS</h2>
-            <p class="text-slate-600 mb-8">O sistema utiliza o <strong>Supabase (PostgreSQL)</strong> com uma arquitetura Multi-tenant baseada em Row Level Security. Abaixo, a estrutura das tabelas principais:</p>
+            <p class="text-slate-600 mb-8 leading-relaxed">
+                O JOTA Master utiliza o <strong>Supabase (PostgreSQL)</strong> com uma arquitetura Multi-tenant. 
+                Abaixo está o script completo para criar as tabelas de perfis, módulos e o ecossistema de IA, incluindo as políticas de segurança <strong>Row Level Security (RLS)</strong>.
+            </p>
             
-            <div class="grid md:grid-cols-2 gap-6 mb-12">
-                <div class="p-6 bg-white rounded-2xl border border-slate-200 shadow-sm">
-                    <h4 class="font-bold text-orange-600 mb-2">profiles</h4>
-                    <p class="text-xs text-slate-500 mb-4">Extensão do Auth.Users. Armazena roles (admin, empresa) e status da conta.</p>
-                    <ul class="text-[10px] font-mono text-slate-400">
-                        <li>id (UUID) - PK</li>
-                        <li>role (TEXT) - RBAC</li>
-                        <li>status (TEXT) - active/suspended</li>
-                    </ul>
-                </div>
-                <div class="p-6 bg-white rounded-2xl border border-slate-200 shadow-sm">
-                    <h4 class="font-bold text-orange-600 mb-2">system_modules</h4>
-                    <p class="text-xs text-slate-500 mb-4">Catálogo global do Marketplace. Define se o módulo é nativo ou externo (CDN).</p>
-                    <ul class="text-[10px] font-mono text-slate-400">
-                        <li>id (TEXT) - PK</li>
-                        <li>module_type (internal/iframe)</li>
-                        <li>bundle_url (TEXT)</li>
-                    </ul>
-                </div>
-            </div>
-
-            <h3 class="text-xl font-bold text-slate-900 mb-4">Segurança Zero Trust (RLS)</h3>
-            <div class="code-block mb-8">
+            <div class="space-y-6">
+                <div class="bg-slate-900 rounded-2xl p-1 overflow-hidden shadow-2xl">
+                    <div class="flex items-center justify-between px-4 py-2 bg-slate-800 border-b border-slate-700">
+                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Script de Instalação (SQL)</span>
+                        <span class="text-[10px] text-orange-500 font-mono">v1.2 - Resiliente</span>
+                    </div>
+                    <div class="code-block max-h-[500px] overflow-y-auto text-xs">
 <pre>
--- Exemplo de Política de Isolamento de Tenant
-CREATE POLICY "Usuários veem apenas seus dados" 
-ON public.ai_skills 
-FOR SELECT 
-USING (auth.uid() = user_id OR is_global = true);
+<span class="sql-keyword">-- 1. Criar Tabelas Core</span>
+<span class="sql-keyword">CREATE TABLE IF NOT EXISTS</span> public.<span class="sql-table">profiles</span> (
+    id UUID <span class="sql-keyword">REFERENCES</span> auth.users(id) <span class="sql-keyword">PRIMARY KEY</span>,
+    first_name TEXT,
+    role TEXT <span class="sql-keyword">DEFAULT</span> 'empresa',
+    status TEXT <span class="sql-keyword">DEFAULT</span> 'active'
+);
+
+<span class="sql-keyword">CREATE TABLE IF NOT EXISTS</span> public.<span class="sql-table">system_modules</span> (
+    id TEXT <span class="sql-keyword">PRIMARY KEY</span>,
+    name TEXT <span class="sql-keyword">NOT NULL</span>,
+    module_type TEXT <span class="sql-keyword">DEFAULT</span> 'internal',
+    bundle_url TEXT
+);
+
+<span class="sql-keyword">CREATE TABLE IF NOT EXISTS</span> public.<span class="sql-table">ai_skills</span> (
+    id UUID <span class="sql-keyword">DEFAULT</span> gen_random_uuid() <span class="sql-keyword">PRIMARY KEY</span>,
+    user_id UUID <span class="sql-keyword">REFERENCES</span> auth.users(id),
+    name TEXT <span class="sql-keyword">NOT NULL</span>,
+    js_code TEXT,
+    is_global BOOLEAN <span class="sql-keyword">DEFAULT</span> false
+);
+
+<span class="sql-keyword">-- 2. Habilitar Segurança (RLS)</span>
+<span class="sql-keyword">ALTER TABLE</span> public.profiles <span class="sql-keyword">ENABLE ROW LEVEL SECURITY</span>;
+<span class="sql-keyword">ALTER TABLE</span> public.ai_skills <span class="sql-keyword">ENABLE ROW LEVEL SECURITY</span>;
+
+<span class="sql-keyword">-- 3. Criar Políticas de Isolamento</span>
+<span class="sql-keyword">CREATE POLICY</span> "Dono vê seus dados" <span class="sql-keyword">ON</span> public.ai_skills 
+<span class="sql-keyword">FOR SELECT USING</span> (auth.uid() = user_id <span class="sql-keyword">OR</span> is_global = true);
+
+<span class="sql-keyword">-- 4. Trigger de Novo Usuário</span>
+<span class="sql-keyword">CREATE OR REPLACE FUNCTION</span> public.handle_new_user() 
+<span class="sql-keyword">RETURNS TRIGGER AS</span> $$
+<span class="sql-keyword">BEGIN</span>
+  <span class="sql-keyword">INSERT INTO</span> public.profiles (id, first_name)
+  <span class="sql-keyword">VALUES</span> (new.id, new.raw_user_meta_data->>'first_name');
+  <span class="sql-keyword">RETURN</span> new;
+<span class="sql-keyword">END</span>;
+$$ <span class="sql-keyword">LANGUAGE</span> plpgsql <span class="sql-keyword">SECURITY DEFINER</span>;
 </pre>
+                    </div>
+                </div>
+                <p class="text-xs text-slate-400 italic">* Copie o código acima e cole no SQL Editor do seu painel Supabase.</p>
+            </div>
+        </section>
+
+        <section id="arquitetura" class="mb-32 scroll-mt-24">
+            <h2 class="text-3xl font-bold text-slate-900 mb-8">Arquitetura Modular</h2>
+            <div class="grid md:grid-cols-3 gap-6">
+                <div class="p-6 bg-white rounded-2xl border border-slate-200 shadow-sm card-hover">
+                    <i class="lucide-cpu text-orange-500 mb-4 w-8 h-8"></i>
+                    <h4 class="font-bold mb-2">Placa-mãe</h4>
+                    <p class="text-xs text-slate-500">O núcleo do sistema que gerencia autenticação, rotas e o chat central.</p>
+                </div>
+                <div class="p-6 bg-white rounded-2xl border border-slate-200 shadow-sm card-hover">
+                    <i class="lucide-blocks text-orange-500 mb-4 w-8 h-8"></i>
+                    <h4 class="font-bold mb-2">Blocos de Lego</h4>
+                    <p class="text-xs text-slate-500">Módulos independentes (CRM, Auditoria) que podem ser acoplados dinamicamente.</p>
+                </div>
+                <div class="p-6 bg-white rounded-2xl border border-slate-200 shadow-sm card-hover">
+                    <i class="lucide-brain-circuit text-orange-500 mb-4 w-8 h-8"></i>
+                    <h4 class="font-bold mb-2">Cérebro IA</h4>
+                    <p class="text-xs text-slate-500">Orquestrador Multi-agente que aprende novas habilidades com cada módulo.</p>
+                </div>
             </div>
         </section>
 
         <section id="instalacao" class="mb-32 scroll-mt-24">
-            <h2 class="text-3xl font-bold text-slate-900 mb-8">Guia de Instalação</h2>
+            <h2 class="text-3xl font-bold text-slate-900 mb-8">Guia de Instalação Rápida</h2>
             <div class="space-y-8">
                 <div class="flex gap-4">
                     <div class="bg-orange-500 text-white w-8 h-8 rounded-full flex items-center justify-center shrink-0 font-bold">1</div>
                     <div>
                         <h4 class="font-bold mb-2">Configurar Supabase</h4>
-                        <p class="text-sm text-slate-500 mb-4">Crie um projeto no Supabase e execute o arquivo <code>supabase_setup.sql</code> no editor SQL para criar as tabelas e políticas.</p>
+                        <p class="text-sm text-slate-500">Crie um projeto e execute o script SQL da seção acima no editor de consultas.</p>
                     </div>
                 </div>
                 <div class="flex gap-4">
                     <div class="bg-orange-500 text-white w-8 h-8 rounded-full flex items-center justify-center shrink-0 font-bold">2</div>
                     <div>
                         <h4 class="font-bold mb-2">Variáveis de Ambiente</h4>
-                        <div class="code-block">
+                        <div class="code-block mt-2">
                             VITE_SUPABASE_URL=https://seu-projeto.supabase.co<br>
                             VITE_SUPABASE_ANON_KEY=sua-chave-anon
                         </div>
@@ -103,6 +156,12 @@ USING (auth.uid() = user_id OR is_global = true);
                 </div>
             </div>
         </section>
+
+        <footer class="border-t border-slate-200 pt-12 text-center">
+            <p class="text-sm text-slate-500">
+                &copy; 2024 JOTA Contabilidade e Inteligência. Todos os direitos reservados.
+            </p>
+        </footer>
 
     </main>
 </body>
