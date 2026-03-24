@@ -412,7 +412,8 @@ export default function AdminDashboard() {
               </CardContent>
             </Card>
 
-            {/* STRIPE CONFIG */}
+            {/* STRIPE CONFIG (COMENTADO PARA FUTURA IMPLEMENTAÇÃO) */}
+            {/* 
             <Card className="shadow-elegant border-blue-500/20">
               <CardHeader className="bg-blue-500/5 border-b border-blue-500/10">
                 <div className="flex items-center justify-between">
@@ -467,6 +468,7 @@ export default function AdminDashboard() {
                 </div>
               </CardContent>
             </Card>
+            */}
           </div>
 
           <div className="flex justify-end">
