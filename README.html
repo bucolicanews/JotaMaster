@@ -365,6 +365,173 @@ jota-master/
                             npm run dev
                         </div>
                     </div>
+                    <!-- PASSO 4: DATABASE SETUP -->
+                    <div class="step">
+                        <h4 class="font-bold text-slate-900 mb-2">4. Configuração do Banco de Dados (Supabase)</h4>
+                        <p class="text-sm text-slate-500 mb-4">Execute o script abaixo no <strong>SQL Editor</strong> do seu projeto Supabase para criar a estrutura básica necessária para o sistema grátis:</p>
+                        <div class="code-block">
+<pre>
+-- 1. FUNÇÕES DE AUXÍLIO
+CREATE OR REPLACE FUNCTION public.get_user_role()
+RETURNS text AS $$
+  SELECT role FROM public.profiles WHERE id = auth.uid();
+$$ LANGUAGE sql SECURITY DEFINER;
+
+-- 2. TABELA DE PERFIS (PROFILES)
+CREATE TABLE public.profiles (
+  id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
+  first_name TEXT,
+  last_name TEXT,
+  company_name TEXT,
+  role TEXT DEFAULT 'empresa',
+  status TEXT DEFAULT 'active',
+  plan TEXT DEFAULT 'trial',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "profiles_select_policy" ON public.profiles
+FOR SELECT TO authenticated USING (id = auth.uid() OR get_user_role() = 'admin');
+
+CREATE POLICY "profiles_update_policy" ON public.profiles
+FOR UPDATE TO authenticated USING (id = auth.uid() OR get_user_role() = 'admin');
+
+-- 3. CATÁLOGO DE MÓDULOS (SYSTEM_MODULES)
+CREATE TABLE public.system_modules (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  description TEXT,
+  icon TEXT DEFAULT 'Blocks',
+  price NUMERIC DEFAULT 0.00,
+  is_active BOOLEAN DEFAULT true,
+  is_native BOOLEAN DEFAULT false,
+  bundle_url TEXT,
+  module_type TEXT DEFAULT 'internal',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+ALTER TABLE public.system_modules ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Everyone can view active modules" ON public.system_modules 
+FOR SELECT USING (is_active = true OR get_user_role() = 'admin');
+
+-- 4. MÓDULOS INSTALADOS (INSTALLED_MODULES)
+CREATE TABLE public.installed_modules (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  module_id TEXT REFERENCES public.system_modules(id),
+  is_active BOOLEAN DEFAULT true,
+  settings JSONB DEFAULT '{}'::jsonb,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+ALTER TABLE public.installed_modules ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "modules_select_policy" ON public.installed_modules
+FOR SELECT TO authenticated USING (user_id = auth.uid() OR get_user_role() = 'admin');
+
+CREATE POLICY "modules_insert_policy" ON public.installed_modules
+FOR INSERT TO authenticated WITH CHECK (user_id = auth.uid());
+
+CREATE POLICY "modules_delete_policy" ON public.installed_modules
+FOR DELETE TO authenticated USING (user_id = auth.uid());
+
+-- 5. INTELIGÊNCIA: PROMPTS
+CREATE TABLE public.ai_prompts (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  module_id TEXT,
+  title TEXT NOT NULL,
+  role TEXT,
+  content TEXT,
+  is_active BOOLEAN DEFAULT true,
+  is_global BOOLEAN DEFAULT false,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+ALTER TABLE public.ai_prompts ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Leitura_Prompts_Global" ON public.ai_prompts
+FOR SELECT TO authenticated USING (user_id = auth.uid() OR is_global = true OR get_user_role() = 'admin');
+
+CREATE POLICY "Modificar Prompts" ON public.ai_prompts
+FOR ALL TO authenticated USING (user_id = auth.uid() OR get_user_role() = 'admin');
+
+-- 6. INTELIGÊNCIA: SKILLS
+CREATE TABLE public.ai_skills (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  module_id TEXT,
+  name TEXT NOT NULL,
+  description TEXT,
+  suggested_instruction TEXT,
+  parameters JSONB DEFAULT '{}'::jsonb,
+  execution_type TEXT DEFAULT 'local_js',
+  js_code TEXT,
+  webhook_url TEXT,
+  knowledge_base_text TEXT,
+  url TEXT,
+  selector TEXT,
+  is_active BOOLEAN DEFAULT true,
+  is_global BOOLEAN DEFAULT false,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+ALTER TABLE public.ai_skills ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Leitura_Skills_Global" ON public.ai_skills
+FOR SELECT TO authenticated USING (user_id = auth.uid() OR is_global = true OR get_user_role() = 'admin');
+
+CREATE POLICY "Modificar Skills" ON public.ai_skills
+FOR ALL TO authenticated USING (user_id = auth.uid() OR get_user_role() = 'admin');
+
+-- 7. INTELIGÊNCIA: AGENTES
+CREATE TABLE public.ai_agents (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  module_id TEXT,
+  nome TEXT NOT NULL,
+  system_prompt TEXT,
+  order_index INTEGER DEFAULT 0,
+  selected_skills JSONB DEFAULT '[]'::jsonb,
+  enable_monitoring BOOLEAN DEFAULT false,
+  monitoring_interval INTEGER DEFAULT 60,
+  use_n8n BOOLEAN DEFAULT false,
+  n8n_response_url TEXT,
+  webhook_url TEXT,
+  is_active BOOLEAN DEFAULT true,
+  is_global BOOLEAN DEFAULT false,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+ALTER TABLE public.ai_agents ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Leitura_Agents_Global" ON public.ai_agents
+FOR SELECT TO authenticated USING (user_id = auth.uid() OR is_global = true OR get_user_role() = 'admin');
+
+CREATE POLICY "Modificar Agents" ON public.ai_agents
+FOR ALL TO authenticated USING (user_id = auth.uid() OR get_user_role() = 'admin');
+
+-- 8. AUTOMAÇÃO DE PERFIL NO SIGNUP
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS trigger AS $$
+BEGIN
+  INSERT INTO public.profiles (id, first_name, last_name, company_name)
+  VALUES (
+    new.id,
+    new.raw_user_meta_data ->> 'first_name',
+    new.raw_user_meta_data ->> 'last_name',
+    new.raw_user_meta_data ->> 'company_name'
+  );
+  RETURN new;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+</pre>
+                        </div>
+                    </div>
                 </div>
             </section>
 
