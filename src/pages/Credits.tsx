@@ -25,37 +25,47 @@ export default function Credits() {
   }, [session]);
 
   const fetchPackages = async () => {
-    const { data } = await supabase
-      .from('credit_packages')
-      .select('*')
-      .eq('is_active', true)
-      .order('credits_amount', { ascending: true });
-    setPackages(data || []);
+    try {
+      const { data, error } = await supabase
+        .from('credit_packages')
+        .select('*')
+        .eq('is_active', true)
+        .order('credits_amount', { ascending: true });
+      
+      if (error) throw error;
+      setPackages(data || []);
+    } catch (err: any) {
+      console.error("[Credits] Erro ao buscar pacotes:", err.message);
+    }
   };
 
   const fetchWalletData = async () => {
     setIsLoading(true);
     try {
-      const { data: wallet, error } = await supabase
+      // 1. Busca Saldo
+      const { data: wallet, error: walletError } = await supabase
         .from('wallets')
         .select('balance')
         .eq('user_id', session?.user.id)
-        .single();
+        .maybeSingle();
       
-      if (error) throw error;
+      if (walletError) throw walletError;
       setBalance(wallet?.balance ?? 0);
 
-      const { data: txs } = await supabase
+      // 2. Busca Histórico
+      const { data: txs, error: txsError } = await supabase
         .from('credit_transactions')
         .select('*')
         .eq('user_id', session?.user.id)
         .order('created_at', { ascending: false })
         .limit(10);
       
+      if (txsError) throw txsError;
       setTransactions(txs || []);
+
     } catch (error: any) {
-      console.error("Erro ao carregar carteira:", error.message);
-      if (error.code === 'PGRST116') setBalance(0); // Carteira não existe ainda
+      console.error("[Credits] Erro de permissão ou rede:", error.message);
+      toast.error("Erro ao carregar dados financeiros. Verifique as permissões do banco.");
     } finally {
       setIsLoading(false);
     }
@@ -64,21 +74,29 @@ export default function Credits() {
   const handleBuyCredits = async (pkg: any) => {
     setIsBuying(pkg.id);
     try {
+      // Determina o método de pagamento (por padrão CREDIT_CARD para o checkout do PagBank)
       const { data, error } = await supabase.functions.invoke('create-pagbank-payment', {
-        body: { packageId: pkg.id }
+        body: { 
+          packageId: pkg.id,
+          paymentMethod: 'CREDIT_CARD' 
+        }
       });
 
       if (error) throw error;
 
-      // Redirecionar para o checkout do PagBank
+      // O PagBank retorna os links no array 'links'
       const checkoutUrl = data.links?.find((l: any) => l.rel === 'PAY')?.href;
+      
       if (checkoutUrl) {
+        toast.success("Redirecionando para o pagamento...");
         window.location.href = checkoutUrl;
       } else {
-        toast.error("Erro ao gerar link de pagamento.");
+        console.error("[PagBank] Resposta sem link de pagamento:", data);
+        throw new Error("Link de pagamento não gerado pelo provedor.");
       }
     } catch (err: any) {
-      toast.error("Falha no checkout: " + err.message);
+      console.error("[Credits] Falha no checkout:", err.message);
+      toast.error("Falha ao iniciar pagamento: " + err.message);
     } finally {
       setIsBuying(null);
     }
@@ -114,7 +132,11 @@ export default function Credits() {
         </Card>
 
         <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-4">
-          {packages.map((pkg) => (
+          {packages.length === 0 && !isLoading ? (
+            <div className="col-span-3 p-12 text-center border-2 border-dashed rounded-lg bg-muted/20">
+              <p className="text-muted-foreground italic">Nenhum pacote disponível. O Admin precisa cadastrar planos.</p>
+            </div>
+          ) : packages.map((pkg) => (
             <Card key={pkg.id} className={cn(
               "relative overflow-hidden transition-all hover:scale-105 cursor-pointer border-2",
               pkg.is_popular ? "border-primary shadow-lg" : "border-border hover:border-primary/50"
