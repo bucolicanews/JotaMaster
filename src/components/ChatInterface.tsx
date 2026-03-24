@@ -249,11 +249,10 @@ export const ChatInterface = () => {
 
     try {
       // Filtra Skills e Agentes baseado no modo grátis (módulos instalados)
-      const hasSkillsModule = installedModuleIds.includes('skills-module');
-      const hasAgentsModule = installedModuleIds.includes('agents-module');
+      const hasSkillsModule = installedModuleIds.includes('skills');
+      const hasAgentsModule = installedModuleIds.includes('agents');
       
       const allowedSkills = hasSkillsModule ? availableSkills : [];
-      // Nota: A lógica de Agentes no chat central ainda é experimental, mas respeitamos a trava.
 
       const responseText = await sendChatMessage(newHistory, apiKey, allowedSkills, (toolName) => {
         setActiveTool(toolName);
@@ -278,7 +277,7 @@ export const ChatInterface = () => {
             <div className="min-w-0">
               <CardTitle className="text-sm font-bold truncate">{sessions.find(s => s.id === activeSessionId)?.title || 'Consultor JOTA AI'}</CardTitle>
               <p className="text-[10px] text-muted-foreground">
-                {installedModuleIds.includes('skills-module') ? 'Modo Premium Ativo' : 'Modo Grátis (Apenas Prompts)'}
+                {installedModuleIds.includes('skills') ? 'Modo Premium Ativo' : 'Modo Grátis (Apenas Prompts)'}
               </p>
             </div>
           </div>

@@ -72,7 +72,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         const formatted = (systemData || []).map((mod: any) => ({
           to: mod.module_type === 'internal' ? `/${mod.id}` : `/app/${mod.id}`,
           label: mod.name,
-          icon: mod.id === 'skills-module' ? Wrench : mod.id === 'agents-module' ? Zap : LayoutGrid,
+          icon: mod.id === 'skills' ? Wrench : mod.id === 'agents' ? Zap : LayoutGrid,
           id: mod.id
         }));
 
@@ -84,6 +84,11 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
     fetchInstalledModules();
   }, [autenticado, session]);
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login');
+  };
 
   const NavButton = ({ item, isLocked = false, isDynamic = false }: { item: any, isLocked?: boolean, isDynamic?: boolean }) => {
     const isActive = location.pathname === item.to;
@@ -170,7 +175,9 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                   <Badge variant={isAdmin ? "destructive" : "outline"} className="text-[8px] uppercase mt-0.5">{profile?.role || 'empresa'}</Badge>
                 </div>
               </div>
-              <Button size="sm" variant="outline" className="w-full text-destructive border-destructive/20" onClick={logout}><LogOut className="h-4 w-4 mr-2" /> Sair</Button>
+              <Button size="sm" variant="outline" className="w-full text-destructive border-destructive/20" onClick={handleLogout}>
+                <LogOut className="h-4 w-4 mr-2" /> Sair
+              </Button>
             </div>
           )}
         </div>
