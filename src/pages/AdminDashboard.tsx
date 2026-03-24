@@ -3,9 +3,14 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ShieldAlert, Users, Activity, Search, Blocks, Edit, Save, X, Globe, Code, Coins, KeyRound, TrendingUp, Loader2, Plus, Trash2, Star, CreditCard, Percent, DollarSign } from 'lucide-react';
+import { 
+  ShieldAlert, Users, Activity, Search, Blocks, Edit, Save, X, 
+  Globe, Code, Coins, KeyRound, TrendingUp, Loader2, Plus, 
+  Trash2, Star, CreditCard, Percent, DollarSign, ExternalLink, LayoutGrid
+} from 'lucide-react';
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
@@ -19,6 +24,7 @@ export default function AdminDashboard() {
   const { isAdmin } = useAuth();
   const [clientes, setClientes] = useState<any[]>([]);
   const [packages, setPackages] = useState<any[]>([]);
+  const [modules, setModules] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
   const [isSavingSettings, setIsSavingSettings] = useState(false);
@@ -28,7 +34,6 @@ export default function AdminDashboard() {
     price_per_1m_output_tokens: 2.50,
     profit_multiplier: 4.0,
     credit_conversion_rate: 10.0,
-    // PagBank
     pagbank_token_sandbox: '',
     pagbank_token_production: '',
     pagbank_env: 'sandbox',
@@ -36,19 +41,25 @@ export default function AdminDashboard() {
     pagbank_pix_fee_fixed: 1.20,
     pagbank_pix_fee_percentage: 0.3,
     pagbank_card_fee_fixed: 1.20,
-    pagbank_card_fee_percentage: 6.0,
-    // Stripe
-    stripe_enabled: false,
-    stripe_env: 'test',
-    stripe_pass_fees: false,
-    stripe_fee_fixed: 1.20,
-    stripe_fee_percentage: 6.0,
-    stripe_secret_key_prod: '',
-    stripe_webhook_secret_prod: '',
-    stripe_secret_key_test: '',
-    stripe_webhook_secret_test: ''
+    pagbank_card_fee_percentage: 6.0
   });
 
+  // Estados para Gestão de Módulos
+  const [isAddingModule, setIsAddingModule] = useState(false);
+  const [editingModuleId, setEditingModuleId] = useState<string | null>(null);
+  const [moduleForm, setModuleForm] = useState({
+    id: '',
+    name: '',
+    description: '',
+    icon: 'Blocks',
+    price: 0,
+    is_active: true,
+    is_native: false,
+    module_type: 'internal',
+    bundle_url: ''
+  });
+
+  // Estados para Gestão de Pacotes
   const [isAddingPackage, setIsAddingPackage] = useState(false);
   const [newPackage, setNewPackage] = useState({
     name: '',
@@ -62,8 +73,14 @@ export default function AdminDashboard() {
       carregarDados();
       carregarSettings();
       carregarPacotes();
+      carregarModulos();
     }
   }, [isAdmin]);
+
+  const carregarModulos = async () => {
+    const { data } = await supabase.from('system_modules').select('*').order('name', { ascending: true });
+    setModules(data || []);
+  };
 
   const carregarPacotes = async () => {
     const { data } = await supabase.from('credit_packages').select('*').order('credits_amount', { ascending: true });
@@ -77,7 +94,6 @@ export default function AdminDashboard() {
         setSettings({
           ...settings,
           ...data,
-          // Garantir que números sejam números
           price_per_1m_input_tokens: Number(data.price_per_1m_input_tokens),
           price_per_1m_output_tokens: Number(data.price_per_1m_output_tokens),
           profit_multiplier: Number(data.profit_multiplier),
@@ -85,9 +101,7 @@ export default function AdminDashboard() {
           pagbank_pix_fee_fixed: Number(data.pagbank_pix_fee_fixed),
           pagbank_pix_fee_percentage: Number(data.pagbank_pix_fee_percentage),
           pagbank_card_fee_fixed: Number(data.pagbank_card_fee_fixed),
-          pagbank_card_fee_percentage: Number(data.pagbank_card_fee_percentage),
-          stripe_fee_fixed: Number(data.stripe_fee_fixed),
-          stripe_fee_percentage: Number(data.stripe_fee_percentage)
+          pagbank_card_fee_percentage: Number(data.pagbank_card_fee_percentage)
         });
       }
     } catch (e) { console.warn("Configurações globais não localizadas."); }
@@ -110,6 +124,43 @@ export default function AdminDashboard() {
     }
   };
 
+  // --- LÓGICA DE MÓDULOS ---
+  const handleSaveModule = async () => {
+    if (!moduleForm.id || !moduleForm.name) return toast.error("ID e Nome são obrigatórios.");
+    
+    // Validação de URL para Iframes
+    if (moduleForm.module_type === 'iframe' && !moduleForm.bundle_url) {
+      return toast.error("Módulos do tipo Iframe exigem uma URL de origem.");
+    }
+
+    try {
+      const { error } = await supabase.from('system_modules').upsert([moduleForm]);
+      if (error) throw error;
+      toast.success("Módulo salvo no catálogo!");
+      setIsAddingModule(false);
+      setEditingModuleId(null);
+      setModuleForm({ id: '', name: '', description: '', icon: 'Blocks', price: 0, is_active: true, is_native: false, module_type: 'internal', bundle_url: '' });
+      carregarModulos();
+    } catch (e: any) { toast.error("Erro ao salvar módulo."); }
+  };
+
+  const handleEditModule = (mod: any) => {
+    setModuleForm(mod);
+    setEditingModuleId(mod.id);
+    setIsAddingModule(true);
+  };
+
+  const handleDeleteModule = async (id: string) => {
+    if (!confirm("Excluir este módulo do catálogo? Isso não removerá as instalações existentes, mas impedirá novas.")) return;
+    try {
+      const { error } = await supabase.from('system_modules').delete().eq('id', id);
+      if (error) throw error;
+      toast.success("Módulo removido do catálogo.");
+      carregarModulos();
+    } catch (e: any) { toast.error("Erro ao remover."); }
+  };
+
+  // --- LÓGICA DE PACOTES ---
   const handleAddPackage = async () => {
     if (!newPackage.name || newPackage.credits_amount <= 0 || newPackage.price_brl <= 0) {
       return toast.error("Preencha todos os campos do pacote.");
@@ -171,11 +222,12 @@ export default function AdminDashboard() {
       <Tabs defaultValue="clientes" className="w-full">
         <TabsList className="grid w-full md:w-[800px] grid-cols-4 mb-6">
           <TabsTrigger value="clientes"><Users className="h-4 w-4 mr-2" /> Locatários</TabsTrigger>
+          <TabsTrigger value="catalogo"><Blocks className="h-4 w-4 mr-2" /> Catálogo SaaS</TabsTrigger>
           <TabsTrigger value="pacotes"><Coins className="h-4 w-4 mr-2" /> Pacotes</TabsTrigger>
           <TabsTrigger value="economia"><TrendingUp className="h-4 w-4 mr-2" /> Economia IA</TabsTrigger>
-          <TabsTrigger value="pagamentos"><CreditCard className="h-4 w-4 mr-2" /> Pagamentos</TabsTrigger>
         </TabsList>
 
+        {/* ABA: LOCATÁRIOS */}
         <TabsContent value="clientes" className="space-y-4">
           <Card className="shadow-elegant border-primary/20">
             <CardContent className="p-0 overflow-x-auto">
@@ -212,6 +264,107 @@ export default function AdminDashboard() {
           </Card>
         </TabsContent>
 
+        {/* ABA: CATÁLOGO DE MÓDULOS (RESTAURADA) */}
+        <TabsContent value="catalogo" className="space-y-6">
+          <div className="flex justify-between items-center">
+            <h3 className="text-lg font-bold flex items-center gap-2"><Blocks className="h-5 w-5 text-primary" /> Gestão do Catálogo de Módulos</h3>
+            <Button onClick={() => { setIsAddingModule(!isAddingModule); setEditingModuleId(null); }} variant={isAddingModule ? "ghost" : "default"}>
+              {isAddingModule ? <X className="h-4 w-4 mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
+              {isAddingModule ? "Cancelar" : "Novo Módulo"}
+            </Button>
+          </div>
+
+          {isAddingModule && (
+            <Card className="border-primary/30 bg-primary/5 animate-in slide-in-from-top-2">
+              <CardContent className="p-6 space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label>ID Único (Slug)</Label>
+                    <Input placeholder="ex: crm-v2" value={moduleForm.id} onChange={e => setModuleForm({...moduleForm, id: e.target.value})} disabled={!!editingModuleId} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Nome do Módulo</Label>
+                    <Input placeholder="Ex: Controle de Clientes" value={moduleForm.name} onChange={e => setModuleForm({...moduleForm, name: e.target.value})} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Preço de Ativação (R$)</Label>
+                    <Input type="number" value={moduleForm.price} onChange={e => setModuleForm({...moduleForm, price: parseFloat(e.target.value) || 0})} />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Descrição Curta</Label>
+                  <Textarea placeholder="O que este módulo faz?" value={moduleForm.description} onChange={e => setModuleForm({...moduleForm, description: e.target.value})} />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-4 border rounded-lg bg-background">
+                  <div className="space-y-2">
+                    <Label>Tipo de Renderização</Label>
+                    <Select value={moduleForm.module_type} onValueChange={v => setModuleForm({...moduleForm, module_type: v})}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="internal">Interno (Nativo)</SelectItem>
+                        <SelectItem value="iframe">Externo (Iframe/CDN)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <Label>URL do Artefato (Bundle/CDN)</Label>
+                    <Input 
+                      placeholder="https://cdn.meu-app.com" 
+                      value={moduleForm.bundle_url} 
+                      onChange={e => setModuleForm({...moduleForm, bundle_url: e.target.value})}
+                      disabled={moduleForm.module_type === 'internal'}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-6">
+                  <div className="flex items-center gap-2">
+                    <Switch checked={moduleForm.is_active} onCheckedChange={v => setModuleForm({...moduleForm, is_active: v})} />
+                    <Label>Ativo na Loja</Label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Switch checked={moduleForm.is_native} onCheckedChange={v => setModuleForm({...moduleForm, is_native: v})} />
+                    <Label>Módulo Nativo</Label>
+                  </div>
+                  <Button onClick={handleSaveModule} className="ml-auto bg-primary px-8">
+                    {editingModuleId ? "Atualizar Módulo" : "Publicar no Marketplace"}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {modules.map((mod) => (
+              <Card key={mod.id} className={cn("relative border-2", mod.is_active ? "border-border" : "border-dashed opacity-60")}>
+                <CardHeader className="pb-2">
+                  <div className="flex justify-between items-start">
+                    <div className="p-2 bg-muted rounded-md">
+                      {mod.module_type === 'iframe' ? <ExternalLink className="h-5 w-5 text-amber-500" /> : <LayoutGrid className="h-5 w-5 text-primary" />}
+                    </div>
+                    <Badge variant={mod.is_active ? "default" : "outline"}>{mod.is_active ? "Ativo" : "Inativo"}</Badge>
+                  </div>
+                  <CardTitle className="mt-2">{mod.name}</CardTitle>
+                  <CardDescription className="text-[10px] font-mono uppercase">{mod.id}</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-xs text-muted-foreground line-clamp-2 mb-4 h-8">{mod.description}</p>
+                  <div className="flex justify-between items-center pt-4 border-t">
+                    <span className="font-bold text-primary">{Number(mod.price) === 0 ? 'Grátis' : `R$ ${Number(mod.price).toFixed(2)}`}</span>
+                    <div className="flex gap-1">
+                      <Button variant="ghost" size="icon" onClick={() => handleEditModule(mod)}><Edit className="h-4 w-4" /></Button>
+                      <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDeleteModule(mod.id)}><Trash2 className="h-4 w-4" /></Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </TabsContent>
+
+        {/* ABA: PACOTES DE CRÉDITO */}
         <TabsContent value="pacotes" className="space-y-6">
           <div className="flex justify-between items-center">
             <h3 className="text-lg font-bold flex items-center gap-2"><Coins className="h-5 w-5 text-primary" /> Gestão de Planos de Crédito</h3>
@@ -266,6 +419,7 @@ export default function AdminDashboard() {
           </div>
         </TabsContent>
 
+        {/* ABA: ECONOMIA IA */}
         <TabsContent value="economia" className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <Card className="lg:col-span-2 shadow-elegant border-primary/20">
@@ -345,137 +499,6 @@ export default function AdminDashboard() {
                 </Button>
               </CardContent>
             </Card>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="pagamentos" className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* PAGBANK CONFIG */}
-            <Card className="shadow-elegant border-primary/20">
-              <CardHeader className="bg-muted/10 border-b border-border/50">
-                <CardTitle className="text-lg flex items-center gap-2"><CreditCard className="h-5 w-5 text-primary" />Gateway PagBank</CardTitle>
-              </CardHeader>
-              <CardContent className="p-6 space-y-6">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Ambiente</Label>
-                    <Select value={settings.pagbank_env} onValueChange={(v) => setSettings({...settings, pagbank_env: v})}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="sandbox">Sandbox (Teste)</SelectItem>
-                        <SelectItem value="production">Produção (Real)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="flex items-center justify-between pt-8">
-                    <Label className="text-xs font-bold">Repassar Taxas?</Label>
-                    <Switch checked={settings.pagbank_pass_fees_to_customer} onCheckedChange={v => setSettings({...settings, pagbank_pass_fees_to_customer: v})} />
-                  </div>
-                </div>
-
-                <div className="space-y-4 p-4 border rounded-lg bg-muted/5">
-                  <h4 className="text-xs font-bold uppercase flex items-center gap-2 text-primary"><Percent className="h-3 w-3" /> Custo do PIX</h4>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1">
-                      <Label className="text-[10px]">Taxa Fixa (R$)</Label>
-                      <Input type="number" step="0.01" value={settings.pagbank_pix_fee_fixed} onChange={e => setSettings({...settings, pagbank_pix_fee_fixed: parseFloat(e.target.value) || 0})} />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-[10px]">Taxa Percentual (%)</Label>
-                      <Input type="number" step="0.01" value={settings.pagbank_pix_fee_percentage} onChange={e => setSettings({...settings, pagbank_pix_fee_percentage: parseFloat(e.target.value) || 0})} />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-4 p-4 border rounded-lg bg-muted/5">
-                  <h4 className="text-xs font-bold uppercase flex items-center gap-2 text-primary"><CreditCard className="h-3 w-3" /> Custo do Cartão</h4>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1">
-                      <Label className="text-[10px]">Taxa Fixa (R$)</Label>
-                      <Input type="number" step="0.01" value={settings.pagbank_card_fee_fixed} onChange={e => setSettings({...settings, pagbank_card_fee_fixed: parseFloat(e.target.value) || 0})} />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-[10px]">Taxa Percentual (%)</Label>
-                      <Input type="number" step="0.01" value={settings.pagbank_card_fee_percentage} onChange={e => setSettings({...settings, pagbank_card_fee_percentage: parseFloat(e.target.value) || 0})} />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Token Sandbox</Label>
-                  <Input type="password" value={settings.pagbank_token_sandbox} onChange={(e) => setSettings({...settings, pagbank_token_sandbox: e.target.value})} className="font-mono text-xs" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Token Produção</Label>
-                  <Input type="password" value={settings.pagbank_token_production} onChange={(e) => setSettings({...settings, pagbank_token_production: e.target.value})} className="font-mono text-xs" />
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* STRIPE CONFIG (COMENTADO PARA FUTURA IMPLEMENTAÇÃO) */}
-            {/* 
-            <Card className="shadow-elegant border-blue-500/20">
-              <CardHeader className="bg-blue-500/5 border-b border-blue-500/10">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg flex items-center gap-2"><Globe className="h-5 w-5 text-blue-500" />Gateway Stripe</CardTitle>
-                  <Switch checked={settings.stripe_enabled} onCheckedChange={v => setSettings({...settings, stripe_enabled: v})} />
-                </div>
-              </CardHeader>
-              <CardContent className="p-6 space-y-6">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Ambiente</Label>
-                    <Select value={settings.stripe_env} onValueChange={(v) => setSettings({...settings, stripe_env: v})}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="test">Modo Teste</SelectItem>
-                        <SelectItem value="production">Modo Produção</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="flex items-center justify-between pt-8">
-                    <Label className="text-xs font-bold">Repassar Taxas?</Label>
-                    <Switch checked={settings.stripe_pass_fees} onCheckedChange={v => setSettings({...settings, stripe_pass_fees: v})} />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4 p-4 border rounded-lg bg-blue-500/5">
-                  <div className="space-y-1">
-                    <Label className="text-[10px]">Taxa Fixa (R$)</Label>
-                    <Input type="number" step="0.01" value={settings.stripe_fee_fixed} onChange={e => setSettings({...settings, stripe_fee_fixed: parseFloat(e.target.value) || 0})} />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-[10px]">Taxa Percentual (%)</Label>
-                    <Input type="number" step="0.01" value={settings.stripe_fee_percentage} onChange={e => setSettings({...settings, stripe_fee_percentage: parseFloat(e.target.value) || 0})} />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Secret Key (Produção)</Label>
-                  <Input type="password" value={settings.stripe_secret_key_prod} onChange={(e) => setSettings({...settings, stripe_secret_key_prod: e.target.value})} className="font-mono text-xs" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Webhook Secret (Produção)</Label>
-                  <Input type="password" value={settings.stripe_webhook_secret_prod} onChange={(e) => setSettings({...settings, stripe_webhook_secret_prod: e.target.value})} className="font-mono text-xs" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Secret Key (Teste)</Label>
-                  <Input type="password" value={settings.stripe_secret_key_test} onChange={(e) => setSettings({...settings, stripe_secret_key_test: e.target.value})} className="font-mono text-xs" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Webhook Secret (Teste)</Label>
-                  <Input type="password" value={settings.stripe_webhook_secret_test} onChange={(e) => setSettings({...settings, stripe_webhook_secret_test: e.target.value})} className="font-mono text-xs" />
-                </div>
-              </CardContent>
-            </Card>
-            */}
-          </div>
-
-          <div className="flex justify-end">
-            <Button className="bg-primary hover:bg-primary/90 px-12" onClick={handleSaveSettings} disabled={isSavingSettings}>
-              {isSavingSettings ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
-              Salvar Todas as Configurações de Pagamento
-            </Button>
           </div>
         </TabsContent>
       </Tabs>
