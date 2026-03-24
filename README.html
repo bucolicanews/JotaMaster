@@ -529,6 +529,13 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+-- 9. DADOS INICIAIS (SEED) - OBRIGATÓRIO PARA O MARKETPLACE FUNCIONAR
+INSERT INTO public.system_modules (id, name, description, icon, price, is_active, is_native, module_type)
+VALUES 
+('skills', 'Módulo de Skills', 'Habilita o uso de ferramentas e funções personalizadas pela IA.', 'Wrench', 0.00, true, true, 'internal'),
+('agents', 'Módulo de Agentes', 'Habilita a criação e execução de agentes autônomos e workflows.', 'Zap', 0.00, true, true, 'internal')
+ON CONFLICT (id) DO UPDATE SET is_active = true;
 </pre>
                         </div>
                     </div>
