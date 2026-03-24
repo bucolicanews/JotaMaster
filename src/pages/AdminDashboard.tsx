@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { 
   ShieldAlert, Users, Activity, Search, Blocks, Edit, Save, X, 
   Globe, Code, Coins, KeyRound, TrendingUp, Loader2, Plus, 
-  Trash2, Star, CreditCard, Percent, DollarSign, ExternalLink, LayoutGrid
+  Trash2, Star, CreditCard, Percent, DollarSign, ExternalLink, LayoutGrid,
+  ShieldCheck
 } from 'lucide-react';
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -128,7 +129,6 @@ export default function AdminDashboard() {
   const handleSaveModule = async () => {
     if (!moduleForm.id || !moduleForm.name) return toast.error("ID e Nome são obrigatórios.");
     
-    // Validação de URL para Iframes
     if (moduleForm.module_type === 'iframe' && !moduleForm.bundle_url) {
       return toast.error("Módulos do tipo Iframe exigem uma URL de origem.");
     }
@@ -207,6 +207,9 @@ export default function AdminDashboard() {
 
   if (!isAdmin && !isLoading) return <Navigate to="/" replace />;
 
+  const nativeModules = modules.filter(m => m.is_native);
+  const marketplaceModules = modules.filter(m => !m.is_native);
+
   return (
     <div className="container mx-auto px-4 py-8 space-y-6 animate-in fade-in duration-500">
       <div className="flex items-center gap-3 border-b border-border pb-6">
@@ -227,7 +230,6 @@ export default function AdminDashboard() {
           <TabsTrigger value="economia"><TrendingUp className="h-4 w-4 mr-2" /> Economia IA</TabsTrigger>
         </TabsList>
 
-        {/* ABA: LOCATÁRIOS */}
         <TabsContent value="clientes" className="space-y-4">
           <Card className="shadow-elegant border-primary/20">
             <CardContent className="p-0 overflow-x-auto">
@@ -264,8 +266,7 @@ export default function AdminDashboard() {
           </Card>
         </TabsContent>
 
-        {/* ABA: CATÁLOGO DE MÓDULOS (RESTAURADA) */}
-        <TabsContent value="catalogo" className="space-y-6">
+        <TabsContent value="catalogo" className="space-y-8">
           <div className="flex justify-between items-center">
             <h3 className="text-lg font-bold flex items-center gap-2"><Blocks className="h-5 w-5 text-primary" /> Gestão do Catálogo de Módulos</h3>
             <Button onClick={() => { setIsAddingModule(!isAddingModule); setEditingModuleId(null); }} variant={isAddingModule ? "ghost" : "default"}>
@@ -336,31 +337,67 @@ export default function AdminDashboard() {
             </Card>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {modules.map((mod) => (
-              <Card key={mod.id} className={cn("relative border-2", mod.is_active ? "border-border" : "border-dashed opacity-60")}>
-                <CardHeader className="pb-2">
-                  <div className="flex justify-between items-start">
-                    <div className="p-2 bg-muted rounded-md">
-                      {mod.module_type === 'iframe' ? <ExternalLink className="h-5 w-5 text-amber-500" /> : <LayoutGrid className="h-5 w-5 text-primary" />}
+          {/* SEÇÃO: MÓDULOS NATIVOS */}
+          <div className="space-y-4">
+            <h4 className="text-sm font-bold uppercase text-muted-foreground flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4 text-success" /> Módulos Nativos (Protegidos)
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {nativeModules.map((mod) => (
+                <Card key={mod.id} className="border-success/20 bg-success/5">
+                  <CardHeader className="pb-2">
+                    <div className="flex justify-between items-start">
+                      <div className="p-2 bg-background rounded-md border border-success/20">
+                        <LayoutGrid className="h-5 w-5 text-success" />
+                      </div>
+                      <Badge variant="default" className="bg-success text-success-foreground">NATIVO</Badge>
                     </div>
-                    <Badge variant={mod.is_active ? "default" : "outline"}>{mod.is_active ? "Ativo" : "Inativo"}</Badge>
-                  </div>
-                  <CardTitle className="mt-2">{mod.name}</CardTitle>
-                  <CardDescription className="text-[10px] font-mono uppercase">{mod.id}</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-xs text-muted-foreground line-clamp-2 mb-4 h-8">{mod.description}</p>
-                  <div className="flex justify-between items-center pt-4 border-t">
-                    <span className="font-bold text-primary">{Number(mod.price) === 0 ? 'Grátis' : `R$ ${Number(mod.price).toFixed(2)}`}</span>
-                    <div className="flex gap-1">
+                    <CardTitle className="mt-2">{mod.name}</CardTitle>
+                    <CardDescription className="text-[10px] font-mono uppercase">{mod.id}</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-xs text-muted-foreground line-clamp-2 mb-4 h-8">{mod.description}</p>
+                    <div className="flex justify-between items-center pt-4 border-t border-success/10">
+                      <span className="font-bold text-success">Grátis</span>
                       <Button variant="ghost" size="icon" onClick={() => handleEditModule(mod)}><Edit className="h-4 w-4" /></Button>
-                      <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDeleteModule(mod.id)}><Trash2 className="h-4 w-4" /></Button>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+
+          {/* SEÇÃO: MARKETPLACE */}
+          <div className="space-y-4">
+            <h4 className="text-sm font-bold uppercase text-muted-foreground flex items-center gap-2">
+              <Blocks className="h-4 w-4 text-primary" /> Módulos do Marketplace
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {marketplaceModules.map((mod) => (
+                <Card key={mod.id} className={cn("relative border-2", mod.is_active ? "border-border" : "border-dashed opacity-60")}>
+                  <CardHeader className="pb-2">
+                    <div className="flex justify-between items-start">
+                      <div className="p-2 bg-muted rounded-md">
+                        {mod.module_type === 'iframe' ? <ExternalLink className="h-5 w-5 text-amber-500" /> : <LayoutGrid className="h-5 w-5 text-primary" />}
+                      </div>
+                      <Badge variant={mod.is_active ? "default" : "outline"}>{mod.is_active ? "Ativo" : "Inativo"}</Badge>
+                    </div>
+                    <CardTitle className="mt-2">{mod.name}</CardTitle>
+                    <CardDescription className="text-[10px] font-mono uppercase">{mod.id}</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-xs text-muted-foreground line-clamp-2 mb-4 h-8">{mod.description}</p>
+                    <div className="flex justify-between items-center pt-4 border-t">
+                      <span className="font-bold text-primary">{Number(mod.price) === 0 ? 'Grátis' : `R$ ${Number(mod.price).toFixed(2)}`}</span>
+                      <div className="flex gap-1">
+                        <Button variant="ghost" size="icon" onClick={() => handleEditModule(mod)}><Edit className="h-4 w-4" /></Button>
+                        <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDeleteModule(mod.id)}><Trash2 className="h-4 w-4" /></Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           </div>
         </TabsContent>
 

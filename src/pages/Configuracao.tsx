@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { 
-  Settings, Building, KeyRound, Save, Loader2, Globe, Search, Activity
+  Settings, Building, KeyRound, Save, Loader2, Globe, Search, Activity,
+  BookOpen, Code, Terminal, Workflow, Blocks
 } from 'lucide-react';
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -10,6 +11,7 @@ import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { useAuth } from '@/contexts/AuthContext';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 const UFs = ["AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"];
 
@@ -98,6 +100,67 @@ const Configuracao = () => {
                <div className="space-y-2"><Label>Webhook Ambiente Teste</Label><Input value={webhookTestUrl} onChange={(e) => setWebhookTestUrl(e.target.value)} placeholder="https://..." /></div>
                <div className="space-y-2"><Label>Webhook Ambiente Produção</Label><Input value={webhookProdUrl} onChange={(e) => setWebhookProdUrl(e.target.value)} placeholder="https://..." /></div>
              </div>
+          </div>
+
+          {/* 4. MANUAIS DE GOVERNANÇA */}
+          <div className="space-y-6 rounded-lg border border-indigo-500/20 p-6 bg-indigo-500/5">
+            <h3 className="text-lg font-bold flex items-center gap-2 text-indigo-600">
+              <BookOpen className="h-5 w-5" /> Guias de Desenvolvimento e Governança
+            </h3>
+            
+            <Accordion type="single" collapsible className="w-full">
+              <AccordionItem value="skills">
+                <AccordionTrigger className="text-sm font-bold"><Code className="h-4 w-4 mr-2" /> Como construir uma Skill</AccordionTrigger>
+                <AccordionContent className="text-xs space-y-2 text-muted-foreground leading-relaxed">
+                  <p>As Skills são funções JavaScript assíncronas executadas no contexto do Master. Elas permitem que a IA interaja com o mundo real.</p>
+                  <div className="bg-slate-950 p-3 rounded-md border border-white/10">
+                    <p className="text-emerald-400 font-mono mb-2">// Exemplo de Skill de consulta</p>
+                    <code className="text-emerald-500 font-mono">
+                      const res = await fetch('https://api.exemplo.com/dados');<br/>
+                      const data = await res.json();<br/>
+                      return data;
+                    </code>
+                  </div>
+                  <p>Use o objeto <strong>args</strong> para receber parâmetros da IA e <strong>helpers</strong> para acessar funções nativas do sistema (como cálculo de impostos).</p>
+                </AccordionContent>
+              </AccordionItem>
+              
+              <AccordionItem value="prompts">
+                <AccordionTrigger className="text-sm font-bold"><Terminal className="h-4 w-4 mr-2" /> Como construir um Prompt</AccordionTrigger>
+                <AccordionContent className="text-xs space-y-2 text-muted-foreground leading-relaxed">
+                  <p>Prompts definem a Persona (Role) e as Instruções de Sistema. Eles são a base do comportamento da IA.</p>
+                  <ul className="list-disc pl-4 space-y-1">
+                    <li><strong>Persona:</strong> Defina quem a IA é (ex: Especialista Tributário).</li>
+                    <li><strong>Variáveis:</strong> Use o símbolo <strong>@</strong> para injetar dados do contexto (ex: @empresa.razaoSocial).</li>
+                    <li><strong>Instruções:</strong> Seja específico sobre o formato de saída (Markdown, JSON, etc).</li>
+                  </ul>
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem value="agents">
+                <AccordionTrigger className="text-sm font-bold"><Workflow className="h-4 w-4 mr-2" /> Como construir um Agente</AccordionTrigger>
+                <AccordionContent className="text-xs space-y-2 text-muted-foreground leading-relaxed">
+                  <p>Agentes são orquestradores que podem executar sequências de Skills ou workflows complexos.</p>
+                  <ul className="list-disc pl-4 space-y-1">
+                    <li><strong>Ordem:</strong> Define a prioridade na cadeia de execução.</li>
+                    <li><strong>Modo n8n:</strong> Ative para processamentos longos ou integrações que exigem resposta assíncrona via URL.</li>
+                    <li><strong>Skills Vinculadas:</strong> Selecione quais ferramentas este agente tem permissão para usar.</li>
+                  </ul>
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem value="marketplace">
+                <AccordionTrigger className="text-sm font-bold"><Blocks className="h-4 w-4 mr-2" /> Como construir um Módulo (Marketplace)</AccordionTrigger>
+                <AccordionContent className="text-xs space-y-2 text-muted-foreground leading-relaxed">
+                  <p>Módulos são Micro-frontends independentes que se acoplam à Placa-mãe JOTA.</p>
+                  <ol className="list-decimal pl-4 space-y-2">
+                    <li><strong>Desenvolvimento:</strong> Crie seu App em React/Vite e hospede em uma CDN segura (HTTPS).</li>
+                    <li><strong>Manifesto:</strong> Crie um arquivo <strong>ai-manifest.json</strong> na raiz do seu projeto detalhando as Skills e Agentes que seu módulo oferece.</li>
+                    <li><strong>Integração:</strong> Cadastre a URL no Painel Admin como tipo <strong>iframe</strong>. O Master injetará seu app em um sandbox isolado.</li>
+                  </ol>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
           </div>
 
           <div className="pt-6 border-t border-border">
