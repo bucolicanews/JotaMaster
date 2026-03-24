@@ -42,7 +42,6 @@ export default function Credits() {
   const fetchWalletData = async () => {
     setIsLoading(true);
     try {
-      // 1. Busca Saldo
       const { data: wallet, error: walletError } = await supabase
         .from('wallets')
         .select('balance')
@@ -52,7 +51,6 @@ export default function Credits() {
       if (walletError) throw walletError;
       setBalance(wallet?.balance ?? 0);
 
-      // 2. Busca Histórico
       const { data: txs, error: txsError } = await supabase
         .from('credit_transactions')
         .select('*')
@@ -65,7 +63,7 @@ export default function Credits() {
 
     } catch (error: any) {
       console.error("[Credits] Erro de permissão ou rede:", error.message);
-      toast.error("Erro ao carregar dados financeiros. Verifique as permissões do banco.");
+      toast.error("Erro ao carregar dados financeiros.");
     } finally {
       setIsLoading(false);
     }
@@ -74,7 +72,6 @@ export default function Credits() {
   const handleBuyCredits = async (pkg: any) => {
     setIsBuying(pkg.id);
     try {
-      // Determina o método de pagamento (por padrão CREDIT_CARD para o checkout do PagBank)
       const { data, error } = await supabase.functions.invoke('create-pagbank-payment', {
         body: { 
           packageId: pkg.id,
@@ -84,15 +81,14 @@ export default function Credits() {
 
       if (error) throw error;
 
-      // O PagBank retorna os links no array 'links'
       const checkoutUrl = data.links?.find((l: any) => l.rel === 'PAY')?.href;
       
       if (checkoutUrl) {
-        toast.success("Redirecionando para o pagamento...");
-        window.location.href = checkoutUrl;
+        toast.success("Abrindo checkout em nova aba...");
+        // ABERTURA EM NOVA ABA PARA EVITAR BLOQUEIOS DE IFRAME/LOCALHOST
+        window.open(checkoutUrl, '_blank', 'noopener,noreferrer');
       } else {
-        console.error("[PagBank] Resposta sem link de pagamento:", data);
-        throw new Error("Link de pagamento não gerado pelo provedor.");
+        throw new Error("Link de pagamento não localizado.");
       }
     } catch (err: any) {
       console.error("[Credits] Falha no checkout:", err.message);
@@ -134,7 +130,7 @@ export default function Credits() {
         <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-4">
           {packages.length === 0 && !isLoading ? (
             <div className="col-span-3 p-12 text-center border-2 border-dashed rounded-lg bg-muted/20">
-              <p className="text-muted-foreground italic">Nenhum pacote disponível. O Admin precisa cadastrar planos.</p>
+              <p className="text-muted-foreground italic">Nenhum pacote disponível.</p>
             </div>
           ) : packages.map((pkg) => (
             <Card key={pkg.id} className={cn(
