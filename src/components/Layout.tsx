@@ -25,7 +25,7 @@ const coreNavItems = [
   { to: '/prompts', label: 'Biblioteca Prompts', icon: MessageSquareQuote },
 ];
 
-// Módulos Legados (Privatizados)
+// Módulos Legados (Agora restritos ao Admin)
 const legacyModuleItems = [
   { to: '/precificacao', label: 'Precificação', icon: Upload },
   { to: '/products', label: 'Lista de Produtos', icon: Tags },
@@ -140,10 +140,13 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                 {dynamicModules.map(item => <NavButton key={item.id} item={item} isDynamic />)}
               </div>
 
-              <div className="space-y-1 mt-6">
-                <div className="mb-2 px-3 text-[10px] font-bold uppercase text-muted-foreground tracking-wider">Módulos Legados</div>
-                {legacyModuleItems.map(item => <NavButton key={item.to} item={item} />)}
-              </div>
+              {/* SEÇÃO RESTRITA AO ADMIN */}
+              {isAdmin && (
+                <div className="space-y-1 mt-6">
+                  <div className="mb-2 px-3 text-[10px] font-bold uppercase text-muted-foreground tracking-wider">Módulos Legados</div>
+                  {legacyModuleItems.map(item => <NavButton key={item.to} item={item} />)}
+                </div>
+              )}
 
               {isAdmin && (
                 <div className="space-y-1 mt-6">
