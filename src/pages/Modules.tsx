@@ -2,12 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Blocks, CheckCircle2, Lock, ShoppingCart, Loader2, ExternalLink, BrainCircuit, Check } from 'lucide-react';
+import { Blocks, CheckCircle2, Lock, ShoppingCart, Loader2, ExternalLink, BrainCircuit, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { syncModuleManifest } from '@/lib/aiEcosystem'; // Importação do motor de inteligência
+import { syncModuleManifest } from '@/lib/aiEcosystem';
 
 export default function Modules() {
   const { session, autenticado } = useAuth();
@@ -16,14 +16,13 @@ export default function Modules() {
   const [installedIds, setInstalledIds] = useState<string[]>([]); 
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState<string | null>(null);
-  const [syncingId, setSyncingId] = useState<string | null>(null); // Controle de UI para o Sync de IA
+  const [syncingId, setSyncingId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         if (!autenticado || !session?.user) return;
 
-        // 1. Busca Vitrine (Módulos Ativos pelo Admin)
         const { data: sysData, error: sysError } = await supabase
           .from('system_modules')
           .select('*')
@@ -33,7 +32,6 @@ export default function Modules() {
         if (sysError) throw sysError;
         setCatalog(sysData || []);
 
-        // 2. Busca o que o usuário tem instalado
         const { data: instData, error: instError } = await supabase
           .from('installed_modules')
           .select('module_id')
@@ -63,7 +61,6 @@ export default function Modules() {
       return;
     }
 
-    // Fluxo de Aquisição (Simulado por enquanto)
     setIsProcessing(mod.id);
     try {
       if (Number(mod.price) === 0) {
@@ -76,7 +73,6 @@ export default function Modules() {
         setInstalledIds(prev => [...prev, mod.id]);
         toast.success(`Módulo ${mod.name} ativado com sucesso!`);
         
-        // Dispara a sincronização de IA automaticamente ao instalar, se for módulo externo
         if (mod.module_type === 'iframe' && mod.bundle_url) {
           handleSyncAI(mod);
         }
@@ -91,7 +87,38 @@ export default function Modules() {
     }
   };
 
-  // Função para absorver a Inteligência do Módulo (AI Manifest)
+  const handleUninstall = async (mod: any) => {
+    if (!confirm(`Deseja realmente remover o módulo "${mod.name}"? Toda a inteligência vinculada a ele será excluída.`)) return;
+    
+    setIsProcessing(mod.id);
+    try {
+      const uid = session?.user.id;
+      
+      // 1. Remove a instalação
+      const { error: delError } = await supabase
+        .from('installed_modules')
+        .delete()
+        .eq('user_id', uid)
+        .eq('module_id', mod.id);
+
+      if (delError) throw delError;
+
+      // 2. Limpa a inteligência (Skills, Agentes, Prompts) vinculada a este módulo para este usuário
+      await supabase.from('ai_skills').delete().eq('user_id', uid).eq('module_id', mod.id);
+      await supabase.from('ai_agents').delete().eq('user_id', uid).eq('module_id', mod.id);
+      await supabase.from('ai_prompts').delete().eq('user_id', uid).eq('module_id', mod.id);
+
+      setInstalledIds(prev => prev.filter(id => id !== mod.id));
+      toast.success(`Módulo ${mod.name} removido com sucesso.`);
+      
+    } catch (err: any) {
+      console.error(err);
+      toast.error("Erro ao remover módulo.");
+    } finally {
+      setIsProcessing(null);
+    }
+  };
+
   const handleSyncAI = async (mod: any) => {
     if (!session?.user) return;
     
@@ -195,21 +222,34 @@ export default function Modules() {
                     </Button>
                   </div>
                   
-                  {/* Botão Extra de Sincronizar IA para Módulos Externos Instalados */}
-                  {isInstalled && isExternal && (
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="w-full text-xs bg-indigo-500/5 text-indigo-600 border-indigo-500/20 hover:bg-indigo-500/10"
-                      onClick={() => handleSyncAI(mod)}
-                      disabled={syncingId === mod.id}
-                    >
-                      {syncingId === mod.id ? (
-                        <><Loader2 className="h-3 w-3 mr-2 animate-spin" /> Absorvendo Inteligência...</>
-                      ) : (
-                        <><BrainCircuit className="h-3 w-3 mr-2" /> Sincronizar Cérebro IA</>
+                  {isInstalled && (
+                    <div className="flex flex-col gap-2 w-full">
+                      {isExternal && (
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="w-full text-xs bg-indigo-500/5 text-indigo-600 border-indigo-500/20 hover:bg-indigo-500/10"
+                          onClick={() => handleSyncAI(mod)}
+                          disabled={syncingId === mod.id}
+                        >
+                          {syncingId === mod.id ? (
+                            <><Loader2 className="h-3 w-3 mr-2 animate-spin" /> Absorvendo Inteligência...</>
+                          ) : (
+                            <><BrainCircuit className="h-3 w-3 mr-2" /> Sincronizar Cérebro IA</>
+                          )}
+                        </Button>
                       )}
-                    </Button>
+                      
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="w-full text-xs text-destructive hover:bg-destructive/10"
+                        onClick={() => handleUninstall(mod)}
+                        disabled={isProcessing === mod.id}
+                      >
+                        <Trash2 className="h-3 w-3 mr-2" /> Remover Módulo
+                      </Button>
+                    </div>
                   )}
                 </CardFooter>
               </Card>
