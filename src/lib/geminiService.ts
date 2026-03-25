@@ -84,13 +84,15 @@ export async function callGeminiAgent(
   const toolsArray: any[] = [];
   const isExplicitSkillCall = userContent.includes('@');
 
-  // LÓGICA DE ALTERNÂNCIA: Skills têm prioridade se chamadas via @, caso contrário usa Grounding se ativo.
-  if (isExplicitSkillCall || !useGrounding) {
+  // LÓGICA DE EXCLUSIVIDADE ESTRITA
+  if (isExplicitSkillCall) {
     if (dynamicManifests.length > 0) {
       toolsArray.push({ functionDeclarations: dynamicManifests });
     }
   } else if (useGrounding) {
     toolsArray.push({ google_search: {} });
+  } else if (dynamicManifests.length > 0) {
+    toolsArray.push({ functionDeclarations: dynamicManifests });
   }
 
   const enhancedSystemPrompt = `${systemPrompt}\n\nREGRA CRÍTICA: Se houver uma ferramenta disponível para obter dados reais (como CEP ou cálculos), você DEVE usá-la. Não responda com base em seu conhecimento interno se a ferramenta puder fornecer o dado exato.`;
@@ -139,7 +141,7 @@ export async function sendChatMessage(
   apiKey: string,
   skillsOverride: DynamicSkill[],
   onToolCall?: (toolName: string) => void,
-  useGroundingOverride?: boolean // Novo parâmetro vindo da UI do chat
+  useGroundingOverride?: boolean
 ): Promise<string> {
   if (!apiKey) throw new Error('Chave API Gemini não configurada.');
   
@@ -149,7 +151,6 @@ export async function sendChatMessage(
   const lastUserMessage = history[history.length - 1]?.parts[0]?.text || "";
   const isExplicitSkillCall = lastUserMessage.includes('@');
   
-  // Prioriza o override da UI, senão usa a config global
   const useGrounding = useGroundingOverride !== undefined 
     ? useGroundingOverride 
     : localStorage.getItem('jota-gemini-search') === 'true';
@@ -157,13 +158,16 @@ export async function sendChatMessage(
   const toolsArray: any[] = [];
   const dynamicManifests = skillsOverride.map(s => ({ name: s.name, description: s.description, parameters: s.parameters }));
   
-  // LÓGICA DE ALTERNÂNCIA NO CHAT
-  if (isExplicitSkillCall || !useGrounding) {
+  // LÓGICA DE EXCLUSIVIDADE ESTRITA NO CHAT
+  // Se houver @ na mensagem, ignoramos o Grounding para evitar erro 400
+  if (isExplicitSkillCall) {
     if (dynamicManifests.length > 0) {
       toolsArray.push({ functionDeclarations: dynamicManifests });
     }
   } else if (useGrounding) {
     toolsArray.push({ google_search: {} });
+  } else if (dynamicManifests.length > 0) {
+    toolsArray.push({ functionDeclarations: dynamicManifests });
   }
 
   const skillsList = skillsOverride.map(s => `- ${s.name}: ${s.description}`).join('\n');
