@@ -81,7 +81,6 @@ export async function callGeminiAgent(
   const dynamicSkills = skillsOverride || [];
   const dynamicManifests = dynamicSkills.map(s => ({ name: s.name, description: s.description, parameters: s.parameters }));
   
-  // DECISÃO ÚNICA DE FERRAMENTAS (EXCLUSIVIDADE ESTRITA)
   let tools: any[] | undefined = undefined;
   const isExplicitSkillCall = userContent.includes('@');
 
@@ -95,7 +94,7 @@ export async function callGeminiAgent(
     tools = [{ functionDeclarations: dynamicManifests }];
   }
 
-  const enhancedSystemPrompt = `${systemPrompt}\n\nREGRA CRÍTICA: Se houver uma ferramenta disponível para obter dados reais (como CEP ou cálculos), você DEVE usá-la. Não responda com base em seu conhecimento interno se a ferramenta puder fornecer o dado exato.`;
+  const enhancedSystemPrompt = `${systemPrompt}\n\nREGRA CRÍTICA: Se houver uma ferramenta disponível para obter dados reais (como CEP, cotações ou cálculos), você DEVE usá-la. Se a Pesquisa Google estiver ativa, você tem acesso total à internet para responder sobre fatos atuais.`;
 
   const initialBody = {
     system_instruction: { parts: [{ text: enhancedSystemPrompt }] },
@@ -123,7 +122,7 @@ export async function callGeminiAgent(
     
     const finalBody = {
       system_instruction: { parts: [{ text: enhancedSystemPrompt }] },
-      tools: tools, // Mantém o mesmo conjunto de ferramentas
+      tools: tools,
       contents: [ { role: 'user', parts: [{ text: userContent }] }, message, { role: 'function', parts: toolResults } ],
       generationConfig: { temperature: 0.1, maxOutputTokens: 8192 },
     };
@@ -157,33 +156,31 @@ export async function sendChatMessage(
 
   const dynamicManifests = skillsOverride.map(s => ({ name: s.name, description: s.description, parameters: s.parameters }));
   
-  // DECISÃO ÚNICA E EXCLUSIVA DE FERRAMENTAS
   let tools: any[] | undefined = undefined;
+  let toolsDescription = "";
 
   if (isExplicitSkillCall) {
-    // Se o usuário usou @, ignoramos o Grounding e enviamos apenas Skills
     if (dynamicManifests.length > 0) {
       tools = [{ functionDeclarations: dynamicManifests }];
+      toolsDescription = skillsOverride.map(s => `- ${s.name}: ${s.description}`).join('\n');
     }
   } else if (useGrounding) {
-    // Se o Grounding está ON e não houve @, enviamos apenas a Pesquisa Google
     tools = [{ google_search: {} }];
+    toolsDescription = "- Pesquisa Google: Acesso em tempo real à internet para cotações, notícias e leis.";
   } else if (dynamicManifests.length > 0) {
-    // Se o Grounding está OFF, enviamos as Skills por padrão
     tools = [{ functionDeclarations: dynamicManifests }];
+    toolsDescription = skillsOverride.map(s => `- ${s.name}: ${s.description}`).join('\n');
   }
 
-  const skillsList = skillsOverride.map(s => `- ${s.name}: ${s.description}`).join('\n');
-  
   const systemPrompt = `Você é o Assistente Inteligente da Jota Contabilidade. 
   
-  FERRAMENTAS DISPONÍVEIS:
-  ${skillsList || "Nenhuma ferramenta no momento (Modo Grátis)."}
+  FERRAMENTAS ATIVAS NESTA REQUISIÇÃO:
+  ${toolsDescription || "Nenhuma ferramenta no momento (Modo Grátis)."}
   
   DIRETRIZES OBRIGATÓRIAS:
-  1. Se o usuário fornecer um dado (como CEP, CNPJ ou valores para cálculo) que possa ser processado por uma ferramenta acima, você DEVE chamar a ferramenta.
-  2. NÃO responda com base em seu conhecimento interno se houver uma ferramenta que possa obter dados em tempo real ou realizar cálculos precisos.
-  3. Se o Grounding estiver ativo, use a pesquisa do Google para dados externos (cotações, notícias, leis).
+  1. Se a 'Pesquisa Google' estiver listada acima, você TEM acesso à internet. Use-a para responder sobre cotações de moedas, notícias de hoje e fatos em tempo real.
+  2. Se houver uma Skill específica para o assunto (ex: CEP), use a Skill.
+  3. NUNCA diga que não tem acesso a informações em tempo real se a 'Pesquisa Google' estiver ativa.
   
   Responda de forma profissional e use Markdown.`;
 
@@ -212,8 +209,6 @@ export async function sendChatMessage(
       }
     }
     const updatedHistory = [...history, message, { role: 'function', parts: toolResults }];
-    
-    // RECURSÃO: Passamos o mesmo estado de Grounding para manter a consistência das ferramentas
     return sendChatMessage(updatedHistory, apiKey, skillsOverride, onToolCall, useGrounding);
   }
   return message.parts?.map((p: any) => p.text || '').join('\n') || '';
