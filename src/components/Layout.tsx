@@ -293,13 +293,14 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
           </header>
         )}
 
-        {/* BOTÃO FLUTUANTE DISCRETO (Modo Imersivo) */}
+        {/* BOTÃO FLUTUANTE DISCRETO (Modo Imersivo - Ilha Dinâmica) */}
         {isFullscreenModule && (
-          <div className="absolute top-4 left-4 z-50 flex items-center gap-3">
+          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-2 p-1.5 bg-background/80 backdrop-blur-lg border border-border shadow-2xl rounded-full animate-in slide-in-from-bottom-10 duration-500">
+            
             <Sheet open={isMobileOpen} onOpenChange={setIsMobileOpen}>
               <SheetTrigger asChild>
-                <Button variant="outline" size="icon" className="rounded-full shadow-lg bg-background/80 backdrop-blur-md border-primary/20 hover:bg-primary/10 h-10 w-10 transition-transform hover:scale-105">
-                  <Menu className="h-5 w-5 text-primary" />
+                <Button variant="ghost" size="icon" className="rounded-full h-9 w-9 hover:bg-primary/20 transition-transform hover:scale-105 shrink-0 text-primary">
+                  <Menu className="h-5 w-5" />
                 </Button>
               </SheetTrigger>
               <SheetContent side="left" className="p-0 w-72 border-r border-border flex flex-col h-full">
@@ -314,10 +315,12 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
               </SheetContent>
             </Sheet>
             
-            {/* Etiqueta ancorada ao botão */}
-            <div className="pointer-events-none flex items-center gap-1.5 text-[10px] font-mono bg-amber-500/10 text-amber-600 border border-amber-500/30 px-3 py-1.5 rounded-full uppercase font-bold tracking-wider shadow-sm backdrop-blur-md">
-              <Lock className="h-3 w-3" /> Sandbox
+            {/* Etiqueta ancorada unificada na pílula */}
+            <div className="pointer-events-none flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/10 text-amber-600 rounded-full border border-amber-500/20 shrink-0 mr-1">
+              <Lock className="h-3 w-3" />
+              <span className="text-[9px] font-bold uppercase tracking-wider">Sandbox</span>
             </div>
+
           </div>
         )}
 
