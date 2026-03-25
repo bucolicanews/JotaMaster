@@ -3,15 +3,21 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { User, Building, KeyRound, Save, Loader2, ShieldCheck } from 'lucide-react';
+import { User, Building, KeyRound, Save, Loader2, ShieldCheck, Search } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 
 export default function Profile() {
   const { session, profile: authProfile } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  
+  const [geminiModel, setGeminiModel] = useState(localStorage.getItem('jota-gemini-model') || 'gemini-2.0-flash');
+  const [enableGoogleSearch, setEnableGoogleSearch] = useState(localStorage.getItem('jota-gemini-search') === 'true');
+  
   const [formData, setFormData] = useState({
     first_name: '',
     last_name: '',
@@ -39,7 +45,6 @@ export default function Profile() {
             api_key: data.api_key || ''
           });
           
-          // Sincroniza o cache local da chave para o Chat funcionar imediatamente
           if (data.api_key) {
             localStorage.setItem('jota-gemini-key', data.api_key);
           }
@@ -77,9 +82,10 @@ export default function Profile() {
 
       if (error) throw error;
       
-      // Sincroniza o localStorage vital para o Chat e módulos locais funcionarem
       localStorage.setItem('jota-gemini-key', formData.api_key);
       localStorage.setItem('jota-razaoSocial', formData.company_name);
+      localStorage.setItem('jota-gemini-model', geminiModel);
+      localStorage.setItem('jota-gemini-search', enableGoogleSearch.toString());
 
       toast.success("Perfil atualizado com sucesso!");
     } catch (err: any) {
@@ -132,30 +138,52 @@ export default function Profile() {
           </CardContent>
         </Card>
 
-        <Card className="shadow-elegant border-primary/20 bg-primary/5">
-          <CardHeader className="border-b border-primary/10">
-            <CardTitle className="text-lg flex items-center gap-2"><KeyRound className="h-5 w-5 text-primary" /> Chave de Autenticação da IA</CardTitle>
-            <CardDescription>Configure sua própria chave do Google Gemini (BYOK) para habilitar Agentes Autônomos e o Chat Inteligente.</CardDescription>
+        <Card className="shadow-elegant border-indigo-500/20 bg-indigo-500/5">
+          <CardHeader className="border-b border-indigo-500/10">
+            <CardTitle className="text-lg flex items-center gap-2"><KeyRound className="h-5 w-5 text-indigo-600" /> Provedor de IA: Google Gemini</CardTitle>
+            <CardDescription>Configure suas credenciais pessoais (BYOK) e preferências de processamento.</CardDescription>
           </CardHeader>
-          <CardContent className="p-6 space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="api_key" className="font-bold text-primary">Google Gemini API Key</Label>
-              <Input 
-                id="api_key" 
-                name="api_key" 
-                type="password" 
-                value={formData.api_key} 
-                onChange={handleChange} 
-                placeholder="AIzaSy..." 
-                className="font-mono text-sm bg-background border-primary/30 focus-visible:ring-primary"
-              />
+          <CardContent className="p-6 space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="api_key" className="font-bold text-indigo-700">Sua API Key do Gemini</Label>
+                <Input 
+                  id="api_key" 
+                  name="api_key" 
+                  type="password" 
+                  value={formData.api_key} 
+                  onChange={handleChange} 
+                  placeholder="AIzaSy..." 
+                  className="font-mono text-sm bg-background border-indigo-500/30 focus-visible:ring-primary"
+                />
+                <p className="text-[10px] text-muted-foreground mt-1">Sua chave é salva em nosso banco de dados criptografado para alimentar os motores autônomos.</p>
+              </div>
+              
+              <div className="space-y-2">
+                <Label className="font-bold text-slate-700">Modelo Padrão</Label>
+                <Select value={geminiModel} onValueChange={setGeminiModel}>
+                  <SelectTrigger className="bg-background"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="gemini-2.0-pro-exp-02-05">Gemini 2.0 Pro</SelectItem>
+                    <SelectItem value="gemini-2.0-flash">Gemini 2.0 Flash</SelectItem>
+                    <SelectItem value="gemini-1.5-pro">Gemini 1.5 Pro</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2 font-bold text-blue-700"><Search className="h-4 w-4" /> Grounding (Pesquisa Web)</Label>
+                <div className="flex items-center justify-between p-2 border border-blue-500/30 rounded bg-blue-500/10 h-10">
+                  <span className="text-xs text-blue-800">Pesquisa na internet</span>
+                  <Switch checked={enableGoogleSearch} onCheckedChange={setEnableGoogleSearch} />
+                </div>
+              </div>
             </div>
-            
-            <div className="flex items-start gap-3 p-3 bg-blue-500/10 border border-blue-500/20 rounded-md text-blue-700 text-xs">
+
+            <div className="flex items-start gap-3 p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-md text-indigo-700 text-xs">
               <ShieldCheck className="h-5 w-5 shrink-0 mt-0.5" />
               <p>
-                <strong>Privacidade e Segurança:</strong> Sua chave é criptografada e armazenada de forma segura no banco de dados. 
-                Ela é utilizada exclusivamente para processar as suas requisições e alimentar os motores autônomos dos seus agentes.
+                <strong>Privacidade e Segurança:</strong> Sua chave é utilizada exclusivamente para processar as suas requisições no chat e alimentar os motores autônomos dos seus agentes em background.
               </p>
             </div>
           </CardContent>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { 
-  Settings, Building, KeyRound, Save, Loader2, Globe, Search, Activity,
+  Settings, Building, Save, Globe, Search, Activity,
   BookOpen, Code, Terminal, Workflow, Blocks, Github, ExternalLink, MessageSquareQuote,
   Wrench, Database, Zap, FileText, Sparkles, ShieldAlert
 } from 'lucide-react';
@@ -10,7 +10,6 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
 import { useAuth } from '@/contexts/AuthContext';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
@@ -19,19 +18,13 @@ const UFs = ["AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "
 const Configuracao = () => {
   const { autenticado } = useAuth();
 
-  // Variáveis Locais do Sistema
+  // Variáveis Locais do Sistema (não do usuário)
   const [webhookTestUrl, setWebhookTestUrl] = useState(localStorage.getItem('jota-webhook-test') || '');
   const [webhookProdUrl, setWebhookProdUrl] = useState(localStorage.getItem('jota-webhook-prod') || '');
   const [cnpj, setCnpj] = useState(localStorage.getItem('jota-cnpj') || '');
   const [uf, setUf] = useState(localStorage.getItem('jota-uf') || 'SP');
   const [contadorNome, setContadorNome] = useState(localStorage.getItem('jota-contador-nome') || '');
   const [contadorCrc, setContadorCrc] = useState(localStorage.getItem('jota-contador-crc') || '');
-  
-  // Chaves Mestras da IA
-  const [geminiKey, setGeminiKey] = useState(localStorage.getItem('jota-gemini-key') || '');
-  const [vertexKey, setVertexKey] = useState(localStorage.getItem('jota-vertex-key') || '');
-  const [geminiModel, setGeminiModel] = useState(localStorage.getItem('jota-gemini-model') || 'gemini-2.0-flash');
-  const [enableGoogleSearch, setEnableGoogleSearch] = useState(localStorage.getItem('jota-gemini-search') === 'true');
 
   const handleSave = () => {
     localStorage.setItem('jota-cnpj', cnpj);
@@ -40,10 +33,6 @@ const Configuracao = () => {
     localStorage.setItem('jota-webhook-prod', webhookProdUrl);
     localStorage.setItem('jota-contador-nome', contadorNome);
     localStorage.setItem('jota-contador-crc', contadorCrc);
-    localStorage.setItem('jota-gemini-key', geminiKey);
-    localStorage.setItem('jota-vertex-key', vertexKey);
-    localStorage.setItem('jota-gemini-model', geminiModel);
-    localStorage.setItem('jota-gemini-search', enableGoogleSearch.toString());
     toast.success("Configurações do sistema salvas localmente!");
   };
 
@@ -51,12 +40,17 @@ const Configuracao = () => {
     <div className="container mx-auto px-4 py-8">
       <Card className="shadow-card">
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="flex items-center gap-2"><Settings className="h-6 w-6 text-primary" />Configurações do Sistema</CardTitle>
+          <CardTitle className="flex items-center gap-2"><Settings className="h-6 w-6 text-primary" />Configurações Globais do Sistema</CardTitle>
           <Button onClick={handleSave} className="bg-primary hover:bg-primary/90">
             <Save className="h-4 w-4 mr-2" /> Salvar Configurações
           </Button>
         </CardHeader>
         <CardContent className="space-y-8">
+          
+          <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg flex items-center gap-3 text-blue-800 text-sm">
+            <ShieldAlert className="h-5 w-5 shrink-0" />
+            <p><strong>Atenção:</strong> As configurações de Razão Social e a Chave da API da Inteligência Artificial foram movidas para a tela de <strong>Meu Perfil</strong>.</p>
+          </div>
 
           {/* 1. DADOS FISCAIS E CONTADOR */}
           <div className="space-y-6 rounded-lg border border-border p-6 bg-muted/5">
@@ -69,48 +63,7 @@ const Configuracao = () => {
              </div>
           </div>
 
-          {/* 2. IA GLOBAL (MASTER KEYS) */}
-          <div className="space-y-6 rounded-lg border border-primary/20 p-6 bg-primary/5">
-             <div className="flex items-center justify-between">
-               <h3 className="text-lg font-semibold flex items-center gap-2"><KeyRound className="h-5 w-5 text-primary" />Chaves Mestras de IA (Global)</h3>
-             </div>
-             
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-               <div className="space-y-2">
-                 <Label className="flex items-center gap-2 font-bold text-primary">Gemini API Key (Master)</Label>
-                 <Input type="password" value={geminiKey} onChange={(e) => setGeminiKey(e.target.value)} className="bg-background border-primary/30" />
-                 <p className="text-[10px] text-muted-foreground">Chave de fallback global do Google AI Studio.</p>
-               </div>
-               
-               <div className="space-y-2">
-                 <Label className="flex items-center gap-2 font-bold text-indigo-600">Vertex AI Key (Google Cloud)</Label>
-                 <Input type="password" value={vertexKey} onChange={(e) => setVertexKey(e.target.value)} className="bg-background border-indigo-500/30" />
-                 <p className="text-[10px] text-muted-foreground">Usada quando a cobrança por créditos estiver ativa.</p>
-               </div>
-               
-               <div className="space-y-2">
-                 <Label>Modelo Padrão</Label>
-                 <Select value={geminiModel} onValueChange={setGeminiModel}>
-                   <SelectTrigger className="bg-background"><SelectValue /></SelectTrigger>
-                   <SelectContent>
-                     <SelectItem value="gemini-2.0-pro-exp-02-05">Gemini 2.0 Pro</SelectItem>
-                     <SelectItem value="gemini-2.0-flash">Gemini 2.0 Flash</SelectItem>
-                     <SelectItem value="gemini-1.5-pro">Gemini 1.5 Pro</SelectItem>
-                   </SelectContent>
-                 </Select>
-               </div>
-               
-               <div className="space-y-2">
-                 <Label className="flex items-center gap-2"><Search className="h-4 w-4 text-blue-500" /> Grounding (Pesquisa Web)</Label>
-                 <div className="flex items-center justify-between p-2 border border-blue-500/30 rounded bg-blue-500/10">
-                   <span className="text-xs text-blue-800">Pesquisa na internet</span>
-                   <Switch checked={enableGoogleSearch} onCheckedChange={setEnableGoogleSearch} />
-                 </div>
-               </div>
-             </div>
-          </div>
-
-          {/* 3. WEBHOOKS */}
+          {/* 2. WEBHOOKS */}
           <div className="space-y-6 rounded-lg border border-border p-6 bg-muted/5">
              <h3 className="text-lg font-semibold flex items-center gap-2"><Globe className="h-5 w-5 text-muted-foreground" />Integrações Externas (n8n)</h3>
              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -119,7 +72,7 @@ const Configuracao = () => {
              </div>
           </div>
 
-          {/* 4. MANUAIS DE GOVERNANÇA */}
+          {/* 3. MANUAIS DE GOVERNANÇA */}
           <div className="space-y-6 rounded-lg border border-indigo-500/20 p-6 bg-indigo-500/5">
             <h3 className="text-lg font-bold flex items-center gap-2 text-indigo-600">
               <BookOpen className="h-5 w-5" /> Guias de Desenvolvimento e Governança
@@ -205,8 +158,64 @@ return { status: 'ok', cliente: data };`}
                     </div>
 
                     <div className="space-y-2">
-                      <p className="text-[10px] uppercase font-bold text-indigo-600 flex items-center gap-1"><Zap className="h-3 w-3" /> 2. Webhook: Enviar JSON para n8n</p>
+                      <p className="text-[10px] uppercase font-bold text-indigo-600 flex items-center gap-1"><Database className="h-3 w-3" /> 2. JS Local: Inserção no Supabase</p>
                       <div className="bg-slate-950 p-3 rounded-md border border-white/10">
+                        <code className="text-emerald-500 font-mono block whitespace-pre">
+{`// Registra um novo serviço prestado
+const { data, error } = await supabase
+  .from('servicos')
+  .insert([{ 
+    tipo: args.tipo, 
+    valor: args.valor, 
+    data: new Date().toISOString() 
+  }]);
+
+return error ? { status: 'erro' } : { status: 'sucesso', data };`}
+                        </code>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <p className="text-[10px] uppercase font-bold text-indigo-600 flex items-center gap-1"><Search className="h-3 w-3" /> 3. Navegação Web: Consultar Site</p>
+                      <div className="bg-slate-950 p-3 rounded-md border border-white/10">
+                        <p className="text-blue-400 font-mono text-[9px] mb-1">// Configuração da Skill:</p>
+                        <p className="text-blue-300 font-mono text-[9px] mb-2">URL: https://www.google.com/search?q=cotacao+dolar<br/>Seletor: .g .L69e7c</p>
+                        <code className="text-emerald-500 font-mono block whitespace-pre">
+{`// O sistema acessa a URL, extrai o texto do seletor 
+// e entrega para a IA processar o valor atual.`}
+                        </code>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <p className="text-[10px] uppercase font-bold text-indigo-600 flex items-center gap-1"><Activity className="h-3 w-3" /> 4. JS Local: Cálculo de Imposto (Helpers)</p>
+                      <div className="bg-slate-950 p-3 rounded-md border border-white/10">
+                        <code className="text-emerald-500 font-mono block whitespace-pre">
+{`// Usa o motor nativo de cálculo do Simples Nacional
+const taxa = helpers.calculateSimplesNacionalEffectiveRate(
+  args.anexo, 
+  args.faturamento_12m
+);
+return { aliquota: taxa.toFixed(2) + "%" };`}
+                        </code>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <p className="text-[10px] uppercase font-bold text-indigo-600 flex items-center gap-1"><FileText className="h-3 w-3" /> 5. Base de Conhecimento: Consultar Texto</p>
+                      <div className="bg-slate-950 p-3 rounded-md border border-white/10">
+                        <code className="text-emerald-500 font-mono block whitespace-pre">
+{`// Você cola o manual da empresa no campo de conteúdo.
+// Quando a IA precisar, ela recupera o texto exato 
+// para responder ao usuário.`}
+                        </code>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <p className="text-[10px] uppercase font-bold text-indigo-600 flex items-center gap-1"><Zap className="h-3 w-3" /> 6. Webhook: Enviar JSON para n8n</p>
+                      <div className="bg-slate-950 p-3 rounded-md border border-white/10">
+                        <p className="text-blue-400 font-mono text-[9px] mb-1">// Configuração da Skill:</p>
                         <p className="text-blue-300 font-mono text-[9px] mb-2">Webhook URL: https://n8n.seu-servidor.com/webhook/...</p>
                         <code className="text-emerald-500 font-mono block whitespace-pre">
 {`// A IA envia os dados estruturados (JSON) para o n8n.
