@@ -16,7 +16,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 const UFs = ["AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"];
 
 const Configuracao = () => {
-  const { autenticado } = useAuth();
+  const { autenticado, isAdmin } = useAuth();
 
   // Variáveis Locais do Sistema (não do usuário)
   const [webhookTestUrl, setWebhookTestUrl] = useState(localStorage.getItem('jota-webhook-test') || '');
@@ -41,9 +41,11 @@ const Configuracao = () => {
       <Card className="shadow-card">
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="flex items-center gap-2"><Settings className="h-6 w-6 text-primary" />Configurações Globais do Sistema</CardTitle>
-          <Button onClick={handleSave} className="bg-primary hover:bg-primary/90">
-            <Save className="h-4 w-4 mr-2" /> Salvar Configurações
-          </Button>
+          {isAdmin && (
+            <Button onClick={handleSave} className="bg-primary hover:bg-primary/90">
+              <Save className="h-4 w-4 mr-2" /> Salvar Configurações
+            </Button>
+          )}
         </CardHeader>
         <CardContent className="space-y-8">
           
@@ -52,27 +54,32 @@ const Configuracao = () => {
             <p><strong>Atenção:</strong> As configurações de Razão Social e a Chave da API da Inteligência Artificial foram movidas para a tela de <strong>Meu Perfil</strong>.</p>
           </div>
 
-          {/* 1. DADOS FISCAIS E CONTADOR */}
-          <div className="space-y-6 rounded-lg border border-border p-6 bg-muted/5">
-             <h3 className="text-lg font-semibold flex items-center gap-2"><Building className="h-5 w-5 text-muted-foreground" />Dados Fiscais e Responsabilidade</h3>
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-               <div className="space-y-2"><Label>CNPJ</Label><Input value={cnpj} onChange={(e) => setCnpj(e.target.value)} /></div>
-               <div className="space-y-2"><Label>Estado (UF)</Label><Select value={uf} onValueChange={setUf}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{UFs.map(item => <SelectItem key={item} value={item}>{item}</SelectItem>)}</SelectContent></Select></div>
-               <div className="space-y-2"><Label>Contador Responsável</Label><Input value={contadorNome} onChange={(e) => setContadorNome(e.target.value)} placeholder="Nome completo" /></div>
-               <div className="space-y-2"><Label>CRC do Contador</Label><Input value={contadorCrc} onChange={(e) => setContadorCrc(e.target.value)} placeholder="Ex: PA-000000/O" /></div>
-             </div>
-          </div>
+          {/* BLOCOS RESTRITOS A ADMINISTRADORES */}
+          {isAdmin && (
+            <>
+              {/* 1. DADOS FISCAIS E CONTADOR */}
+              <div className="space-y-6 rounded-lg border border-border p-6 bg-muted/5">
+                 <h3 className="text-lg font-semibold flex items-center gap-2"><Building className="h-5 w-5 text-muted-foreground" />Dados Fiscais e Responsabilidade</h3>
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                   <div className="space-y-2"><Label>CNPJ</Label><Input value={cnpj} onChange={(e) => setCnpj(e.target.value)} /></div>
+                   <div className="space-y-2"><Label>Estado (UF)</Label><Select value={uf} onValueChange={setUf}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{UFs.map(item => <SelectItem key={item} value={item}>{item}</SelectItem>)}</SelectContent></Select></div>
+                   <div className="space-y-2"><Label>Contador Responsável</Label><Input value={contadorNome} onChange={(e) => setContadorNome(e.target.value)} placeholder="Nome completo" /></div>
+                   <div className="space-y-2"><Label>CRC do Contador</Label><Input value={contadorCrc} onChange={(e) => setContadorCrc(e.target.value)} placeholder="Ex: PA-000000/O" /></div>
+                 </div>
+              </div>
 
-          {/* 2. WEBHOOKS */}
-          <div className="space-y-6 rounded-lg border border-border p-6 bg-muted/5">
-             <h3 className="text-lg font-semibold flex items-center gap-2"><Globe className="h-5 w-5 text-muted-foreground" />Integrações Externas (n8n)</h3>
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-               <div className="space-y-2"><Label>Webhook Ambiente Teste</Label><Input value={webhookTestUrl} onChange={(e) => setWebhookTestUrl(e.target.value)} placeholder="https://..." /></div>
-               <div className="space-y-2"><Label>Webhook Ambiente Produção</Label><Input value={webhookProdUrl} onChange={(e) => setWebhookProdUrl(e.target.value)} placeholder="https://..." /></div>
-             </div>
-          </div>
+              {/* 2. WEBHOOKS */}
+              <div className="space-y-6 rounded-lg border border-border p-6 bg-muted/5">
+                 <h3 className="text-lg font-semibold flex items-center gap-2"><Globe className="h-5 w-5 text-muted-foreground" />Integrações Externas (n8n)</h3>
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                   <div className="space-y-2"><Label>Webhook Ambiente Teste</Label><Input value={webhookTestUrl} onChange={(e) => setWebhookTestUrl(e.target.value)} placeholder="https://..." /></div>
+                   <div className="space-y-2"><Label>Webhook Ambiente Produção</Label><Input value={webhookProdUrl} onChange={(e) => setWebhookProdUrl(e.target.value)} placeholder="https://..." /></div>
+                 </div>
+              </div>
+            </>
+          )}
 
-          {/* 3. MANUAIS DE GOVERNANÇA */}
+          {/* 3. MANUAIS DE GOVERNANÇA (Visível para todos os usuários) */}
           <div className="space-y-6 rounded-lg border border-indigo-500/20 p-6 bg-indigo-500/5">
             <h3 className="text-lg font-bold flex items-center gap-2 text-indigo-600">
               <BookOpen className="h-5 w-5" /> Guias de Desenvolvimento e Governança
@@ -158,64 +165,8 @@ return { status: 'ok', cliente: data };`}
                     </div>
 
                     <div className="space-y-2">
-                      <p className="text-[10px] uppercase font-bold text-indigo-600 flex items-center gap-1"><Database className="h-3 w-3" /> 2. JS Local: Inserção no Supabase</p>
+                      <p className="text-[10px] uppercase font-bold text-indigo-600 flex items-center gap-1"><Zap className="h-3 w-3" /> 2. Webhook: Enviar JSON para n8n</p>
                       <div className="bg-slate-950 p-3 rounded-md border border-white/10">
-                        <code className="text-emerald-500 font-mono block whitespace-pre">
-{`// Registra um novo serviço prestado
-const { data, error } = await supabase
-  .from('servicos')
-  .insert([{ 
-    tipo: args.tipo, 
-    valor: args.valor, 
-    data: new Date().toISOString() 
-  }]);
-
-return error ? { status: 'erro' } : { status: 'sucesso', data };`}
-                        </code>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <p className="text-[10px] uppercase font-bold text-indigo-600 flex items-center gap-1"><Search className="h-3 w-3" /> 3. Navegação Web: Consultar Site</p>
-                      <div className="bg-slate-950 p-3 rounded-md border border-white/10">
-                        <p className="text-blue-400 font-mono text-[9px] mb-1">// Configuração da Skill:</p>
-                        <p className="text-blue-300 font-mono text-[9px] mb-2">URL: https://www.google.com/search?q=cotacao+dolar<br/>Seletor: .g .L69e7c</p>
-                        <code className="text-emerald-500 font-mono block whitespace-pre">
-{`// O sistema acessa a URL, extrai o texto do seletor 
-// e entrega para a IA processar o valor atual.`}
-                        </code>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <p className="text-[10px] uppercase font-bold text-indigo-600 flex items-center gap-1"><Activity className="h-3 w-3" /> 4. JS Local: Cálculo de Imposto (Helpers)</p>
-                      <div className="bg-slate-950 p-3 rounded-md border border-white/10">
-                        <code className="text-emerald-500 font-mono block whitespace-pre">
-{`// Usa o motor nativo de cálculo do Simples Nacional
-const taxa = helpers.calculateSimplesNacionalEffectiveRate(
-  args.anexo, 
-  args.faturamento_12m
-);
-return { aliquota: taxa.toFixed(2) + "%" };`}
-                        </code>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <p className="text-[10px] uppercase font-bold text-indigo-600 flex items-center gap-1"><FileText className="h-3 w-3" /> 5. Base de Conhecimento: Consultar Texto</p>
-                      <div className="bg-slate-950 p-3 rounded-md border border-white/10">
-                        <code className="text-emerald-500 font-mono block whitespace-pre">
-{`// Você cola o manual da empresa no campo de conteúdo.
-// Quando a IA precisar, ela recupera o texto exato 
-// para responder ao usuário.`}
-                        </code>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <p className="text-[10px] uppercase font-bold text-indigo-600 flex items-center gap-1"><Zap className="h-3 w-3" /> 6. Webhook: Enviar JSON para n8n</p>
-                      <div className="bg-slate-950 p-3 rounded-md border border-white/10">
-                        <p className="text-blue-400 font-mono text-[9px] mb-1">// Configuração da Skill:</p>
                         <p className="text-blue-300 font-mono text-[9px] mb-2">Webhook URL: https://n8n.seu-servidor.com/webhook/...</p>
                         <code className="text-emerald-500 font-mono block whitespace-pre">
 {`// A IA envia os dados estruturados (JSON) para o n8n.
@@ -353,11 +304,6 @@ Verifique se existe algum impedimento legal para o Simples Nacional.`}
             </Accordion>
           </div>
 
-          <div className="pt-6 border-t border-border">
-            <Button type="button" size="lg" className="w-full sm:w-auto bg-primary hover:bg-primary/90" onClick={handleSave}>
-              <Save className="h-5 w-5 mr-2" /> Confirmar e Salvar
-            </Button>
-          </div>
         </CardContent>
       </Card>
     </div>
