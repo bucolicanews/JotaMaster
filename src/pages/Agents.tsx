@@ -52,6 +52,40 @@ export default function Agents() {
   const updateAgent = (id: string, field: keyof AgentConfig, value: any) => 
     setAgents(prev => prev.map(a => a.id === id ? { ...a, [field]: value } : a));
 
+  const toggleAgentSkill = (agentId: string, skillId: string) => {
+    const agent = agents.find(a => a.id === agentId);
+    if (!agent) return;
+    const currentSkills = agent.selectedSkills || [];
+    const newSkills = currentSkills.includes(skillId) 
+      ? currentSkills.filter(id => id !== skillId) 
+      : [...currentSkills, skillId];
+    updateAgent(agentId, 'selectedSkills', newSkills);
+  };
+
+  const addAgent = () => {
+    const newAgent: AgentConfig = {
+      id: crypto.randomUUID(),
+      nome: 'Novo Agente Autônomo',
+      systemPrompt: 'Você é um agente responsável por...',
+      order: agents.length + 1,
+      selectedSkills: [],
+      useN8n: false,
+      n8nResponseUrl: 'http://localhost:3001/agent-result',
+      userId: session?.user.id,
+      isGlobal: false
+    };
+    setAgents([newAgent, ...agents]);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Excluir este agente?")) return;
+    setAgents(prev => prev.filter(a => a.id !== id));
+    if (session?.user && id.includes('-')) {
+      await supabase.from('ai_agents').delete().eq('id', id);
+      toast.success("Agente removido.");
+    }
+  };
+
   const handleExport = () => {
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(agents, null, 2));
     const downloadAnchorNode = document.createElement('a');
@@ -91,7 +125,12 @@ export default function Agents() {
     setIsSaving(true);
     try {
       const uid = session.user.id;
-      const dataToUpsert = agents.map(a => ({
+      
+      // SEGURANÇA (Fail Safe): Filtra apenas os agentes que o usuário tem permissão para editar.
+      // Se não for Admin, não tenta enviar os agentes Globais no UPSERT, evitando o erro de RLS.
+      const agentsToSave = agents.filter(a => isAdmin || (!a.userId || a.userId === uid));
+
+      const dataToUpsert = agentsToSave.map(a => ({
         id: a.id,
         user_id: a.userId || uid,
         module_id: a.moduleId || null,
@@ -108,9 +147,13 @@ export default function Agents() {
         is_global: a.isGlobal || false
       }));
 
-      const { error } = await supabase.from('ai_agents').upsert(dataToUpsert);
-      if (error) throw error;
-      toast.success("Agentes salvos com sucesso!");
+      // Se a lista estiver vazia (só existem globais), não fazemos a requisição.
+      if (dataToUpsert.length > 0) {
+        const { error } = await supabase.from('ai_agents').upsert(dataToUpsert);
+        if (error) throw error;
+      }
+      
+      toast.success("Seus agentes foram salvos com sucesso!");
     } catch (e: any) {
       toast.error("Erro ao salvar: " + e.message);
     } finally {
@@ -135,7 +178,7 @@ export default function Agents() {
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => importRef.current?.click()}><FileJson className="h-4 w-4 mr-2" /> Importar</Button>
           <Button variant="outline" onClick={handleExport}><Download className="h-4 w-4 mr-2" /> Exportar</Button>
-          <Button variant="outline" onClick={() => setAgents([{ id: crypto.randomUUID(), nome: 'Novo Agente', systemPrompt: '', order: agents.length + 1, userId: session?.user.id }, ...agents])}><Plus className="h-4 w-4 mr-2" /> Novo Agente</Button>
+          <Button variant="outline" onClick={addAgent}><Plus className="h-4 w-4 mr-2" /> Novo Agente</Button>
           <Button onClick={handleSave} disabled={isSaving} className="bg-primary hover:bg-primary/90">
             {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />} Salvar Agentes
           </Button>
@@ -162,9 +205,27 @@ export default function Agents() {
                       <span className="font-bold text-sm block">{agent.nome}</span>
                       <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Ordem de Execução</span>
                     </div>
+                    {agent.useN8n && <Badge className="bg-orange-500/10 text-orange-600 border-orange-500/20 text-[8px]">N8N WORKFLOW</Badge>}
+                    
+                    {/* INDICADORES VISUAIS DE GOVERNANÇA */}
+                    {agent.isGlobal && (
+                      <Badge className="bg-amber-500/10 text-amber-600 border-amber-500/20 text-[8px]">
+                        {isAdmin ? 'GLOBAL' : 'GLOBAL (ADMIN)'}
+                      </Badge>
+                    )}
+                    {!isOwner && !agent.isGlobal && (
+                      <Badge variant="outline" className="text-[8px]">COMUNIDADE</Badge>
+                    )}
                   </div>
                 </AccordionTrigger>
                 <AccordionContent className="pt-2 pb-6 space-y-6">
+                  
+                  {!canEdit && (
+                    <div className="bg-amber-500/10 border border-amber-500/20 p-3 rounded-md mb-4 text-xs text-amber-700 font-medium">
+                      Este é um agente oficial fornecido pelo sistema. Você não pode editar ou excluir suas configurações.
+                    </div>
+                  )}
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 border rounded-lg bg-muted/10">
                     <div className="space-y-4">
                       <div className="space-y-2">
@@ -191,6 +252,18 @@ export default function Agents() {
                     </div>
                   </div>
 
+                  <div className="space-y-4 p-4 border rounded-lg bg-blue-500/5 border-blue-500/20">
+                    <h4 className="text-xs font-bold uppercase text-blue-700 flex items-center gap-2"><Wrench className="h-3 w-3" /> Skills Vinculadas</h4>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                      {skills.map(skill => (
+                        <div key={skill.id} className="flex items-center space-x-2 p-2 rounded border bg-background hover:bg-blue-50 transition-colors">
+                          <Checkbox id={`skill-${agent.id}-${skill.id}`} checked={(agent.selectedSkills || []).includes(skill.id)} onCheckedChange={() => toggleAgentSkill(agent.id, skill.id)} disabled={!canEdit || !!agent.moduleId} />
+                          <label htmlFor={`skill-${agent.id}-${skill.id}`} className="text-[11px] font-medium leading-none cursor-pointer truncate">{skill.name}</label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
                   <div className="space-y-2">
                     <Label className="flex items-center gap-2 font-bold text-primary"><MessageSquareQuote className="h-4 w-4" /> Prompt do Sistema</Label>
                     <AgentPromptEditor 
@@ -208,9 +281,15 @@ export default function Agents() {
                         <Label className="text-xs font-bold">Ordem:</Label>
                         <Input type="number" className="w-16 h-8 text-center" disabled={!canEdit || !!agent.moduleId} value={agent.order || 0} onChange={e => updateAgent(agent.id, 'order', parseInt(e.target.value) || 0)} />
                       </div>
+                      {isAdmin && (
+                        <div className="flex items-center gap-2 bg-amber-500/5 px-3 py-1.5 rounded-md border border-amber-500/10">
+                          <Switch checked={agent.isGlobal || false} onCheckedChange={v => updateAgent(agent.id, 'isGlobal', v)} />
+                          <Label className="text-amber-700 font-bold text-[10px] uppercase">Global</Label>
+                        </div>
+                      )}
                     </div>
                     {canEdit && !agent.moduleId && (
-                      <Button type="button" variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10" onClick={() => setAgents(prev => prev.filter(a => a.id !== agent.id))}>
+                      <Button type="button" variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10" onClick={() => handleDelete(agent.id)}>
                         <Trash2 className="h-4 w-4 mr-2" /> Remover Agente
                       </Button>
                     )}
