@@ -19,6 +19,7 @@ import Modules from "./pages/Modules";
 import CRM from "./pages/CRM"; 
 import Credits from "./pages/Credits";
 import AdminFinance from "./pages/AdminFinance";
+import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
 import AdminDashboard from "./pages/AdminDashboard";
@@ -56,6 +57,7 @@ const AppRoutes = () => (
       <Route path="/chat" element={<RotaProtegida><Chat /></RotaProtegida>} />
       <Route path="/prompts" element={<RotaProtegida><Prompts /></RotaProtegida>} />
       <Route path="/configuracao" element={<RotaProtegida><Configuracao /></RotaProtegida>} />
+      <Route path="/profile" element={<RotaProtegida><Profile /></RotaProtegida>} />
       <Route path="/modules" element={<RotaProtegida><Modules /></RotaProtegida>} />
 
       {/* Módulos Premium (Exigem Ativação no Marketplace) */}

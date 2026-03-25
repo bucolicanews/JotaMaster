@@ -221,7 +221,8 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
         <div className="space-y-1 mt-6">
           <div className="mb-2 px-3 text-[10px] font-bold uppercase text-muted-foreground tracking-wider">Sistema</div>
-          <NavButton item={{ to: '/configuracao', label: 'Configurações', icon: Settings }} isLocked={!autenticado} />
+          <NavButton item={{ to: '/profile', label: 'Meu Perfil', icon: UserCircle }} isLocked={!autenticado} />
+          <NavButton item={{ to: '/configuracao', label: 'Configurações Globais', icon: Settings }} isLocked={!autenticado} />
         </div>
       </div>
 
@@ -293,7 +294,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
           </header>
         )}
 
-        {/* BOTÃO FLUTUANTE DISCRETO (Modo Imersivo - Ilha Dinâmica) */}
+        {/* BOTÃO FLUTUANTE DISCRETO (Modo Imersivo) */}
         {isFullscreenModule && (
           <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-2 p-1.5 bg-background/80 backdrop-blur-lg border border-border shadow-2xl rounded-full animate-in slide-in-from-bottom-10 duration-500">
             
@@ -315,7 +316,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
               </SheetContent>
             </Sheet>
             
-            {/* Etiqueta ancorada unificada na pílula */}
+            {/* Etiqueta ancorada ao botão */}
             <div className="pointer-events-none flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/10 text-amber-600 rounded-full border border-amber-500/20 shrink-0 mr-1">
               <Lock className="h-3 w-3" />
               <span className="text-[9px] font-bold uppercase tracking-wider">Sandbox</span>
