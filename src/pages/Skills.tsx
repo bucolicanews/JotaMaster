@@ -16,14 +16,13 @@ import { DynamicSkill, fetchDbSkills, executeSkill } from '@/lib/skills/taxSkill
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
 export default function Skills() {
   const { session, isAdmin } = useAuth();
   const [dynamicSkills, setDynamicSkills] = useState<DynamicSkill[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [isTestingSkill, setIsTestingSkill] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const importRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -33,11 +32,7 @@ export default function Skills() {
       try {
         const data = await fetchDbSkills(session.user.id, isAdmin);
         setDynamicSkills(data);
-      } catch (e) {
-        toast.error("Erro ao carregar skills.");
-      } finally {
-        setIsLoading(false);
-      }
+      } catch (e) { toast.error("Erro ao carregar skills."); } finally { setIsLoading(false); }
     };
     loadData();
   }, [session, isAdmin]);
@@ -61,18 +56,14 @@ export default function Skills() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Tem certeza que deseja excluir permanentemente esta ferramenta?")) return;
-    
+    if (!confirm("Excluir permanentemente?")) return;
     setDynamicSkills(prev => prev.filter(s => s.id !== id));
-    
     if (session?.user && id.includes('-')) {
       try {
         const { error } = await supabase.from('ai_skills').delete().eq('id', id);
         if (error) throw error;
-        toast.success("Skill removida com sucesso.");
-      } catch (err: any) {
-        toast.error("Erro ao excluir do banco de dados: " + err.message);
-      }
+        toast.success("Skill removida.");
+      } catch (err: any) { toast.error("Erro ao excluir."); }
     }
   };
 
@@ -84,7 +75,7 @@ export default function Skills() {
     document.body.appendChild(downloadAnchorNode);
     downloadAnchorNode.click();
     downloadAnchorNode.remove();
-    toast.success("Arquivo de exportação gerado!");
+    toast.success("Exportado!");
   };
 
   const handleImport = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -94,17 +85,12 @@ export default function Skills() {
     reader.onload = (e) => {
       try {
         const imported = JSON.parse(e.target?.result as string);
-        const skillsWithNewIds = (Array.isArray(imported) ? imported : [imported]).map(s => ({
-          ...s,
-          id: crypto.randomUUID(),
-          userId: session?.user.id,
-          isGlobal: false
+        const items = (Array.isArray(imported) ? imported : [imported]).map(s => ({
+          ...s, id: crypto.randomUUID(), userId: session?.user.id, isGlobal: false
         }));
-        setDynamicSkills([...skillsWithNewIds, ...dynamicSkills]);
-        toast.success(`${skillsWithNewIds.length} Skills importadas! Clique em Salvar para persistir.`);
-      } catch (err) {
-        toast.error("Arquivo JSON inválido.");
-      }
+        setDynamicSkills([...items, ...dynamicSkills]);
+        toast.success(`${items.length} Skills importadas!`);
+      } catch (err) { toast.error("JSON inválido."); }
     };
     reader.readAsText(file);
   };
@@ -115,53 +101,40 @@ export default function Skills() {
     try {
       const uid = session.user.id;
       const skillsToUpsert = dynamicSkills.map(s => ({
-        id: s.id,
-        user_id: s.userId || uid,
-        module_id: s.moduleId || null,
-        name: s.name,
-        description: s.description,
-        suggested_instruction: s.suggestedInstruction,
-        parameters: s.parameters,
-        execution_type: s.executionType,
-        js_code: s.jsCode,
-        webhook_url: s.webhookUrl,
-        knowledge_base_text: s.knowledgeBaseText,
-        url: s.url,
-        selector: s.selector,
-        is_active: s.isActive,
-        is_global: s.isGlobal || false
+        id: s.id, user_id: s.userId || uid, module_id: s.moduleId || null,
+        name: s.name, description: s.description, suggested_instruction: s.suggestedInstruction,
+        parameters: s.parameters, execution_type: s.executionType, js_code: s.jsCode,
+        webhook_url: s.webhookUrl, knowledge_base_text: s.knowledgeBaseText,
+        url: s.url, selector: s.selector, is_active: s.isActive, is_global: s.isGlobal || false
       }));
-
       const { error } = await supabase.from('ai_skills').upsert(skillsToUpsert);
       if (error) throw error;
-      toast.success("Skills salvas com sucesso!");
-    } catch (e: any) {
-      toast.error("Erro ao salvar: " + e.message);
-    } finally {
-      setIsSaving(false);
-    }
+      toast.success("Salvo com sucesso!");
+    } catch (e: any) { toast.error("Erro ao salvar."); } finally { setIsSaving(false); }
   };
 
   return (
-    <div className="container mx-auto px-4 py-8 space-y-6">
+    <div className="container mx-auto px-4 py-6 space-y-6 animate-in fade-in duration-500">
       <input type="file" ref={importRef} className="hidden" accept=".json" onChange={handleImport} />
       
-      <div className="flex items-center justify-between border-b border-border pb-4">
+      {/* HEADER RESPONSIVO: Grid garante que o título e botões não se encavalem */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-center border-b border-border pb-6">
         <div className="flex items-center gap-3">
-          <div className="p-3 bg-emerald-500/10 rounded-lg border border-emerald-500/20">
+          <div className="p-3 bg-emerald-500/10 rounded-lg border border-emerald-500/20 shrink-0">
             <Wrench className="h-6 w-6 text-emerald-600" />
           </div>
-          <div>
-            <h1 className="text-2xl font-bold">Skills e Ferramentas</h1>
-            <p className="text-sm text-muted-foreground">Importe ou crie novas habilidades para sua IA.</p>
+          <div className="min-w-0">
+            <h1 className="text-xl font-bold truncate">Skills e Ferramentas</h1>
+            <p className="text-xs text-muted-foreground truncate">Crie novas habilidades para sua IA.</p>
           </div>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => importRef.current?.click()}><FileJson className="h-4 w-4 mr-2" /> Importar</Button>
-          <Button variant="outline" onClick={handleExport}><Download className="h-4 w-4 mr-2" /> Exportar</Button>
-          <Button variant="outline" onClick={addSkill}><Plus className="h-4 w-4 mr-2" /> Nova Skill</Button>
-          <Button onClick={handleSave} disabled={isSaving} className="bg-emerald-600 hover:bg-emerald-700">
-            {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />} Salvar Alterações
+        
+        <div className="flex flex-wrap gap-2 justify-start lg:justify-end">
+          <Button variant="outline" size="sm" className="flex-1 sm:flex-none" onClick={() => importRef.current?.click()}><FileJson className="h-4 w-4 mr-2" /> Importar</Button>
+          <Button variant="outline" size="sm" className="flex-1 sm:flex-none" onClick={handleExport}><Download className="h-4 w-4 mr-2" /> Exportar</Button>
+          <Button variant="outline" size="sm" className="flex-1 sm:flex-none border-primary/20 text-primary" onClick={addSkill}><Plus className="h-4 w-4 mr-2" /> Nova Skill</Button>
+          <Button size="sm" onClick={handleSave} disabled={isSaving} className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700">
+            {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />} Salvar
           </Button>
         </div>
       </div>
@@ -169,109 +142,48 @@ export default function Skills() {
       {isLoading ? (
         <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
           <Loader2 className="h-10 w-10 animate-spin mb-4" />
-          <p>Carregando suas ferramentas...</p>
+          <p>Carregando ferramentas...</p>
         </div>
       ) : (
         <Accordion type="multiple" className="w-full space-y-3">
           {dynamicSkills.map((skill) => {
             const isOwner = !skill.userId || skill.userId === session?.user.id;
             const canEdit = isOwner || isAdmin;
-
             return (
-              <AccordionItem key={skill.id} value={skill.id} className="border rounded-xl bg-card px-4 shadow-sm overflow-hidden">
+              <AccordionItem key={skill.id} value={skill.id} className="border rounded-xl bg-card px-3 md:px-4 shadow-sm overflow-hidden">
                 <AccordionTrigger className="hover:no-underline py-4">
-                  <div className="flex items-center gap-4">
-                    <div className={skill.isActive ? "text-emerald-500" : "text-muted-foreground"}>
-                      {skill.executionType === 'webhook' ? <Globe className="h-5 w-5" /> : 
-                       skill.executionType === 'local_js' ? <Code className="h-5 w-5" /> : 
-                       skill.executionType === 'web_scraping' ? <Search className="h-5 w-5" /> : 
-                       <Book className="h-5 w-5" />}
+                  <div className="flex items-center gap-3 w-full pr-4">
+                    <div className={cn("shrink-0", skill.isActive ? "text-emerald-500" : "text-muted-foreground")}>
+                      {skill.executionType === 'webhook' ? <Globe className="h-5 w-5" /> : skill.executionType === 'local_js' ? <Code className="h-5 w-5" /> : skill.executionType === 'web_scraping' ? <Search className="h-5 w-5" /> : <Book className="h-5 w-5" />}
                     </div>
-                    <div className="text-left">
-                      <span className="font-bold text-sm block">{skill.name}</span>
-                      <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{skill.executionType}</span>
+                    <div className="text-left flex-1 min-w-0">
+                      <span className="font-bold text-sm block truncate">{skill.name}</span>
+                      <span className="text-[10px] text-muted-foreground uppercase tracking-wider block truncate">{skill.executionType}</span>
                     </div>
-                    
-                    {/* INDICADORES VISUAIS DE GOVERNANÇA */}
-                    {skill.isGlobal && (
-                      <Badge className="bg-amber-500/10 text-amber-600 border-amber-500/20 text-[8px]">
-                        {isAdmin ? 'GLOBAL' : 'GLOBAL (ADMIN)'}
-                      </Badge>
-                    )}
-                    {!isOwner && !skill.isGlobal && (
-                      <Badge variant="outline" className="text-[8px]">COMUNIDADE</Badge>
-                    )}
+                    <div className="hidden sm:flex flex-col items-end gap-1 shrink-0">
+                      {skill.isGlobal && <Badge className="bg-amber-500/10 text-amber-600 border-amber-500/20 text-[8px]">GLOBAL</Badge>}
+                      {!isOwner && !skill.isGlobal && <Badge variant="outline" className="text-[8px]">COMUNIDADE</Badge>}
+                    </div>
                   </div>
                 </AccordionTrigger>
                 <AccordionContent className="pt-2 pb-6 space-y-6">
-                  
-                  {!canEdit && (
-                    <div className="bg-amber-500/10 border border-amber-500/20 p-3 rounded-md mb-4 text-xs text-amber-700 font-medium">
-                      Esta é uma ferramenta oficial fornecida pelo sistema. Você não pode editar ou excluir suas configurações.
-                    </div>
-                  )}
-
+                  {!canEdit && <div className="bg-amber-500/10 border border-amber-500/20 p-3 rounded-md mb-4 text-xs text-amber-700 font-medium">Ferramenta oficial do sistema. Edição desativada.</div>}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="space-y-2">
-                      <Label>Nome Técnico (ID)</Label>
-                      <Input value={skill.name} disabled={!canEdit || !!skill.moduleId} onChange={e => updateSkill(skill.id, 'name', e.target.value)} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Tipo de Execução</Label>
-                      <Select value={skill.executionType} disabled={!canEdit || !!skill.moduleId} onValueChange={v => updateSkill(skill.id, 'executionType', v)}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="local_js">JavaScript Local</SelectItem>
-                          <SelectItem value="webhook">Webhook (n8n)</SelectItem>
-                          <SelectItem value="knowledge_base">Base de Conhecimento</SelectItem>
-                          <SelectItem value="web_scraping">Navegação Web</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="flex items-center gap-2 pt-8">
-                      <Switch checked={skill.isActive} disabled={!canEdit} onCheckedChange={v => updateSkill(skill.id, 'isActive', v)} />
-                      <Label>Skill Ativa</Label>
-                    </div>
+                    <div className="space-y-2"><Label>Nome Técnico (ID)</Label><Input value={skill.name} disabled={!canEdit || !!skill.moduleId} onChange={e => updateSkill(skill.id, 'name', e.target.value)} /></div>
+                    <div className="space-y-2"><Label>Tipo de Execução</Label><Select value={skill.executionType} disabled={!canEdit || !!skill.moduleId} onValueChange={v => updateSkill(skill.id, 'executionType', v)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="local_js">JavaScript Local</SelectItem><SelectItem value="webhook">Webhook (n8n)</SelectItem><SelectItem value="knowledge_base">Base de Conhecimento</SelectItem><SelectItem value="web_scraping">Navegação Web</SelectItem></SelectContent></Select></div>
+                    <div className="flex items-center gap-2 pt-8"><Switch checked={skill.isActive} disabled={!canEdit} onCheckedChange={v => updateSkill(skill.id, 'isActive', v)} /><Label>Skill Ativa</Label></div>
                   </div>
-
-                  <div className="space-y-2">
-                    <Label>Descrição para a IA (O que esta ferramenta faz?)</Label>
-                    <Input value={skill.description} disabled={!canEdit || !!skill.moduleId} onChange={e => updateSkill(skill.id, 'description', e.target.value)} />
-                  </div>
-
+                  <div className="space-y-2"><Label>Descrição para a IA</Label><Input value={skill.description} disabled={!canEdit || !!skill.moduleId} onChange={e => updateSkill(skill.id, 'description', e.target.value)} /></div>
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Parâmetros JSON (Schema)</Label>
-                      <Textarea className="font-mono text-[10px] h-40 bg-slate-900 text-blue-300" disabled={!canEdit} value={typeof skill.parameters === 'string' ? skill.parameters : JSON.stringify(skill.parameters, null, 2)} onChange={e => { try { updateSkill(skill.id, 'parameters', JSON.parse(e.target.value)); } catch (err) { updateSkill(skill.id, 'parameters', e.target.value); } }} />
-                    </div>
-                    {skill.executionType === 'local_js' && (
-                      <div className="space-y-2">
-                        <Label className="text-emerald-600 font-bold">Código JavaScript (Async)</Label>
-                        <Textarea className="font-mono text-[11px] h-40 bg-slate-950 text-emerald-400" disabled={!canEdit} value={skill.jsCode || ''} onChange={e => updateSkill(skill.id, 'jsCode', e.target.value)} />
-                      </div>
-                    )}
+                    <div className="space-y-2"><Label>Parâmetros JSON</Label><Textarea className="font-mono text-[10px] h-40 bg-slate-900 text-blue-300" disabled={!canEdit} value={typeof skill.parameters === 'string' ? skill.parameters : JSON.stringify(skill.parameters, null, 2)} onChange={e => { try { updateSkill(skill.id, 'parameters', JSON.parse(e.target.value)); } catch (err) { updateSkill(skill.id, 'parameters', e.target.value); } }} /></div>
+                    {skill.executionType === 'local_js' && <div className="space-y-2"><Label className="text-emerald-600 font-bold">Código JavaScript</Label><Textarea className="font-mono text-[11px] h-40 bg-slate-950 text-emerald-400" disabled={!canEdit} value={skill.jsCode || ''} onChange={e => updateSkill(skill.id, 'jsCode', e.target.value)} /></div>}
                   </div>
-
-                  <div className="flex justify-between items-center pt-4 border-t border-border/50">
-                    <div className="flex items-center gap-6">
-                      <Button type="button" variant="outline" size="sm" className="text-emerald-600 border-emerald-200" onClick={() => executeSkill(skill.name, {}, dynamicSkills)}>
-                        <Play className="h-4 w-4 mr-2" /> Testar Agora
-                      </Button>
-                      
-                      {/* CONTROLE GLOBAL PARA O ADMIN */}
-                      {isAdmin && (
-                        <div className="flex items-center gap-2 bg-amber-500/5 px-3 py-1.5 rounded-md border border-amber-500/10">
-                          <Switch checked={skill.isGlobal || false} onCheckedChange={v => updateSkill(skill.id, 'isGlobal', v)} />
-                          <Label className="text-amber-700 font-bold text-[10px] uppercase">Global</Label>
-                        </div>
-                      )}
+                  <div className="flex flex-wrap justify-between items-center pt-4 border-t border-border/50 gap-4">
+                    <div className="flex flex-wrap items-center gap-4 w-full sm:w-auto">
+                      <Button type="button" variant="outline" size="sm" className="w-full sm:w-auto text-emerald-600 border-emerald-200" onClick={() => executeSkill(skill.name, {}, dynamicSkills)}><Play className="h-4 w-4 mr-2" /> Testar Agora</Button>
+                      {isAdmin && <div className="flex items-center gap-2 bg-amber-500/5 px-3 py-1.5 rounded-md border border-amber-500/10 w-full sm:w-auto justify-center"><Switch checked={skill.isGlobal || false} onCheckedChange={v => updateSkill(skill.id, 'isGlobal', v)} /><Label className="text-amber-700 font-bold text-[10px] uppercase">Global</Label></div>}
                     </div>
-
-                    {canEdit && !skill.moduleId && (
-                      <Button type="button" variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10" onClick={() => handleDelete(skill.id)}>
-                        <Trash2 className="h-4 w-4 mr-2" /> Remover Skill
-                      </Button>
-                    )}
+                    {canEdit && !skill.moduleId && <Button type="button" variant="ghost" size="sm" className="w-full sm:w-auto text-destructive hover:bg-destructive/10" onClick={() => handleDelete(skill.id)}><Trash2 className="h-4 w-4 mr-2" /> Remover Skill</Button>}
                   </div>
                 </AccordionContent>
               </AccordionItem>
