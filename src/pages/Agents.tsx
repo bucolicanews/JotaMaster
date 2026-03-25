@@ -7,9 +7,10 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Textarea } from "@/components/ui/textarea";
 import { 
   Zap, Plus, Trash2, Save, Loader2, Workflow, Link2, 
-  Download, FileJson, Wrench, MessageSquareQuote
+  Download, FileJson, Wrench, MessageSquareQuote, Clock
 } from 'lucide-react';
 import { AgentConfig, fetchDbAgents, fetchDbPrompts } from '@/lib/geminiService';
 import { DynamicSkill, fetchDbSkills } from '@/lib/skills/taxSkills';
@@ -71,6 +72,9 @@ export default function Agents() {
       selectedSkills: [],
       useN8n: false,
       n8nResponseUrl: 'http://localhost:3001/agent-result',
+      enableMonitoring: false,
+      monitoringInterval: 60,
+      cronPrompt: 'Inicie sua rotina de auditoria autônoma agora.',
       userId: session?.user.id,
       isGlobal: false
     };
@@ -109,7 +113,7 @@ export default function Agents() {
           id: crypto.randomUUID(),
           userId: session?.user.id,
           isGlobal: false,
-          selectedSkills: [] // Reset skills on import to avoid ID mismatch
+          selectedSkills: [] 
         }));
         setAgents([...items, ...agents]);
         toast.success(`${items.length} Agentes importados!`);
@@ -125,9 +129,6 @@ export default function Agents() {
     setIsSaving(true);
     try {
       const uid = session.user.id;
-      
-      // SEGURANÇA (Fail Safe): Filtra apenas os agentes que o usuário tem permissão para editar.
-      // Se não for Admin, não tenta enviar os agentes Globais no UPSERT, evitando o erro de RLS.
       const agentsToSave = agents.filter(a => isAdmin || (!a.userId || a.userId === uid));
 
       const dataToUpsert = agentsToSave.map(a => ({
@@ -143,11 +144,11 @@ export default function Agents() {
         use_n8n: a.useN8n,
         n8n_response_url: a.n8nResponseUrl,
         webhook_url: a.webhookUrl,
+        cron_prompt: a.cronPrompt,
         is_active: true,
         is_global: a.isGlobal || false
       }));
 
-      // Se a lista estiver vazia (só existem globais), não fazemos a requisição.
       if (dataToUpsert.length > 0) {
         const { error } = await supabase.from('ai_agents').upsert(dataToUpsert);
         if (error) throw error;
@@ -203,11 +204,15 @@ export default function Agents() {
                     <Badge variant="outline" className="font-mono text-primary border-primary/30">{agent.order}</Badge>
                     <div className="text-left">
                       <span className="font-bold text-sm block">{agent.nome}</span>
-                      <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Ordem de Execução</span>
+                      <span className="text-[10px] text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                        {agent.enableMonitoring && <Clock className="h-3 w-3 text-emerald-500" />}
+                        {agent.useN8n && <Workflow className="h-3 w-3 text-orange-500" />}
+                        {(!agent.enableMonitoring && !agent.useN8n) && "Modo Passivo (Apenas Chat)"}
+                      </span>
                     </div>
                     {agent.useN8n && <Badge className="bg-orange-500/10 text-orange-600 border-orange-500/20 text-[8px]">N8N WORKFLOW</Badge>}
+                    {agent.enableMonitoring && <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 text-[8px]">CRON ATIVO</Badge>}
                     
-                    {/* INDICADORES VISUAIS DE GOVERNANÇA */}
                     {agent.isGlobal && (
                       <Badge className="bg-amber-500/10 text-amber-600 border-amber-500/20 text-[8px]">
                         {isAdmin ? 'GLOBAL' : 'GLOBAL (ADMIN)'}
@@ -226,30 +231,57 @@ export default function Agents() {
                     </div>
                   )}
 
+                  <div className="space-y-2">
+                    <Label>Nome do Agente</Label>
+                    <Input value={agent.nome} disabled={!canEdit || !!agent.moduleId} onChange={e => updateAgent(agent.id, 'nome', e.target.value)} />
+                  </div>
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 border rounded-lg bg-muted/10">
-                    <div className="space-y-4">
-                      <div className="space-y-2">
-                        <Label>Nome do Agente</Label>
-                        <Input value={agent.nome} disabled={!canEdit || !!agent.moduleId} onChange={e => updateAgent(agent.id, 'nome', e.target.value)} />
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="flex items-center gap-2"><Workflow className="h-3 w-3" /> Webhook de Execução (n8n)</Label>
-                        <Input value={agent.webhookUrl || ''} disabled={!canEdit || !!agent.moduleId} onChange={e => updateAgent(agent.id, 'webhookUrl', e.target.value)} placeholder="https://n8n.seu-servidor.com/..." />
-                      </div>
-                    </div>
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between p-3 border rounded-md bg-background">
+                    
+                    {/* OPÇÃO 1: N8N */}
+                    <div className="space-y-4 p-4 border border-orange-500/20 bg-orange-500/5 rounded-lg transition-all hover:shadow-md">
+                      <div className="flex items-center justify-between border-b border-orange-500/20 pb-2">
                         <div className="space-y-0.5">
-                          <Label className="text-orange-700 font-bold">Modo n8n</Label>
-                          <p className="text-[10px] text-muted-foreground">Habilita resposta assíncrona via URL.</p>
+                          <Label className="text-orange-700 font-bold flex items-center gap-2"><Workflow className="h-4 w-4" /> Integração Externa (n8n)</Label>
+                          <p className="text-[10px] text-muted-foreground">Executa via Webhook Externo.</p>
                         </div>
-                        <Switch checked={agent.useN8n} disabled={!canEdit || !!agent.moduleId} onCheckedChange={v => updateAgent(agent.id, 'useN8n', v)} />
+                        <Switch checked={agent.useN8n} disabled={!canEdit} onCheckedChange={v => updateAgent(agent.id, 'useN8n', v)} />
                       </div>
                       <div className="space-y-2">
-                        <Label className="flex items-center gap-2"><Link2 className="h-3 w-3" /> URL de Resposta</Label>
-                        <Input disabled={!canEdit || !agent.useN8n || !!agent.moduleId} value={agent.n8nResponseUrl || ''} onChange={e => updateAgent(agent.id, 'n8nResponseUrl', e.target.value)} />
+                        <Label className="text-[10px] uppercase">URL do Webhook (n8n)</Label>
+                        <Input disabled={!canEdit || !agent.useN8n} value={agent.webhookUrl || ''} onChange={e => updateAgent(agent.id, 'webhookUrl', e.target.value)} placeholder="https://n8n.seu-servidor.com/..." />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-[10px] uppercase flex items-center gap-1"><Link2 className="h-3 w-3" /> URL de Resposta Assíncrona</Label>
+                        <Input disabled={!canEdit || !agent.useN8n} value={agent.n8nResponseUrl || ''} onChange={e => updateAgent(agent.id, 'n8nResponseUrl', e.target.value)} />
                       </div>
                     </div>
+
+                    {/* OPÇÃO 2: MOTOR AUTÔNOMO NATIVO (CRON) */}
+                    <div className="space-y-4 p-4 border border-emerald-500/20 bg-emerald-500/5 rounded-lg transition-all hover:shadow-md">
+                      <div className="flex items-center justify-between border-b border-emerald-500/20 pb-2">
+                        <div className="space-y-0.5">
+                          <Label className="text-emerald-700 font-bold flex items-center gap-2"><Clock className="h-4 w-4" /> Motor Autônomo Nativo</Label>
+                          <p className="text-[10px] text-muted-foreground">Roda em background via Supabase.</p>
+                        </div>
+                        <Switch checked={agent.enableMonitoring} disabled={!canEdit} onCheckedChange={v => updateAgent(agent.id, 'enableMonitoring', v)} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-[10px] uppercase">Acordar a cada (Minutos)</Label>
+                        <Input type="number" disabled={!canEdit || !agent.enableMonitoring} value={agent.monitoringInterval || 60} onChange={e => updateAgent(agent.id, 'monitoringInterval', parseInt(e.target.value) || 0)} />
+                      </div>
+                      <div className="space-y-2 pt-2">
+                        <Label className="text-[10px] uppercase">Gatilho Inicial (O que ele deve fazer ao acordar?)</Label>
+                        <Textarea 
+                          className="text-[11px] h-20 resize-none font-mono bg-white/50 border-emerald-500/20 focus-visible:ring-emerald-500" 
+                          placeholder="Ex: Verifique a tabela de clientes e me alerte sobre os inativos."
+                          disabled={!canEdit || !agent.enableMonitoring} 
+                          value={agent.cronPrompt || ''} 
+                          onChange={e => updateAgent(agent.id, 'cronPrompt', e.target.value)} 
+                        />
+                      </div>
+                    </div>
+
                   </div>
 
                   <div className="space-y-4 p-4 border rounded-lg bg-blue-500/5 border-blue-500/20">

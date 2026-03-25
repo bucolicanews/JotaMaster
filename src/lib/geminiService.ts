@@ -24,6 +24,8 @@ export interface AgentConfig {
   moduleId?: string;
   isGlobal?: boolean;
   userId?: string;
+  cronPrompt?: string; // Novo: O que o agente deve pensar ao acordar
+  lastRun?: string;    // Novo: Data da última execução autônoma
 }
 
 export interface PromptConfig {
@@ -52,8 +54,9 @@ export async function fetchDbAgents(userId: string, isAdmin: boolean = false): P
     id: d.id, nome: d.nome, systemPrompt: d.system_prompt, order: d.order_index,
     selectedSkills: d.selected_skills || [], enableMonitoring: d.enable_monitoring,
     monitoringInterval: d.monitoring_interval, useN8n: d.use_n8n,
-    n8n_response_url: d.n8n_response_url, webhookUrl: d.webhook_url, moduleId: d.module_id,
-    isGlobal: d.is_global, userId: d.user_id
+    n8nResponseUrl: d.n8n_response_url, webhookUrl: d.webhook_url, moduleId: d.module_id,
+    isGlobal: d.is_global, userId: d.user_id,
+    cronPrompt: d.cron_prompt, lastRun: d.last_run
   }));
 }
 
@@ -81,18 +84,17 @@ export async function callGeminiAgent(
   const dynamicSkills = skillsOverride || [];
   const dynamicManifests = dynamicSkills.map(s => ({ name: s.name, description: s.description, parameters: s.parameters }));
   
-  const toolsArray: any[] = [];
+  let tools: any[] | undefined = undefined;
   const isExplicitSkillCall = userContent.includes('@');
 
-  // LÓGICA DE EXCLUSIVIDADE ESTRITA
   if (isExplicitSkillCall) {
     if (dynamicManifests.length > 0) {
-      toolsArray.push({ functionDeclarations: dynamicManifests });
+      tools = [{ functionDeclarations: dynamicManifests }];
     }
   } else if (useGrounding) {
-    toolsArray.push({ google_search: {} });
+    tools = [{ google_search: {} }];
   } else if (dynamicManifests.length > 0) {
-    toolsArray.push({ functionDeclarations: dynamicManifests });
+    tools = [{ functionDeclarations: dynamicManifests }];
   }
 
   const enhancedSystemPrompt = `${systemPrompt}\n\nREGRA CRÍTICA: Se houver uma ferramenta disponível para obter dados reais (como CEP ou cálculos), você DEVE usá-la. Não responda com base em seu conhecimento interno se a ferramenta puder fornecer o dado exato.`;
@@ -100,7 +102,7 @@ export async function callGeminiAgent(
   const initialBody = {
     system_instruction: { parts: [{ text: enhancedSystemPrompt }] },
     contents: [{ role: 'user', parts: [{ text: userContent }] }],
-    tools: toolsArray.length > 0 ? toolsArray : undefined,
+    tools: tools,
     generationConfig: { temperature: 0.1, maxOutputTokens: 8192 }, 
   };
 
@@ -123,7 +125,7 @@ export async function callGeminiAgent(
     
     const finalBody = {
       system_instruction: { parts: [{ text: enhancedSystemPrompt }] },
-      tools: toolsArray.length > 0 ? toolsArray : undefined,
+      tools: tools,
       contents: [ { role: 'user', parts: [{ text: userContent }] }, message, { role: 'function', parts: toolResults } ],
       generationConfig: { temperature: 0.1, maxOutputTokens: 8192 },
     };
@@ -142,7 +144,7 @@ export async function sendChatMessage(
   skillsOverride: DynamicSkill[],
   onToolCall?: (toolName: string) => void,
   useGroundingOverride?: boolean,
-  systemPromptOverride?: string // NOVO: Permite sobrescrever o papel da IA no chat
+  systemPromptOverride?: string
 ): Promise<string> {
   if (!apiKey) throw new Error('Chave API Gemini não configurada.');
   
@@ -156,24 +158,22 @@ export async function sendChatMessage(
     ? useGroundingOverride 
     : localStorage.getItem('jota-gemini-search') === 'true';
 
-  const toolsArray: any[] = [];
   const dynamicManifests = skillsOverride.map(s => ({ name: s.name, description: s.description, parameters: s.parameters }));
   
-  // LÓGICA DE EXCLUSIVIDADE ESTRITA NO CHAT
+  let tools: any[] | undefined = undefined;
+
   if (isExplicitSkillCall) {
     if (dynamicManifests.length > 0) {
-      toolsArray.push({ functionDeclarations: dynamicManifests });
+      tools = [{ functionDeclarations: dynamicManifests }];
     }
   } else if (useGrounding) {
-    toolsArray.push({ google_search: {} });
+    tools = [{ google_search: {} }];
   } else if (dynamicManifests.length > 0) {
-    toolsArray.push({ functionDeclarations: dynamicManifests });
+    tools = [{ functionDeclarations: dynamicManifests }];
   }
 
   const skillsList = skillsOverride.map(s => `- ${s.name}: ${s.description}`).join('\n');
   
-  // Se o componente de Chat passar um prompt específico (ex: Agente selecionado), usamos ele. 
-  // Senão, usamos o Assistente Padrão.
   const baseSystemPrompt = systemPromptOverride || `Você é o Assistente Inteligente da Jota Contabilidade.`;
 
   const finalSystemPrompt = `${baseSystemPrompt}
@@ -191,7 +191,7 @@ export async function sendChatMessage(
   const body = {
     system_instruction: { parts: [{ text: finalSystemPrompt }] },
     contents: history,
-    tools: toolsArray.length > 0 ? toolsArray : undefined,
+    tools: tools,
     generationConfig: { temperature: 0.2, maxOutputTokens: 4096 },
   };
 
