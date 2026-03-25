@@ -83,16 +83,18 @@ export async function callGeminiAgent(
   
   const toolsArray: any[] = [];
 
-  // LÓGICA DE ALTERNÂNCIA INTELIGENTE
-  // Se o usuário está chamando uma skill explicitamente ou se o Grounding está OFF, usamos Skills.
-  // Caso contrário, priorizamos o Grounding (Google Search).
-  const isExplicitSkillCall = userContent.includes('@');
+  // DETECÇÃO DE INTENÇÃO DE BUSCA
+  const isExplicitSearch = userContent.toLowerCase().includes("pesquise") || 
+                           userContent.toLowerCase().includes("google") ||
+                           userContent.toLowerCase().includes("internet");
 
-  if (isExplicitSkillCall || !useGrounding) {
-    if (dynamicManifests.length > 0) {
-      toolsArray.push({ functionDeclarations: dynamicManifests });
-    }
-  } else if (useGrounding) {
+  // LÓGICA DE PRIORIDADE (O MAESTRO)
+  // 1. Se houver Skills e o usuário não pediu busca web explicitamente, priorizamos as Skills.
+  if (dynamicManifests.length > 0 && !isExplicitSearch) {
+    toolsArray.push({ functionDeclarations: dynamicManifests });
+  } 
+  // 2. Se o Grounding estiver ON e (o usuário pediu busca OU não há skills disponíveis), usamos Google Search.
+  else if (useGrounding) {
     toolsArray.push({ google_search: {} });
   }
 
@@ -148,16 +150,18 @@ export async function sendChatMessage(
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
   
   const lastUserMessage = history[history.length - 1]?.parts[0]?.text || "";
-  const isExplicitSkillCall = lastUserMessage.includes('@');
+  
+  // DETECÇÃO DE INTENÇÃO
+  const isExplicitSearch = lastUserMessage.toLowerCase().includes("pesquise") || 
+                           lastUserMessage.toLowerCase().includes("google") ||
+                           lastUserMessage.toLowerCase().includes("internet");
 
   const toolsArray: any[] = [];
   const dynamicManifests = skillsOverride.map(s => ({ name: s.name, description: s.description, parameters: s.parameters }));
   
-  // ALTERNÂNCIA INTELIGENTE NO CHAT
-  if (isExplicitSkillCall || !useGrounding) {
-    if (dynamicManifests.length > 0) {
-      toolsArray.push({ functionDeclarations: dynamicManifests });
-    }
+  // LÓGICA DE PRIORIDADE NO CHAT
+  if (dynamicManifests.length > 0 && !isExplicitSearch) {
+    toolsArray.push({ functionDeclarations: dynamicManifests });
   } else if (useGrounding) {
     toolsArray.push({ google_search: {} });
   }

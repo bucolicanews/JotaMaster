@@ -1,8 +1,13 @@
 # Log de Erros e Inconsistências (Bug Log)
 
+## [BUG-001] Erro de Conflito de Ferramentas no Gemini
+- **Status:** Resolvido.
+
+## [BUG-002] Aviso de Propriedade Não Reconhecida (viewportRef)
+- **Status:** Resolvido.
+
 ## [BUG-003] Skills Inacessíveis no Modo Automático
 - **Data:** Sessão Atual
-- **Status:** Proposta de Correção enviada.
-- **Descrição:** As Skills habilitadas não eram consultadas pela IA a menos que o prefixo `@` fosse utilizado.
-- **Causa:** Conflito de prioridade com a ferramenta de Grounding.
-- **Correção Proposta:** Priorizar o envio de `functionDeclarations` (Skills) em todas as chamadas padrão, deixando o `google_search` apenas para casos de ausência de ferramentas ou solicitação explícita de busca web.
+- **Status:** Resolvido.
+- **Descrição:** A IA não consultava as Skills a menos que o prefixo `@` fosse usado.
+- **Resolução Final:** Implementada lógica de **Prioridade de Negócio**. O sistema agora envia `functionDeclarations` (Skills) por padrão em todas as chamadas. O `google_search` (Grounding) é ativado apenas se o usuário solicitar explicitamente uma pesquisa web ou se não houver Skills disponíveis (garantindo funcionalidade no Modo Grátis).
