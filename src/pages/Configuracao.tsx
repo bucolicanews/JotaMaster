@@ -19,13 +19,17 @@ const UFs = ["AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "
 const Configuracao = () => {
   const { autenticado } = useAuth();
 
-  // Variáveis Locais do Sistema (não do usuário)
+  // Variáveis Locais do Sistema
   const [webhookTestUrl, setWebhookTestUrl] = useState(localStorage.getItem('jota-webhook-test') || '');
   const [webhookProdUrl, setWebhookProdUrl] = useState(localStorage.getItem('jota-webhook-prod') || '');
   const [cnpj, setCnpj] = useState(localStorage.getItem('jota-cnpj') || '');
   const [uf, setUf] = useState(localStorage.getItem('jota-uf') || 'SP');
   const [contadorNome, setContadorNome] = useState(localStorage.getItem('jota-contador-nome') || '');
   const [contadorCrc, setContadorCrc] = useState(localStorage.getItem('jota-contador-crc') || '');
+  
+  // Chaves Mestras da IA
+  const [geminiKey, setGeminiKey] = useState(localStorage.getItem('jota-gemini-key') || '');
+  const [vertexKey, setVertexKey] = useState(localStorage.getItem('jota-vertex-key') || '');
   const [geminiModel, setGeminiModel] = useState(localStorage.getItem('jota-gemini-model') || 'gemini-2.0-flash');
   const [enableGoogleSearch, setEnableGoogleSearch] = useState(localStorage.getItem('jota-gemini-search') === 'true');
 
@@ -36,6 +40,8 @@ const Configuracao = () => {
     localStorage.setItem('jota-webhook-prod', webhookProdUrl);
     localStorage.setItem('jota-contador-nome', contadorNome);
     localStorage.setItem('jota-contador-crc', contadorCrc);
+    localStorage.setItem('jota-gemini-key', geminiKey);
+    localStorage.setItem('jota-vertex-key', vertexKey);
     localStorage.setItem('jota-gemini-model', geminiModel);
     localStorage.setItem('jota-gemini-search', enableGoogleSearch.toString());
     toast.success("Configurações do sistema salvas localmente!");
@@ -51,11 +57,6 @@ const Configuracao = () => {
           </Button>
         </CardHeader>
         <CardContent className="space-y-8">
-          
-          <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg flex items-center gap-3 text-blue-800 text-sm">
-            <ShieldAlert className="h-5 w-5 shrink-0" />
-            <p><strong>Atenção:</strong> As configurações de Razão Social e a Chave da API do Gemini (AI) foram movidas para a tela de <strong>Meu Perfil</strong>.</p>
-          </div>
 
           {/* 1. DADOS FISCAIS E CONTADOR */}
           <div className="space-y-6 rounded-lg border border-border p-6 bg-muted/5">
@@ -68,14 +69,29 @@ const Configuracao = () => {
              </div>
           </div>
 
-          {/* 2. IA PREFERÊNCIAS */}
-          <div className="space-y-6 rounded-lg border border-border p-6 bg-blue-50/5">
-             <h3 className="text-lg font-semibold flex items-center gap-2"><KeyRound className="h-5 w-5 text-blue-500" />Preferências de IA</h3>
+          {/* 2. IA GLOBAL (MASTER KEYS) */}
+          <div className="space-y-6 rounded-lg border border-primary/20 p-6 bg-primary/5">
+             <div className="flex items-center justify-between">
+               <h3 className="text-lg font-semibold flex items-center gap-2"><KeyRound className="h-5 w-5 text-primary" />Chaves Mestras de IA (Global)</h3>
+             </div>
+             
              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                <div className="space-y-2">
-                 <Label>Modelo de Processamento</Label>
+                 <Label className="flex items-center gap-2 font-bold text-primary">Gemini API Key (Master)</Label>
+                 <Input type="password" value={geminiKey} onChange={(e) => setGeminiKey(e.target.value)} className="bg-background border-primary/30" />
+                 <p className="text-[10px] text-muted-foreground">Chave de fallback global do Google AI Studio.</p>
+               </div>
+               
+               <div className="space-y-2">
+                 <Label className="flex items-center gap-2 font-bold text-indigo-600">Vertex AI Key (Google Cloud)</Label>
+                 <Input type="password" value={vertexKey} onChange={(e) => setVertexKey(e.target.value)} className="bg-background border-indigo-500/30" />
+                 <p className="text-[10px] text-muted-foreground">Usada quando a cobrança por créditos estiver ativa.</p>
+               </div>
+               
+               <div className="space-y-2">
+                 <Label>Modelo Padrão</Label>
                  <Select value={geminiModel} onValueChange={setGeminiModel}>
-                   <SelectTrigger><SelectValue /></SelectTrigger>
+                   <SelectTrigger className="bg-background"><SelectValue /></SelectTrigger>
                    <SelectContent>
                      <SelectItem value="gemini-2.0-pro-exp-02-05">Gemini 2.0 Pro</SelectItem>
                      <SelectItem value="gemini-2.0-flash">Gemini 2.0 Flash</SelectItem>
@@ -83,10 +99,11 @@ const Configuracao = () => {
                    </SelectContent>
                  </Select>
                </div>
+               
                <div className="space-y-2">
                  <Label className="flex items-center gap-2"><Search className="h-4 w-4 text-blue-500" /> Grounding (Pesquisa Web)</Label>
                  <div className="flex items-center justify-between p-2 border border-blue-500/30 rounded bg-blue-500/10">
-                   <span className="text-xs text-blue-800">Permite que a IA pesquise na internet em tempo real</span>
+                   <span className="text-xs text-blue-800">Pesquisa na internet</span>
                    <Switch checked={enableGoogleSearch} onCheckedChange={setEnableGoogleSearch} />
                  </div>
                </div>
