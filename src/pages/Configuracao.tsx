@@ -13,11 +13,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { useAuth } from '@/contexts/AuthContext';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { supabase } from '@/integrations/supabase/client';
 
 const UFs = ["AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"];
 
 const Configuracao = () => {
-  const { autenticado } = useAuth();
+  const { autenticado, session } = useAuth();
+  const [isSaving, setIsSaving] = useState(false);
 
   // Variáveis Locais
   const [webhookTestUrl, setWebhookTestUrl] = useState(localStorage.getItem('jota-webhook-test') || '');
@@ -31,18 +33,60 @@ const Configuracao = () => {
   const [geminiModel, setGeminiModel] = useState(localStorage.getItem('jota-gemini-model') || 'gemini-2.0-flash');
   const [enableGoogleSearch, setEnableGoogleSearch] = useState(localStorage.getItem('jota-gemini-search') === 'true');
 
-  const handleSave = () => {
-    localStorage.setItem('jota-razaoSocial', razaoSocial);
-    localStorage.setItem('jota-cnpj', cnpj);
-    localStorage.setItem('jota-uf', uf);
-    localStorage.setItem('jota-webhook-test', webhookTestUrl);
-    localStorage.setItem('jota-webhook-prod', webhookProdUrl);
-    localStorage.setItem('jota-contador-nome', contadorNome);
-    localStorage.setItem('jota-contador-crc', contadorCrc);
-    localStorage.setItem('jota-gemini-key', geminiKey);
-    localStorage.setItem('jota-gemini-model', geminiModel);
-    localStorage.setItem('jota-gemini-search', enableGoogleSearch.toString());
-    toast.success("Configurações salvas localmente!");
+  useEffect(() => {
+    // Ao carregar, tenta buscar a chave de API salva no banco de dados para sincronizar
+    const loadProfileData = async () => {
+      if (session?.user) {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('api_key')
+          .eq('id', session.user.id)
+          .single();
+        
+        if (data && data.api_key) {
+          setGeminiKey(data.api_key);
+          localStorage.setItem('jota-gemini-key', data.api_key); // Mantém o cache local atualizado
+        }
+      }
+    };
+    loadProfileData();
+  }, [session]);
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      // 1. Salva tudo localmente (para acesso rápido do frontend)
+      localStorage.setItem('jota-razaoSocial', razaoSocial);
+      localStorage.setItem('jota-cnpj', cnpj);
+      localStorage.setItem('jota-uf', uf);
+      localStorage.setItem('jota-webhook-test', webhookTestUrl);
+      localStorage.setItem('jota-webhook-prod', webhookProdUrl);
+      localStorage.setItem('jota-contador-nome', contadorNome);
+      localStorage.setItem('jota-contador-crc', contadorCrc);
+      localStorage.setItem('jota-gemini-key', geminiKey);
+      localStorage.setItem('jota-gemini-model', geminiModel);
+      localStorage.setItem('jota-gemini-search', enableGoogleSearch.toString());
+
+      // 2. Persiste a Chave da API no banco de dados para que o Motor Autônomo (Edge Function) possa usá-la
+      if (session?.user) {
+        const { error } = await supabase
+          .from('profiles')
+          .update({ api_key: geminiKey })
+          .eq('id', session.user.id);
+        
+        if (error) {
+          console.error("Erro ao salvar chave no perfil:", error);
+          toast.warning("Configurações salvas localmente, mas houve erro ao sincronizar a API Key com o servidor.");
+          return;
+        }
+      }
+
+      toast.success("Configurações salvas e sincronizadas com sucesso!");
+    } catch (e) {
+      toast.error("Falha ao salvar configurações.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -50,8 +94,8 @@ const Configuracao = () => {
       <Card className="shadow-card">
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="flex items-center gap-2"><Settings className="h-6 w-6 text-primary" />Configurações do Sistema</CardTitle>
-          <Button onClick={handleSave} className="bg-primary hover:bg-primary/90">
-            <Save className="h-4 w-4 mr-2" /> Salvar Configurações
+          <Button onClick={handleSave} disabled={isSaving} className="bg-primary hover:bg-primary/90">
+            {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />} Salvar Configurações
           </Button>
         </CardHeader>
         <CardContent className="space-y-8">
@@ -70,9 +114,13 @@ const Configuracao = () => {
 
           {/* 2. IA LOCAL */}
           <div className="space-y-6 rounded-lg border border-border p-6 bg-blue-50/5">
-             <h3 className="text-lg font-semibold flex items-center gap-2"><KeyRound className="h-5 w-5 text-blue-500" />Configurações da IA Local (Gemini)</h3>
+             <h3 className="text-lg font-semibold flex items-center gap-2"><KeyRound className="h-5 w-5 text-blue-500" />Configurações da IA (Gemini)</h3>
              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-               <div className="space-y-2"><Label>Gemini API Key</Label><Input type="password" value={geminiKey} onChange={(e) => setGeminiKey(e.target.value)} /></div>
+               <div className="space-y-2">
+                 <Label>Gemini API Key</Label>
+                 <Input type="password" value={geminiKey} onChange={(e) => setGeminiKey(e.target.value)} />
+                 <p className="text-[10px] text-muted-foreground">Esta chave será usada para o Chat e para os Agentes Autônomos em background.</p>
+               </div>
                <div className="space-y-2">
                  <Label>Modelo</Label>
                  <Select value={geminiModel} onValueChange={setGeminiModel}>
