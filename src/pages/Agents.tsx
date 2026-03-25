@@ -190,6 +190,20 @@ export default function Agents() {
 
   const handleTestAgent = async (agent: AgentConfig) => {
     if (!session?.user) return;
+
+    // 1. VERIFICAÇÃO DE INTEGRIDADE: O Agente já foi salvo?
+    const { data: agentExists } = await supabase
+      .from('ai_agents')
+      .select('id')
+      .eq('id', agent.id)
+      .maybeSingle();
+
+    if (!agentExists) {
+      return toast.warning("Salve o Agente antes de testar.", {
+        description: "Você precisa clicar em 'Salvar Agentes' no topo da página para que o sistema possa registrar o log de execução desta ferramenta."
+      });
+    }
+
     const apiKey = localStorage.getItem('jota-gemini-key');
     if (!apiKey) return toast.error("Chave API do Gemini não configurada.");
     
@@ -202,23 +216,32 @@ export default function Agents() {
       const reportText = await callGeminiAgent(agent.systemPrompt, triggerMessage, apiKey, agentSkills);
       
       // Salva o resultado manualmente para o usuário ver
-      await supabase.from('agent_execution_logs').insert({
+      const { error: insertError } = await supabase.from('agent_execution_logs').insert({
         agent_id: agent.id,
         user_id: session.user.id,
         status: 'success',
         execution_log: reportText
       });
 
-      toast.success(`Teste do agente '${agent.nome}' concluído!`);
-      await fetchLogs(); // Atualiza a aba de logs
+      if (insertError) {
+        console.error("[Agent Test] Erro ao gravar log no Supabase:", insertError);
+        throw new Error("A IA respondeu, mas não foi possível salvar o Log.");
+      }
+
+      toast.success(`Teste do agente '${agent.nome}' concluído! Veja a aba Logs.`);
+      await fetchLogs();
 
     } catch (error: any) {
+      console.error("[Agent Test] Erro geral na execução:", error);
+      
+      // Tenta gravar o erro no log
       await supabase.from('agent_execution_logs').insert({
         agent_id: agent.id,
         user_id: session.user.id,
         status: 'error',
-        execution_log: error.message
+        execution_log: `Falha na execução: ${error.message}`
       });
+      
       toast.error(`Erro na execução: ${error.message}`);
       await fetchLogs();
     } finally {
