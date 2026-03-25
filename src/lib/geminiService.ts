@@ -83,10 +83,15 @@ export async function callGeminiAgent(
   
   const toolsArray: any[] = [];
 
-  // LÓGICA DE PRIORIDADE: A API do Gemini não permite combinar Function Calling com Google Search.
-  // Priorizamos as Skills do sistema sobre a pesquisa genérica.
-  if (dynamicManifests.length > 0) {
-    toolsArray.push({ functionDeclarations: dynamicManifests });
+  // LÓGICA DE ALTERNÂNCIA INTELIGENTE
+  // Se o usuário está chamando uma skill explicitamente ou se o Grounding está OFF, usamos Skills.
+  // Caso contrário, priorizamos o Grounding (Google Search).
+  const isExplicitSkillCall = userContent.includes('@');
+
+  if (isExplicitSkillCall || !useGrounding) {
+    if (dynamicManifests.length > 0) {
+      toolsArray.push({ functionDeclarations: dynamicManifests });
+    }
   } else if (useGrounding) {
     toolsArray.push({ google_search: {} });
   }
@@ -142,13 +147,17 @@ export async function sendChatMessage(
   const useGrounding = localStorage.getItem('jota-gemini-search') === 'true';
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
   
+  const lastUserMessage = history[history.length - 1]?.parts[0]?.text || "";
+  const isExplicitSkillCall = lastUserMessage.includes('@');
+
+  const toolsArray: any[] = [];
   const dynamicManifests = skillsOverride.map(s => ({ name: s.name, description: s.description, parameters: s.parameters }));
   
-  const toolsArray: any[] = [];
-
-  // LÓGICA DE PRIORIDADE: Evita erro 400 por conflito de ferramentas.
-  if (dynamicManifests.length > 0) {
-    toolsArray.push({ functionDeclarations: dynamicManifests });
+  // ALTERNÂNCIA INTELIGENTE NO CHAT
+  if (isExplicitSkillCall || !useGrounding) {
+    if (dynamicManifests.length > 0) {
+      toolsArray.push({ functionDeclarations: dynamicManifests });
+    }
   } else if (useGrounding) {
     toolsArray.push({ google_search: {} });
   }
