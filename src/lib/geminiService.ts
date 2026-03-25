@@ -26,8 +26,10 @@ export interface AgentConfig {
   userId?: string;
   cronPrompt?: string;
   lastRun?: string;
-  scheduleType?: 'interval' | 'specific_date'; // Novo: Tipo de agendamento
-  scheduledAt?: string; // Novo: Data e hora específica
+  // NOVO: Tipos de Agendamento Expandidos
+  scheduleType?: 'interval' | 'daily' | 'weekdays' | 'monthly' | 'specific_date';
+  scheduledAt?: string; // Usado para Data Específica (ISO completo) ou apenas Hora (HH:mm) para diário/semanal
+  scheduleDay?: number; // Usado para Dia do Mês (1-31)
 }
 
 export interface PromptConfig {
@@ -60,7 +62,8 @@ export async function fetchDbAgents(userId: string, isAdmin: boolean = false): P
     isGlobal: d.is_global, userId: d.user_id,
     cronPrompt: d.cron_prompt, lastRun: d.last_run,
     scheduleType: d.schedule_type || 'interval',
-    scheduledAt: d.scheduled_at
+    scheduledAt: d.scheduled_at,
+    scheduleDay: d.schedule_day
   }));
 }
 

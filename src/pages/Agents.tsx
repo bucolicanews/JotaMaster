@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   Zap, Plus, Trash2, Save, Loader2, Workflow, Link2, 
-  Download, FileJson, Wrench, MessageSquareQuote, Clock, FileText, Play, Calendar
+  Download, FileJson, Wrench, MessageSquareQuote, Clock, FileText, Play, Calendar, Repeat
 } from 'lucide-react';
 import { AgentConfig, fetchDbAgents, fetchDbPrompts, callGeminiAgent } from '@/lib/geminiService';
 import { DynamicSkill, fetchDbSkills } from '@/lib/skills/taxSkills';
@@ -45,7 +45,6 @@ export default function Agents() {
     if (!isoString) return '';
     const date = new Date(isoString);
     if (isNaN(date.getTime())) return '';
-    // Ajusta o offset para exibir a hora correta no input HTML
     const tzOffset = date.getTimezoneOffset() * 60000;
     return new Date(date.getTime() - tzOffset).toISOString().slice(0, 16);
   };
@@ -54,7 +53,7 @@ export default function Agents() {
     if (!localString) return null;
     const date = new Date(localString);
     if (isNaN(date.getTime())) return null;
-    return date.toISOString(); // Salva em UTC padrão no Supabase
+    return date.toISOString(); 
   };
 
   useEffect(() => {
@@ -188,6 +187,7 @@ export default function Agents() {
         monitoring_interval: a.monitoringInterval,
         schedule_type: a.scheduleType || 'interval',
         scheduled_at: a.scheduledAt || null,
+        schedule_day: a.scheduleDay || null,
         use_n8n: a.useN8n,
         n8n_response_url: a.n8nResponseUrl,
         webhook_url: a.webhookUrl,
@@ -212,7 +212,6 @@ export default function Agents() {
   const handleTestAgent = async (agent: AgentConfig) => {
     if (!session?.user) return;
 
-    // 1. VERIFICAÇÃO DE INTEGRIDADE: O Agente já foi salvo?
     const { data: agentExists } = await supabase
       .from('ai_agents')
       .select('id')
@@ -221,7 +220,7 @@ export default function Agents() {
 
     if (!agentExists) {
       return toast.warning("Salve o Agente antes de testar.", {
-        description: "Você precisa clicar em 'Salvar Agentes' no topo da página para que o sistema possa registrar o log de execução desta ferramenta."
+        description: "Você precisa clicar em 'Salvar Agentes' no topo da página para que o sistema possa registrar o log de execução."
       });
     }
 
@@ -233,10 +232,8 @@ export default function Agents() {
       const agentSkills = skills.filter(s => (agent.selectedSkills || []).includes(s.id));
       const triggerMessage = agent.cronPrompt || "Inicie sua rotina de auditoria autônoma agora.";
       
-      // Simula a chamada que o Cron do Supabase faria
       const reportText = await callGeminiAgent(agent.systemPrompt, triggerMessage, apiKey, agentSkills);
       
-      // Salva o resultado manualmente para o usuário ver
       const { error: insertError } = await supabase.from('agent_execution_logs').insert({
         agent_id: agent.id,
         user_id: session.user.id,
@@ -246,7 +243,7 @@ export default function Agents() {
 
       if (insertError) {
         console.error("[Agent Test] Erro ao gravar log no Supabase:", insertError);
-        throw new Error("A IA respondeu, mas não foi possível salvar o Log. Verifique as permissões RLS da tabela 'agent_execution_logs'.");
+        throw new Error("A IA respondeu, mas não foi possível salvar o Log.");
       }
 
       toast.success(`Teste do agente '${agent.nome}' concluído! Veja a aba Logs.`);
@@ -255,7 +252,6 @@ export default function Agents() {
     } catch (error: any) {
       console.error("[Agent Test] Erro geral na execução:", error);
       
-      // Tenta gravar o erro no log
       await supabase.from('agent_execution_logs').insert({
         agent_id: agent.id,
         user_id: session.user.id,
@@ -380,9 +376,9 @@ export default function Agents() {
                             <Switch checked={agent.enableMonitoring} disabled={!canEdit} onCheckedChange={v => { updateAgent(agent.id, 'enableMonitoring', v); if(v) updateAgent(agent.id, 'useN8n', false); }} />
                           </div>
                           
-                          <div className="grid grid-cols-2 gap-4">
+                          <div className="grid grid-cols-1 gap-4">
                             <div className="space-y-2">
-                              <Label className="text-[10px] uppercase">Tipo de Agendamento</Label>
+                              <Label className="text-[10px] uppercase">Frequência de Execução</Label>
                               <Select 
                                 disabled={!canEdit || !agent.enableMonitoring} 
                                 value={agent.scheduleType || 'interval'} 
@@ -390,32 +386,76 @@ export default function Agents() {
                               >
                                 <SelectTrigger className="h-8 text-xs bg-white/50 border-emerald-500/30"><SelectValue /></SelectTrigger>
                                 <SelectContent>
-                                  <SelectItem value="interval" className="text-xs">Repetição (Minutos)</SelectItem>
-                                  <SelectItem value="specific_date" className="text-xs flex items-center gap-1"><Calendar className="h-3 w-3" /> Data e Hora Específica</SelectItem>
+                                  <SelectItem value="interval" className="text-xs">A cada X Minutos</SelectItem>
+                                  <SelectItem value="daily" className="text-xs">Todo Dia (Horário Fixo)</SelectItem>
+                                  <SelectItem value="weekdays" className="text-xs">Segunda a Sexta (Horário Fixo)</SelectItem>
+                                  <SelectItem value="monthly" className="text-xs">Todo Mês (Dia e Hora)</SelectItem>
+                                  <SelectItem value="specific_date" className="text-xs">Uma Vez (Data e Hora Específica)</SelectItem>
                                 </SelectContent>
                               </Select>
                             </div>
 
-                            {agent.scheduleType === 'specific_date' ? (
+                            {/* Campos Condicionais baseados na escolha */}
+                            {agent.scheduleType === 'interval' && (
                               <div className="space-y-2 animate-in fade-in">
-                                <Label className="text-[10px] uppercase text-emerald-800 font-bold">Agendar para</Label>
+                                <Label className="text-[10px] uppercase text-emerald-800 font-bold">Acordar a cada (Minutos)</Label>
+                                <Input 
+                                  type="number" min="1"
+                                  disabled={!canEdit || !agent.enableMonitoring} 
+                                  value={agent.monitoringInterval || 60} 
+                                  onChange={e => updateAgent(agent.id, 'monitoringInterval', parseInt(e.target.value) || 0)} 
+                                  className="h-8 text-xs bg-white/50 border-emerald-500/50"
+                                />
+                              </div>
+                            )}
+
+                            {(agent.scheduleType === 'daily' || agent.scheduleType === 'weekdays') && (
+                              <div className="space-y-2 animate-in fade-in">
+                                <Label className="text-[10px] uppercase text-emerald-800 font-bold">Horário (HH:mm)</Label>
+                                <Input 
+                                  type="time" 
+                                  disabled={!canEdit || !agent.enableMonitoring} 
+                                  value={agent.scheduledAt || '08:00'} 
+                                  onChange={e => updateAgent(agent.id, 'scheduledAt', e.target.value)} 
+                                  className="h-8 text-xs bg-white/50 border-emerald-500/50"
+                                />
+                              </div>
+                            )}
+
+                            {agent.scheduleType === 'monthly' && (
+                              <div className="grid grid-cols-2 gap-2 animate-in fade-in">
+                                <div className="space-y-2">
+                                  <Label className="text-[10px] uppercase text-emerald-800 font-bold">Dia do Mês</Label>
+                                  <Input 
+                                    type="number" min="1" max="31"
+                                    disabled={!canEdit || !agent.enableMonitoring} 
+                                    value={agent.scheduleDay || 1} 
+                                    onChange={e => updateAgent(agent.id, 'scheduleDay', parseInt(e.target.value) || 1)} 
+                                    className="h-8 text-xs bg-white/50 border-emerald-500/50"
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <Label className="text-[10px] uppercase text-emerald-800 font-bold">Horário</Label>
+                                  <Input 
+                                    type="time" 
+                                    disabled={!canEdit || !agent.enableMonitoring} 
+                                    value={agent.scheduledAt || '08:00'} 
+                                    onChange={e => updateAgent(agent.id, 'scheduledAt', e.target.value)} 
+                                    className="h-8 text-xs bg-white/50 border-emerald-500/50"
+                                  />
+                                </div>
+                              </div>
+                            )}
+
+                            {agent.scheduleType === 'specific_date' && (
+                              <div className="space-y-2 animate-in fade-in">
+                                <Label className="text-[10px] uppercase text-emerald-800 font-bold">Data e Hora Exata</Label>
                                 <Input 
                                   type="datetime-local" 
                                   disabled={!canEdit || !agent.enableMonitoring} 
                                   value={formatDateTimeLocal(agent.scheduledAt)} 
                                   onChange={e => updateAgent(agent.id, 'scheduledAt', parseDateTimeLocal(e.target.value))} 
-                                  className="h-8 text-xs bg-white/50 border-emerald-500/50 focus-visible:ring-emerald-500"
-                                />
-                              </div>
-                            ) : (
-                              <div className="space-y-2 animate-in fade-in">
-                                <Label className="text-[10px] uppercase text-emerald-800 font-bold">Acordar a cada (Minutos)</Label>
-                                <Input 
-                                  type="number" 
-                                  disabled={!canEdit || !agent.enableMonitoring} 
-                                  value={agent.monitoringInterval || 60} 
-                                  onChange={e => updateAgent(agent.id, 'monitoringInterval', parseInt(e.target.value) || 0)} 
-                                  className="h-8 text-xs bg-white/50 border-emerald-500/50 focus-visible:ring-emerald-500"
+                                  className="h-8 text-xs bg-white/50 border-emerald-500/50"
                                 />
                               </div>
                             )}
