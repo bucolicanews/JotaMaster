@@ -82,17 +82,17 @@ export async function callGeminiAgent(
   const dynamicManifests = dynamicSkills.map(s => ({ name: s.name, description: s.description, parameters: s.parameters }));
   
   const toolsArray: any[] = [];
-  const isExplicitSearch = userContent.toLowerCase().includes("pesquise") || 
-                           userContent.toLowerCase().includes("google") ||
-                           userContent.toLowerCase().includes("internet");
+  const isExplicitSkillCall = userContent.includes('@');
 
-  if (dynamicManifests.length > 0 && !isExplicitSearch) {
-    toolsArray.push({ functionDeclarations: dynamicManifests });
+  // LÓGICA DE ALTERNÂNCIA: Skills têm prioridade se chamadas via @, caso contrário usa Grounding se ativo.
+  if (isExplicitSkillCall || !useGrounding) {
+    if (dynamicManifests.length > 0) {
+      toolsArray.push({ functionDeclarations: dynamicManifests });
+    }
   } else if (useGrounding) {
     toolsArray.push({ google_search: {} });
   }
 
-  // Reforço de instrução para Agentes
   const enhancedSystemPrompt = `${systemPrompt}\n\nREGRA CRÍTICA: Se houver uma ferramenta disponível para obter dados reais (como CEP ou cálculos), você DEVE usá-la. Não responda com base em seu conhecimento interno se a ferramenta puder fornecer o dado exato.`;
 
   const initialBody = {
@@ -138,31 +138,36 @@ export async function sendChatMessage(
   history: ChatMessage[],
   apiKey: string,
   skillsOverride: DynamicSkill[],
-  onToolCall?: (toolName: string) => void
+  onToolCall?: (toolName: string) => void,
+  useGroundingOverride?: boolean // Novo parâmetro vindo da UI do chat
 ): Promise<string> {
   if (!apiKey) throw new Error('Chave API Gemini não configurada.');
   
   const model = localStorage.getItem('jota-gemini-model') || 'gemini-2.0-flash';
-  const useGrounding = localStorage.getItem('jota-gemini-search') === 'true';
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
   
   const lastUserMessage = history[history.length - 1]?.parts[0]?.text || "";
-  const isExplicitSearch = lastUserMessage.toLowerCase().includes("pesquise") || 
-                           lastUserMessage.toLowerCase().includes("google") ||
-                           lastUserMessage.toLowerCase().includes("internet");
+  const isExplicitSkillCall = lastUserMessage.includes('@');
+  
+  // Prioriza o override da UI, senão usa a config global
+  const useGrounding = useGroundingOverride !== undefined 
+    ? useGroundingOverride 
+    : localStorage.getItem('jota-gemini-search') === 'true';
 
   const toolsArray: any[] = [];
   const dynamicManifests = skillsOverride.map(s => ({ name: s.name, description: s.description, parameters: s.parameters }));
   
-  if (dynamicManifests.length > 0 && !isExplicitSearch) {
-    toolsArray.push({ functionDeclarations: dynamicManifests });
+  // LÓGICA DE ALTERNÂNCIA NO CHAT
+  if (isExplicitSkillCall || !useGrounding) {
+    if (dynamicManifests.length > 0) {
+      toolsArray.push({ functionDeclarations: dynamicManifests });
+    }
   } else if (useGrounding) {
     toolsArray.push({ google_search: {} });
   }
 
   const skillsList = skillsOverride.map(s => `- ${s.name}: ${s.description}`).join('\n');
   
-  // INSTRUÇÃO DE AUTORIDADE PARA O CHAT
   const systemPrompt = `Você é o Assistente Inteligente da Jota Contabilidade. 
   
   FERRAMENTAS DISPONÍVEIS:
@@ -171,7 +176,7 @@ export async function sendChatMessage(
   DIRETRIZES OBRIGATÓRIAS:
   1. Se o usuário fornecer um dado (como CEP, CNPJ ou valores para cálculo) que possa ser processado por uma ferramenta acima, você DEVE chamar a ferramenta.
   2. NÃO responda com base em seu conhecimento interno se houver uma ferramenta que possa obter dados em tempo real ou realizar cálculos precisos.
-  3. Se o usuário pedir para pesquisar na internet e o Grounding estiver disponível, use-o.
+  3. Se o Grounding estiver ativo, use a pesquisa do Google para dados externos (cotações, notícias, leis).
   
   Responda de forma profissional e use Markdown.`;
 
@@ -200,7 +205,7 @@ export async function sendChatMessage(
       }
     }
     const updatedHistory = [...history, message, { role: 'function', parts: toolResults }];
-    return sendChatMessage(updatedHistory, apiKey, skillsOverride, onToolCall);
+    return sendChatMessage(updatedHistory, apiKey, skillsOverride, onToolCall, useGrounding);
   }
   return message.parts?.map((p: any) => p.text || '').join('\n') || '';
 }

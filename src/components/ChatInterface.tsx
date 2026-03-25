@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Bot, User, Send, Loader2, Wrench, Trash2, Sparkles, Terminal, MessageSquareQuote, Zap } from 'lucide-react';
+import { Bot, User, Send, Loader2, Wrench, Trash2, Sparkles, Terminal, MessageSquareQuote, Zap, Globe, Search } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { ChatMessage, sendChatMessage, fetchDbPrompts, fetchDbAgents } from '@/lib/geminiService';
@@ -14,6 +14,8 @@ import { Badge } from './ui/badge';
 import { ChatSidebar, ChatSession } from './ChatSidebar';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { Switch } from './ui/switch';
+import { Label } from './ui/label';
 
 const STORAGE_KEY = 'jota-chat-sessions';
 
@@ -25,6 +27,7 @@ export const ChatInterface = () => {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [activeTool, setActiveTool] = useState<string | null>(null);
+  const [isGroundingActive, setIsGroundingActive] = useState(() => localStorage.getItem('jota-gemini-search') === 'true');
   
   const [availableSkills, setAvailableSkills] = useState<DynamicSkill[]>([]);
   const [availableAgents, setAvailableAgents] = useState<any[]>([]);
@@ -240,9 +243,12 @@ export const ChatInterface = () => {
     try {
       const hasSkillsModule = installedModuleIds.includes('skills');
       const allowedSkills = hasSkillsModule ? availableSkills : [];
+      
+      // Passamos o estado do Grounding da UI para o serviço
       const responseText = await sendChatMessage(newHistory, apiKey, allowedSkills, (toolName) => {
         setActiveTool(toolName);
-      });
+      }, isGroundingActive);
+      
       setMessages(prev => [...prev, { role: 'model', parts: [{ text: responseText }] }]);
     } catch (error: any) {
       toast.error("Erro no chat: " + error.message);
@@ -276,6 +282,21 @@ export const ChatInterface = () => {
                 {installedModuleIds.includes('skills') ? 'Modo Premium Ativo' : 'Modo Grátis (Apenas Prompts)'}
               </p>
             </div>
+          </div>
+          
+          {/* CONTROLE DE GROUNDING NO HEADER DO CHAT */}
+          <div className="flex items-center gap-2 bg-background/50 px-3 py-1.5 rounded-full border border-border/50">
+            <Globe className={cn("h-3.5 w-3.5 transition-colors", isGroundingActive ? "text-blue-500" : "text-muted-foreground")} />
+            <Label htmlFor="grounding-toggle" className="text-[10px] font-bold uppercase cursor-pointer">Pesquisa Web</Label>
+            <Switch 
+              id="grounding-toggle" 
+              checked={isGroundingActive} 
+              onCheckedChange={(v) => {
+                setIsGroundingActive(v);
+                localStorage.setItem('jota-gemini-search', v.toString());
+                toast.info(v ? "Pesquisa em tempo real ativada." : "Pesquisa web desativada.");
+              }} 
+            />
           </div>
         </CardHeader>
 
