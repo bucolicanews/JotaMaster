@@ -33,7 +33,7 @@ export const DynamicModuleLoader: React.FC<DynamicModuleLoaderProps> = ({ url, t
   }
 
   return (
-    <div className="relative w-full h-[calc(100vh-140px)] rounded-xl overflow-hidden border border-border shadow-sm bg-muted/5">
+    <div className="relative w-full h-full overflow-hidden bg-background">
       {isLoading && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/90 backdrop-blur-md z-10 animate-out fade-out duration-500 fill-mode-forwards">
           <div className="relative">
@@ -42,7 +42,7 @@ export const DynamicModuleLoader: React.FC<DynamicModuleLoaderProps> = ({ url, t
           </div>
           <p className="mt-4 text-sm font-bold text-foreground tracking-widest uppercase">Injetando Micro-Frontend...</p>
           <div className="flex items-center gap-1 mt-2 text-[10px] text-success font-mono bg-success/10 px-2 py-1 rounded border border-success/20">
-            <ShieldCheck className="h-3 w-3" /> Sandbox Isolado Ativo
+            <ShieldCheck className="h-3 w-3" /> Conexão Segura
           </div>
         </div>
       )}

@@ -86,22 +86,18 @@ export default function DynamicRouteHandler() {
     );
   }
 
-  // Caminho Feliz: Injeta a aplicação externa
+  // Caminho Feliz: Injeta a aplicação externa no Modo Imersivo (100vh)
   return (
-    <div className="flex flex-col h-full animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="flex items-center gap-3 mb-6 border-b border-border pb-4 shrink-0">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">{moduleData.name}</h1>
-          <p className="text-sm text-muted-foreground">{moduleData.description}</p>
-        </div>
-        <div className="ml-auto flex items-center gap-2">
-          <span className="flex items-center gap-1.5 text-[10px] font-mono bg-amber-500/10 text-amber-600 border border-amber-500/30 px-3 py-1.5 rounded-full uppercase font-bold tracking-wider shadow-sm">
-            <LockKeyhole className="h-3 w-3" /> Sandbox Ativo
-          </span>
-        </div>
+    <div className="flex flex-col h-full w-full relative animate-in fade-in duration-500 bg-background overflow-hidden">
+      
+      {/* Tag de Segurança flutuante, posicionada ao lado do FAB Menu no Layout */}
+      <div className="absolute top-5 left-[72px] z-40 pointer-events-none">
+        <span className="flex items-center gap-1.5 text-[9px] font-mono bg-amber-500/10 text-amber-600 border border-amber-500/30 px-2.5 py-1 rounded-md uppercase font-bold tracking-wider shadow-sm backdrop-blur-md">
+          <LockKeyhole className="h-3 w-3" /> Sandbox Ativo
+        </span>
       </div>
       
-      <div className="flex-1 min-h-0">
+      <div className="flex-1 w-full h-full">
         <DynamicModuleLoader url={moduleData.bundle_url} title={moduleData.name} />
       </div>
     </div>

@@ -43,6 +43,8 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [balance, setBalance] = useState<number | null>(null);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
+  const isFullscreenModule = location.pathname.startsWith('/app/');
+
   useEffect(() => {
     const fetchInstalledModules = async () => {
       if (!autenticado || !session?.user) {
@@ -142,7 +144,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   };
 
   const NavigationContent = () => (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full bg-card">
       <div className="flex-1 overflow-y-auto py-4 px-3 custom-scrollbar">
         {autenticado ? (
           <>
@@ -243,49 +245,78 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   );
 
   return (
-    <div className="flex min-h-screen w-full bg-background">
-      {/* SIDEBAR DESKTOP */}
-      <aside className="hidden lg:flex flex-col w-64 border-r border-border bg-card sticky top-0 h-screen">
-        <div className="p-4 border-b border-border bg-gradient-primary flex items-center gap-3 shrink-0">
-          <div className="rounded-lg bg-black/30 p-2 backdrop-blur shrink-0">
-            <img src="/jota-contabilidade-logo.png" alt="Logo" className="h-8 w-8" />
+    <div className="flex h-screen w-full bg-background overflow-hidden">
+      
+      {/* SIDEBAR DESKTOP - Oculta no modo imersivo */}
+      {!isFullscreenModule && (
+        <aside className="hidden lg:flex flex-col w-64 border-r border-border bg-card h-screen shrink-0">
+          <div className="p-4 border-b border-border bg-gradient-primary flex items-center gap-3 shrink-0">
+            <div className="rounded-lg bg-black/30 p-2 backdrop-blur shrink-0">
+              <img src="/jota-contabilidade-logo.png" alt="Logo" className="h-8 w-8" />
+            </div>
+            <div className="overflow-hidden">
+              <h1 className="text-lg font-bold text-black truncate leading-tight">JOTA</h1>
+              <p className="text-[10px] text-black/70 truncate leading-tight">Placa-mãe Inteligente</p>
+            </div>
           </div>
-          <div className="overflow-hidden">
-            <h1 className="text-lg font-bold text-black truncate leading-tight">JOTA</h1>
-            <p className="text-[10px] text-black/70 truncate leading-tight">Placa-mãe Inteligente</p>
-          </div>
-        </div>
-        <NavigationContent />
-      </aside>
+          <NavigationContent />
+        </aside>
+      )}
 
-      <div className="flex flex-col flex-1 w-full">
-        {/* HEADER MOBILE */}
-        <header className="lg:hidden flex items-center justify-between p-4 border-b border-border bg-card sticky top-0 z-50">
-          <div className="flex items-center gap-2">
-            <img src="/jota-contabilidade-logo.png" alt="Logo" className="h-6 w-6" />
-            <span className="font-bold text-sm">JOTA</span>
-          </div>
-          
-          <Sheet open={isMobileOpen} onOpenChange={setIsMobileOpen}>
-            <SheetTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <Menu className="h-6 w-6" />
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="left" className="p-0 w-72 bg-card border-r border-border">
-              <SheetTitle className="sr-only">Menu de Navegação</SheetTitle>
-              <div className="p-4 border-b border-border bg-gradient-primary flex items-center gap-3 shrink-0">
-                <div className="rounded-lg bg-black/30 p-2 backdrop-blur shrink-0">
-                  <img src="/jota-contabilidade-logo.png" alt="Logo" className="h-6 w-6" />
+      <div className="flex flex-col flex-1 w-full h-full relative overflow-hidden">
+        
+        {/* HEADER MOBILE - Oculto no modo imersivo */}
+        {!isFullscreenModule && (
+          <header className="lg:hidden flex items-center justify-between p-4 border-b border-border bg-card sticky top-0 z-50 shrink-0">
+            <div className="flex items-center gap-2">
+              <img src="/jota-contabilidade-logo.png" alt="Logo" className="h-6 w-6" />
+              <span className="font-bold text-sm">JOTA</span>
+            </div>
+            
+            <Sheet open={isMobileOpen} onOpenChange={setIsMobileOpen}>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon">
+                  <Menu className="h-6 w-6" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left" className="p-0 w-72 border-r border-border flex flex-col h-full">
+                <SheetTitle className="sr-only">Menu de Navegação</SheetTitle>
+                <div className="p-4 border-b border-border bg-gradient-primary flex items-center gap-3 shrink-0">
+                  <div className="rounded-lg bg-black/30 p-2 backdrop-blur shrink-0">
+                    <img src="/jota-contabilidade-logo.png" alt="Logo" className="h-6 w-6" />
+                  </div>
+                  <h1 className="text-lg font-bold text-black">JOTA</h1>
                 </div>
-                <h1 className="text-lg font-bold text-black">JOTA</h1>
-              </div>
-              <NavigationContent />
-            </SheetContent>
-          </Sheet>
-        </header>
+                <NavigationContent />
+              </SheetContent>
+            </Sheet>
+          </header>
+        )}
 
-        <main className="flex-1 overflow-x-hidden">
+        {/* BOTÃO FLUTUANTE DISCRETO (Modo Imersivo) */}
+        {isFullscreenModule && (
+          <div className="absolute top-4 left-4 z-50">
+            <Sheet open={isMobileOpen} onOpenChange={setIsMobileOpen}>
+              <SheetTrigger asChild>
+                <Button variant="outline" size="icon" className="rounded-full shadow-lg bg-background/80 backdrop-blur-md border-primary/20 hover:bg-primary/10 h-10 w-10 transition-transform hover:scale-105">
+                  <Menu className="h-5 w-5 text-primary" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left" className="p-0 w-72 border-r border-border flex flex-col h-full">
+                <SheetTitle className="sr-only">Menu de Navegação</SheetTitle>
+                <div className="p-4 border-b border-border bg-gradient-primary flex items-center gap-3 shrink-0">
+                  <div className="rounded-lg bg-black/30 p-2 backdrop-blur shrink-0">
+                    <img src="/jota-contabilidade-logo.png" alt="Logo" className="h-6 w-6" />
+                  </div>
+                  <h1 className="text-lg font-bold text-black">JOTA</h1>
+                </div>
+                <NavigationContent />
+              </SheetContent>
+            </Sheet>
+          </div>
+        )}
+
+        <main className={cn("flex-1 overflow-y-auto overflow-x-hidden h-full", isFullscreenModule ? "p-0" : "")}>
           {children}
         </main>
       </div>
