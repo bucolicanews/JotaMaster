@@ -81,18 +81,18 @@ export async function callGeminiAgent(
   const dynamicSkills = skillsOverride || [];
   const dynamicManifests = dynamicSkills.map(s => ({ name: s.name, description: s.description, parameters: s.parameters }));
   
-  const toolsArray: any[] = [];
+  // DECISÃO ÚNICA DE FERRAMENTAS (EXCLUSIVIDADE ESTRITA)
+  let tools: any[] | undefined = undefined;
   const isExplicitSkillCall = userContent.includes('@');
 
-  // LÓGICA DE EXCLUSIVIDADE ESTRITA
   if (isExplicitSkillCall) {
     if (dynamicManifests.length > 0) {
-      toolsArray.push({ functionDeclarations: dynamicManifests });
+      tools = [{ functionDeclarations: dynamicManifests }];
     }
   } else if (useGrounding) {
-    toolsArray.push({ google_search: {} });
+    tools = [{ google_search: {} }];
   } else if (dynamicManifests.length > 0) {
-    toolsArray.push({ functionDeclarations: dynamicManifests });
+    tools = [{ functionDeclarations: dynamicManifests }];
   }
 
   const enhancedSystemPrompt = `${systemPrompt}\n\nREGRA CRÍTICA: Se houver uma ferramenta disponível para obter dados reais (como CEP ou cálculos), você DEVE usá-la. Não responda com base em seu conhecimento interno se a ferramenta puder fornecer o dado exato.`;
@@ -100,7 +100,7 @@ export async function callGeminiAgent(
   const initialBody = {
     system_instruction: { parts: [{ text: enhancedSystemPrompt }] },
     contents: [{ role: 'user', parts: [{ text: userContent }] }],
-    tools: toolsArray.length > 0 ? toolsArray : undefined,
+    tools: tools,
     generationConfig: { temperature: 0.1, maxOutputTokens: 8192 }, 
   };
 
@@ -123,7 +123,7 @@ export async function callGeminiAgent(
     
     const finalBody = {
       system_instruction: { parts: [{ text: enhancedSystemPrompt }] },
-      tools: toolsArray.length > 0 ? toolsArray : undefined,
+      tools: tools, // Mantém o mesmo conjunto de ferramentas
       contents: [ { role: 'user', parts: [{ text: userContent }] }, message, { role: 'function', parts: toolResults } ],
       generationConfig: { temperature: 0.1, maxOutputTokens: 8192 },
     };
@@ -155,19 +155,22 @@ export async function sendChatMessage(
     ? useGroundingOverride 
     : localStorage.getItem('jota-gemini-search') === 'true';
 
-  const toolsArray: any[] = [];
   const dynamicManifests = skillsOverride.map(s => ({ name: s.name, description: s.description, parameters: s.parameters }));
   
-  // LÓGICA DE EXCLUSIVIDADE ESTRITA NO CHAT
-  // Se houver @ na mensagem, ignoramos o Grounding para evitar erro 400
+  // DECISÃO ÚNICA E EXCLUSIVA DE FERRAMENTAS
+  let tools: any[] | undefined = undefined;
+
   if (isExplicitSkillCall) {
+    // Se o usuário usou @, ignoramos o Grounding e enviamos apenas Skills
     if (dynamicManifests.length > 0) {
-      toolsArray.push({ functionDeclarations: dynamicManifests });
+      tools = [{ functionDeclarations: dynamicManifests }];
     }
   } else if (useGrounding) {
-    toolsArray.push({ google_search: {} });
+    // Se o Grounding está ON e não houve @, enviamos apenas a Pesquisa Google
+    tools = [{ google_search: {} }];
   } else if (dynamicManifests.length > 0) {
-    toolsArray.push({ functionDeclarations: dynamicManifests });
+    // Se o Grounding está OFF, enviamos as Skills por padrão
+    tools = [{ functionDeclarations: dynamicManifests }];
   }
 
   const skillsList = skillsOverride.map(s => `- ${s.name}: ${s.description}`).join('\n');
@@ -187,7 +190,7 @@ export async function sendChatMessage(
   const body = {
     system_instruction: { parts: [{ text: systemPrompt }] },
     contents: history,
-    tools: toolsArray.length > 0 ? toolsArray : undefined,
+    tools: tools,
     generationConfig: { temperature: 0.2, maxOutputTokens: 4096 },
   };
 
@@ -209,6 +212,8 @@ export async function sendChatMessage(
       }
     }
     const updatedHistory = [...history, message, { role: 'function', parts: toolResults }];
+    
+    // RECURSÃO: Passamos o mesmo estado de Grounding para manter a consistência das ferramentas
     return sendChatMessage(updatedHistory, apiKey, skillsOverride, onToolCall, useGrounding);
   }
   return message.parts?.map((p: any) => p.text || '').join('\n') || '';
