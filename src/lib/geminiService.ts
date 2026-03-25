@@ -82,24 +82,21 @@ export async function callGeminiAgent(
   const dynamicManifests = dynamicSkills.map(s => ({ name: s.name, description: s.description, parameters: s.parameters }));
   
   const toolsArray: any[] = [];
-
-  // DETECÇÃO DE INTENÇÃO DE BUSCA
   const isExplicitSearch = userContent.toLowerCase().includes("pesquise") || 
                            userContent.toLowerCase().includes("google") ||
                            userContent.toLowerCase().includes("internet");
 
-  // LÓGICA DE PRIORIDADE (O MAESTRO)
-  // 1. Se houver Skills e o usuário não pediu busca web explicitamente, priorizamos as Skills.
   if (dynamicManifests.length > 0 && !isExplicitSearch) {
     toolsArray.push({ functionDeclarations: dynamicManifests });
-  } 
-  // 2. Se o Grounding estiver ON e (o usuário pediu busca OU não há skills disponíveis), usamos Google Search.
-  else if (useGrounding) {
+  } else if (useGrounding) {
     toolsArray.push({ google_search: {} });
   }
 
+  // Reforço de instrução para Agentes
+  const enhancedSystemPrompt = `${systemPrompt}\n\nREGRA CRÍTICA: Se houver uma ferramenta disponível para obter dados reais (como CEP ou cálculos), você DEVE usá-la. Não responda com base em seu conhecimento interno se a ferramenta puder fornecer o dado exato.`;
+
   const initialBody = {
-    system_instruction: { parts: [{ text: systemPrompt }] },
+    system_instruction: { parts: [{ text: enhancedSystemPrompt }] },
     contents: [{ role: 'user', parts: [{ text: userContent }] }],
     tools: toolsArray.length > 0 ? toolsArray : undefined,
     generationConfig: { temperature: 0.1, maxOutputTokens: 8192 }, 
@@ -123,7 +120,7 @@ export async function callGeminiAgent(
     }
     
     const finalBody = {
-      system_instruction: { parts: [{ text: systemPrompt }] },
+      system_instruction: { parts: [{ text: enhancedSystemPrompt }] },
       tools: toolsArray.length > 0 ? toolsArray : undefined,
       contents: [ { role: 'user', parts: [{ text: userContent }] }, message, { role: 'function', parts: toolResults } ],
       generationConfig: { temperature: 0.1, maxOutputTokens: 8192 },
@@ -150,8 +147,6 @@ export async function sendChatMessage(
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
   
   const lastUserMessage = history[history.length - 1]?.parts[0]?.text || "";
-  
-  // DETECÇÃO DE INTENÇÃO
   const isExplicitSearch = lastUserMessage.toLowerCase().includes("pesquise") || 
                            lastUserMessage.toLowerCase().includes("google") ||
                            lastUserMessage.toLowerCase().includes("internet");
@@ -159,7 +154,6 @@ export async function sendChatMessage(
   const toolsArray: any[] = [];
   const dynamicManifests = skillsOverride.map(s => ({ name: s.name, description: s.description, parameters: s.parameters }));
   
-  // LÓGICA DE PRIORIDADE NO CHAT
   if (dynamicManifests.length > 0 && !isExplicitSearch) {
     toolsArray.push({ functionDeclarations: dynamicManifests });
   } else if (useGrounding) {
@@ -167,8 +161,18 @@ export async function sendChatMessage(
   }
 
   const skillsList = skillsOverride.map(s => `- ${s.name}: ${s.description}`).join('\n');
+  
+  // INSTRUÇÃO DE AUTORIDADE PARA O CHAT
   const systemPrompt = `Você é o Assistente Inteligente da Jota Contabilidade. 
-  FERRAMENTAS DISPONÍVEIS:\n${skillsList || "Nenhuma ferramenta no momento (Modo Grátis)."}\n
+  
+  FERRAMENTAS DISPONÍVEIS:
+  ${skillsList || "Nenhuma ferramenta no momento (Modo Grátis)."}
+  
+  DIRETRIZES OBRIGATÓRIAS:
+  1. Se o usuário fornecer um dado (como CEP, CNPJ ou valores para cálculo) que possa ser processado por uma ferramenta acima, você DEVE chamar a ferramenta.
+  2. NÃO responda com base em seu conhecimento interno se houver uma ferramenta que possa obter dados em tempo real ou realizar cálculos precisos.
+  3. Se o usuário pedir para pesquisar na internet e o Grounding estiver disponível, use-o.
+  
   Responda de forma profissional e use Markdown.`;
 
   const body = {
