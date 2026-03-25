@@ -54,19 +54,17 @@ export default function Skills() {
       executionType: 'local_js',
       isActive: true,
       jsCode: 'return { status: "ok" };',
-      userId: session?.user.id
+      userId: session?.user.id,
+      isGlobal: false
     };
     setDynamicSkills([newSkill, ...dynamicSkills]);
   };
 
-  // Correção do Ghosting: Deleta fisicamente do banco de dados
   const handleDelete = async (id: string) => {
     if (!confirm("Tem certeza que deseja excluir permanentemente esta ferramenta?")) return;
     
-    // 1. Remove da tela imediatamente (Optimistic UI)
     setDynamicSkills(prev => prev.filter(s => s.id !== id));
     
-    // 2. Se a Skill já existia no banco (tem '-' no UUID do Supabase), deleta no backend
     if (session?.user && id.includes('-')) {
       try {
         const { error } = await supabase.from('ai_skills').delete().eq('id', id);
@@ -193,11 +191,26 @@ export default function Skills() {
                       <span className="font-bold text-sm block">{skill.name}</span>
                       <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{skill.executionType}</span>
                     </div>
-                    {skill.isGlobal && <Badge className="bg-amber-500/10 text-amber-600 border-amber-500/20 text-[8px]">GLOBAL</Badge>}
-                    {!isOwner && <Badge variant="outline" className="text-[8px]">COMUNIDADE</Badge>}
+                    
+                    {/* INDICADORES VISUAIS DE GOVERNANÇA */}
+                    {skill.isGlobal && (
+                      <Badge className="bg-amber-500/10 text-amber-600 border-amber-500/20 text-[8px]">
+                        {isAdmin ? 'GLOBAL' : 'GLOBAL (ADMIN)'}
+                      </Badge>
+                    )}
+                    {!isOwner && !skill.isGlobal && (
+                      <Badge variant="outline" className="text-[8px]">COMUNIDADE</Badge>
+                    )}
                   </div>
                 </AccordionTrigger>
                 <AccordionContent className="pt-2 pb-6 space-y-6">
+                  
+                  {!canEdit && (
+                    <div className="bg-amber-500/10 border border-amber-500/20 p-3 rounded-md mb-4 text-xs text-amber-700 font-medium">
+                      Esta é uma ferramenta oficial fornecida pelo sistema. Você não pode editar ou excluir suas configurações.
+                    </div>
+                  )}
+
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="space-y-2">
                       <Label>Nome Técnico (ID)</Label>
@@ -240,9 +253,20 @@ export default function Skills() {
                   </div>
 
                   <div className="flex justify-between items-center pt-4 border-t border-border/50">
-                    <Button type="button" variant="outline" size="sm" className="text-emerald-600 border-emerald-200" onClick={() => executeSkill(skill.name, {}, dynamicSkills)}>
-                      <Play className="h-4 w-4 mr-2" /> Testar Agora
-                    </Button>
+                    <div className="flex items-center gap-6">
+                      <Button type="button" variant="outline" size="sm" className="text-emerald-600 border-emerald-200" onClick={() => executeSkill(skill.name, {}, dynamicSkills)}>
+                        <Play className="h-4 w-4 mr-2" /> Testar Agora
+                      </Button>
+                      
+                      {/* CONTROLE GLOBAL PARA O ADMIN */}
+                      {isAdmin && (
+                        <div className="flex items-center gap-2 bg-amber-500/5 px-3 py-1.5 rounded-md border border-amber-500/10">
+                          <Switch checked={skill.isGlobal || false} onCheckedChange={v => updateSkill(skill.id, 'isGlobal', v)} />
+                          <Label className="text-amber-700 font-bold text-[10px] uppercase">Global</Label>
+                        </div>
+                      )}
+                    </div>
+
                     {canEdit && !skill.moduleId && (
                       <Button type="button" variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10" onClick={() => handleDelete(skill.id)}>
                         <Trash2 className="h-4 w-4 mr-2" /> Remover Skill

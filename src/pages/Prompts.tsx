@@ -49,19 +49,17 @@ export default function Prompts() {
       role: 'Consultor',
       content: 'Você é um especialista em...',
       isActive: true,
-      userId: session?.user.id
+      userId: session?.user.id,
+      isGlobal: false
     };
     setPrompts([newPrompt, ...prompts]);
   };
 
-  // Correção do Ghosting: Deleta fisicamente do banco de dados
   const handleDelete = async (id: string) => {
     if (!confirm("Tem certeza que deseja excluir permanentemente esta persona?")) return;
     
-    // 1. Remove da tela imediatamente (Optimistic UI)
     setPrompts(prev => prev.filter(p => p.id !== id));
     
-    // 2. Se o Prompt já existia no banco (tem '-' no UUID do Supabase), deleta no backend
     if (session?.user && id.includes('-')) {
       try {
         const { error } = await supabase.from('ai_prompts').delete().eq('id', id);
@@ -178,11 +176,26 @@ export default function Prompts() {
                       <span className="font-bold text-sm block">{prompt.title}</span>
                       <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{prompt.role}</span>
                     </div>
-                    {prompt.isGlobal && <Badge className="bg-amber-500/10 text-amber-600 border-amber-500/20 text-[8px]">GLOBAL</Badge>}
-                    {!isOwner && <Badge variant="outline" className="text-[8px]">COMUNIDADE</Badge>}
+                    
+                    {/* INDICADORES VISUAIS DE GOVERNANÇA */}
+                    {prompt.isGlobal && (
+                      <Badge className="bg-amber-500/10 text-amber-600 border-amber-500/20 text-[8px]">
+                        {isAdmin ? 'GLOBAL' : 'GLOBAL (ADMIN)'}
+                      </Badge>
+                    )}
+                    {!isOwner && !prompt.isGlobal && (
+                      <Badge variant="outline" className="text-[8px]">COMUNIDADE</Badge>
+                    )}
                   </div>
                 </AccordionTrigger>
                 <AccordionContent className="pt-2 pb-6 space-y-6">
+                  
+                  {!canEdit && (
+                    <div className="bg-amber-500/10 border border-amber-500/20 p-3 rounded-md mb-4 text-xs text-amber-700 font-medium">
+                      Este é um prompt oficial fornecido pelo sistema. Você não pode editar ou excluir suas configurações.
+                    </div>
+                  )}
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>Título do Prompt</Label>
@@ -211,7 +224,16 @@ export default function Prompts() {
                         <Switch checked={prompt.isActive} disabled={!canEdit} onCheckedChange={v => updatePrompt(prompt.id, 'isActive', v)} />
                         <Label>Ativo</Label>
                       </div>
+
+                      {/* CONTROLE GLOBAL PARA O ADMIN */}
+                      {isAdmin && (
+                        <div className="flex items-center gap-2 bg-amber-500/5 px-3 py-1.5 rounded-md border border-amber-500/10">
+                          <Switch checked={prompt.isGlobal || false} onCheckedChange={v => updatePrompt(prompt.id, 'isGlobal', v)} />
+                          <Label className="text-amber-700 font-bold text-[10px] uppercase">Global</Label>
+                        </div>
+                      )}
                     </div>
+                    
                     {canEdit && !prompt.moduleId && (
                       <Button type="button" variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10" onClick={() => handleDelete(prompt.id)}>
                         <Trash2 className="h-4 w-4 mr-2" /> Remover
