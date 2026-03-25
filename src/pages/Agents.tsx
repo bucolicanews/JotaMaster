@@ -40,6 +40,23 @@ export default function Agents() {
   
   const importRef = useRef<HTMLInputElement>(null);
 
+  // Funções Utilitárias para conversão de Fuso Horário (Local <-> UTC)
+  const formatDateTimeLocal = (isoString?: string) => {
+    if (!isoString) return '';
+    const date = new Date(isoString);
+    if (isNaN(date.getTime())) return '';
+    // Ajusta o offset para exibir a hora correta no input HTML
+    const tzOffset = date.getTimezoneOffset() * 60000;
+    return new Date(date.getTime() - tzOffset).toISOString().slice(0, 16);
+  };
+
+  const parseDateTimeLocal = (localString: string) => {
+    if (!localString) return null;
+    const date = new Date(localString);
+    if (isNaN(date.getTime())) return null;
+    return date.toISOString(); // Salva em UTC padrão no Supabase
+  };
+
   useEffect(() => {
     const loadData = async () => {
       if (!session?.user) return;
@@ -232,18 +249,18 @@ export default function Agents() {
         throw new Error("A IA respondeu, mas não foi possível salvar o Log. Verifique as permissões RLS da tabela 'agent_execution_logs'.");
       }
 
-      toast.success(`Teste do agente '${agent.nome}' concluído!`);
-      await fetchLogs(); // Atualiza a aba de logs imediatamente
+      toast.success(`Teste do agente '${agent.nome}' concluído! Veja a aba Logs.`);
+      await fetchLogs();
 
     } catch (error: any) {
-      console.error("Erro na execução do agente:", error);
+      console.error("[Agent Test] Erro geral na execução:", error);
       
-      // Tenta gravar o erro no log, se o agente existir
+      // Tenta gravar o erro no log
       await supabase.from('agent_execution_logs').insert({
         agent_id: agent.id,
         user_id: session.user.id,
         status: 'error',
-        execution_log: error.message
+        execution_log: `Falha na execução: ${error.message}`
       });
       
       toast.error(`Erro na execução: ${error.message}`);
@@ -385,8 +402,8 @@ export default function Agents() {
                                 <Input 
                                   type="datetime-local" 
                                   disabled={!canEdit || !agent.enableMonitoring} 
-                                  value={agent.scheduledAt || ''} 
-                                  onChange={e => updateAgent(agent.id, 'scheduledAt', e.target.value)} 
+                                  value={formatDateTimeLocal(agent.scheduledAt)} 
+                                  onChange={e => updateAgent(agent.id, 'scheduledAt', parseDateTimeLocal(e.target.value))} 
                                   className="h-8 text-xs bg-white/50 border-emerald-500/50 focus-visible:ring-emerald-500"
                                 />
                               </div>
@@ -415,26 +432,27 @@ export default function Agents() {
                             />
                           </div>
                         </div>
-
-                        {/* OPÇÃO 2: N8N (WEBHOOK) */}
-                        <div className="space-y-4 p-4 border border-orange-500/20 bg-orange-500/5 rounded-lg transition-all hover:shadow-md h-full">
-                          <div className="flex items-center justify-between border-b border-orange-500/20 pb-2">
-                            <div className="space-y-0.5">
-                              <Label className="text-orange-700 font-bold flex items-center gap-2"><Workflow className="h-4 w-4" /> Integração Externa (n8n)</Label>
-                              <p className="text-[10px] text-muted-foreground">Delega a execução para um Webhook.</p>
+                        
+                        <div className="space-y-4">
+                          {/* OPÇÃO 2: N8N (WEBHOOK) */}
+                          <div className="space-y-4 p-4 border border-orange-500/20 bg-orange-500/5 rounded-lg transition-all hover:shadow-md h-full">
+                            <div className="flex items-center justify-between border-b border-orange-500/20 pb-2">
+                              <div className="space-y-0.5">
+                                <Label className="text-orange-700 font-bold flex items-center gap-2"><Workflow className="h-4 w-4" /> Integração Externa (n8n)</Label>
+                                <p className="text-[10px] text-muted-foreground">Delega a execução para um Webhook.</p>
+                              </div>
+                              <Switch checked={agent.useN8n} disabled={!canEdit} onCheckedChange={v => { updateAgent(agent.id, 'useN8n', v); if(v) updateAgent(agent.id, 'enableMonitoring', false); }} />
                             </div>
-                            <Switch checked={agent.useN8n} disabled={!canEdit} onCheckedChange={v => { updateAgent(agent.id, 'useN8n', v); if(v) updateAgent(agent.id, 'enableMonitoring', false); }} />
-                          </div>
-                          <div className="space-y-2 pt-2">
-                            <Label className="text-[10px] uppercase">URL do Webhook (n8n)</Label>
-                            <Input disabled={!canEdit || !agent.useN8n} value={agent.webhookUrl || ''} onChange={e => updateAgent(agent.id, 'webhookUrl', e.target.value)} placeholder="https://n8n.seu-servidor.com/..." className="bg-white/50 border-orange-500/20" />
-                          </div>
-                          <div className="space-y-2">
-                            <Label className="text-[10px] uppercase flex items-center gap-1"><Link2 className="h-3 w-3" /> URL de Resposta Assíncrona</Label>
-                            <Input disabled={!canEdit || !agent.useN8n} value={agent.n8nResponseUrl || ''} onChange={e => updateAgent(agent.id, 'n8nResponseUrl', e.target.value)} className="bg-white/50 border-orange-500/20" />
+                            <div className="space-y-2 pt-2">
+                              <Label className="text-[10px] uppercase">URL do Webhook (n8n)</Label>
+                              <Input disabled={!canEdit || !agent.useN8n} value={agent.webhookUrl || ''} onChange={e => updateAgent(agent.id, 'webhookUrl', e.target.value)} placeholder="https://n8n.seu-servidor.com/..." className="bg-white/50 border-orange-500/20" />
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="text-[10px] uppercase flex items-center gap-1"><Link2 className="h-3 w-3" /> URL de Resposta Assíncrona</Label>
+                              <Input disabled={!canEdit || !agent.useN8n} value={agent.n8nResponseUrl || ''} onChange={e => updateAgent(agent.id, 'n8nResponseUrl', e.target.value)} className="bg-white/50 border-orange-500/20" />
+                            </div>
                           </div>
                         </div>
-
                       </div>
 
                       <div className="space-y-4 p-4 border rounded-lg bg-blue-500/5 border-blue-500/20">
