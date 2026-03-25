@@ -134,7 +134,7 @@ export const ChatInterface = () => {
     if (inputRef.current && !isManuallyResized) {
       inputRef.current.style.height = 'inherit';
       const scrollHeight = inputRef.current.scrollHeight;
-      inputRef.current.style.height = `${Math.max(44, Math.min(scrollHeight, 200))}px`;
+      inputRef.current.style.height = `${Math.max(44, Math.min(scrollHeight, 150))}px`;
     }
   }, [input, isManuallyResized]);
 
@@ -242,9 +242,9 @@ export const ChatInterface = () => {
   const activePersonaName = activePersonaId ? (availableAgents.find(a => a.id === activePersonaId)?.nome || availablePrompts.find(p => p.id === activePersonaId)?.title || 'Consultor JOTA AI') : 'Consultor JOTA AI';
 
   return (
-    // CORREÇÃO: h-full e flex-1 para ocupar o espaço do Layout sem vazar
+    // CORREÇÃO: Altura do Card ajustada para mobile para garantir que o input não suma
     <div className="flex flex-col h-full w-full max-w-6xl mx-auto overflow-hidden bg-background">
-      <Card className="flex flex-col md:flex-row flex-1 shadow-elegant border-primary/20 overflow-hidden rounded-none md:rounded-xl">
+      <Card className="flex flex-col md:flex-row flex-1 h-[calc(100vh-140px)] md:h-[calc(100vh-180px)] shadow-elegant border-primary/20 overflow-hidden rounded-none md:rounded-xl">
         
         {/* SIDEBAR DESKTOP */}
         <div className="hidden md:block w-64 border-r border-border shrink-0 bg-muted/5">
@@ -269,7 +269,7 @@ export const ChatInterface = () => {
             </div>
           </CardHeader>
 
-          {/* ÁREA DE MENSAGENS - FLEX-1 GARANTE QUE O INPUT FIQUE NO FUNDO */}
+          {/* ÁREA DE MENSAGENS */}
           <CardContent className="flex-1 overflow-hidden p-0 flex flex-col">
             <ScrollArea className="flex-1" viewportRef={scrollRef}>
               <div className="p-4 space-y-6 max-w-3xl mx-auto">
@@ -325,7 +325,7 @@ export const ChatInterface = () => {
                 </div>
               )}
               <div className="max-w-3xl mx-auto flex items-end gap-2">
-                <Textarea ref={inputRef} placeholder="Digite sua dúvida..." value={input} onChange={handleInputChange} onKeyDown={handleKeyDown} className="flex-1 bg-background min-h-[44px] max-h-[150px] resize-none py-3 px-4 text-sm overflow-y-auto rounded-xl border-border/50 focus-visible:ring-primary/30" disabled={isLoading} rows={1} />
+                <Textarea ref={inputRef} placeholder="Digite sua dúvida..." value={input} onChange={handleInputChange} onKeyDown={handleKeyDown} className="flex-1 bg-background min-h-[44px] max-h-[120px] resize-none py-3 px-4 text-sm overflow-y-auto rounded-xl border-border/50 focus-visible:ring-primary/30" disabled={isLoading} rows={1} />
                 <Button onClick={handleSend} disabled={isLoading || !input.trim()} className="bg-primary hover:bg-primary/90 h-11 w-11 rounded-xl p-0 shrink-0 mb-0.5 shadow-lg active:scale-95 transition-transform">
                   {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
                 </Button>

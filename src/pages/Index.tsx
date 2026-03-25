@@ -28,7 +28,8 @@ const Index = () => {
   ];
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[calc(100vh-80px)] px-4 max-w-5xl mx-auto animate-in fade-in duration-700">
+    // CORREÇÃO: justify-start com padding superior no mobile para garantir visibilidade do título
+    <div className="flex flex-col items-center justify-start md:justify-center min-h-full pt-12 md:pt-0 px-4 max-w-5xl mx-auto animate-in fade-in duration-700">
       
       {/* Saudação Estilo Gemini */}
       <div className="text-center space-y-4 mb-12">
@@ -51,7 +52,7 @@ const Index = () => {
             <Search className="h-6 w-6 text-muted-foreground group-focus-within:text-primary transition-colors" />
           </div>
           <Input 
-            placeholder="Digite sua dúvida, use / para prompts ou @ para ferramentas..." 
+            placeholder="Digite sua dúvida..." 
             className="border-none bg-transparent text-lg h-14 focus-visible:ring-0 focus-visible:ring-offset-0"
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -76,7 +77,7 @@ const Index = () => {
       </form>
 
       {/* Cards de Sugestão */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full pb-12">
         {suggestionCards.map((card, i) => (
           <Card 
             key={i}
@@ -91,7 +92,7 @@ const Index = () => {
       </div>
 
       {/* Footer Discreto */}
-      <div className="mt-16 text-center">
+      <div className="mt-auto py-8 text-center">
         <p className="text-[10px] text-muted-foreground uppercase tracking-widest flex items-center justify-center gap-2">
           <Zap className="h-3 w-3 text-primary" /> JOTA Master Intelligence — v1.0
         </p>

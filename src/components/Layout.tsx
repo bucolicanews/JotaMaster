@@ -159,7 +159,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         <div className="space-y-1 mt-6">
           <div className="mb-2 px-3 text-[10px] font-bold uppercase text-muted-foreground tracking-wider">Sistema</div>
           <NavButton item={{ to: '/profile', label: 'Meu Perfil', icon: UserCircle }} isLocked={!autenticado} />
-          <NavButton item={{ to: '/configuracao', label: 'Configurações', icon: Settings }} isLocked={!autenticado} />
+          <NavButton item={{ to: '/configuracao', label: 'Configurações Globais', icon: Settings }} isLocked={!autenticado} />
         </div>
       </div>
       <div className="p-4 border-t border-border shrink-0 bg-muted/10">
@@ -209,8 +209,8 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
             <div className="pointer-events-none flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/10 text-amber-600 rounded-full border border-amber-500/20 shrink-0 mr-1"><Lock className="h-3 w-3" /><span className="text-[9px] font-bold uppercase tracking-wider">Sandbox</span></div>
           </div>
         )}
-        {/* CORREÇÃO: main agora é flex-1 e flex-col para conter o Chat perfeitamente */}
-        <main className={cn("flex-1 flex flex-col overflow-hidden", isFullscreenModule ? "p-0" : "p-0 md:p-4")}>
+        {/* CORREÇÃO: main agora permite rolagem vertical para páginas de conteúdo */}
+        <main className={cn("flex-1 overflow-y-auto", isFullscreenModule ? "p-0" : "p-0 md:p-4")}>
           {children}
         </main>
       </div>
