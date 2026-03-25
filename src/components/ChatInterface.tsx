@@ -34,6 +34,9 @@ export const ChatInterface = () => {
   const [availablePrompts, setAvailablePrompts] = useState<any[]>([]);
   const [installedModuleIds, setInstalledModuleIds] = useState<string[]>([]);
 
+  // Estado para armazenar a persona atual da conversa
+  const [activePersonaId, setActivePersonaId] = useState<string | null>(null);
+
   const [isManuallyResized, setIsManuallyResized] = useState(false);
   const [mentionMenu, setMentionMenu] = useState<{ type: 'skill' | 'agent' | 'prompt', filter: string } | null>(null);
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -128,12 +131,14 @@ export const ChatInterface = () => {
     setSessions(prev => [newSession, ...prev]);
     setActiveSessionId(newId);
     setMessages([]);
+    setActivePersonaId(null); // Reseta a persona na nova conversa
   };
 
   const loadSession = (id: string) => {
     setActiveSessionId(id);
     const savedMsgs = localStorage.getItem(`jota-chat-msg-${id}`);
     setMessages(savedMsgs ? JSON.parse(savedMsgs) : []);
+    setActivePersonaId(null); // Idealmente isso seria salvo no localStorage também, simplificado aqui
   };
 
   const deleteSession = (id: string) => {
@@ -210,6 +215,13 @@ export const ChatInterface = () => {
     const newValue = input.substring(0, lastTrigger) + `${prefix}${name} ` + textAfter;
     setInput(newValue);
     setMentionMenu(null);
+    
+    // Se o usuário inseriu um Agente ou Prompt, definimos ele como a persona ativa da conversa
+    if (mentionMenu?.type === 'agent' || mentionMenu?.type === 'prompt') {
+      setActivePersonaId(item.id);
+      toast.info(`Persona alterada para: ${name}`);
+    }
+
     setTimeout(() => {
       inputRef.current?.focus();
       const newPos = lastTrigger + name.length + 2;
@@ -244,10 +256,31 @@ export const ChatInterface = () => {
       const hasSkillsModule = installedModuleIds.includes('skills');
       const allowedSkills = hasSkillsModule ? availableSkills : [];
       
-      // Passamos o estado do Grounding da UI para o serviço
-      const responseText = await sendChatMessage(newHistory, apiKey, allowedSkills, (toolName) => {
-        setActiveTool(toolName);
-      }, isGroundingActive);
+      // Identifica se há uma persona ativa (Agente ou Prompt)
+      let overridePrompt = undefined;
+      let activePersonaName = 'Consultor JOTA AI';
+
+      if (activePersonaId) {
+        const agent = availableAgents.find(a => a.id === activePersonaId);
+        const prompt = availablePrompts.find(p => p.id === activePersonaId);
+        
+        if (agent) {
+          overridePrompt = agent.systemPrompt;
+          activePersonaName = agent.nome;
+        } else if (prompt) {
+          overridePrompt = prompt.content;
+          activePersonaName = prompt.title;
+        }
+      }
+      
+      const responseText = await sendChatMessage(
+        newHistory, 
+        apiKey, 
+        allowedSkills, 
+        (toolName) => setActiveTool(toolName), 
+        isGroundingActive,
+        overridePrompt
+      );
       
       setMessages(prev => [...prev, { role: 'model', parts: [{ text: responseText }] }]);
     } catch (error: any) {
@@ -267,6 +300,11 @@ export const ChatInterface = () => {
   };
 
   const filteredItems = getFilteredItems();
+  
+  // Define o nome de exibição no cabeçalho do chat
+  const activePersonaName = activePersonaId 
+    ? (availableAgents.find(a => a.id === activePersonaId)?.nome || availablePrompts.find(p => p.id === activePersonaId)?.title || 'Consultor JOTA AI')
+    : 'Consultor JOTA AI';
 
   return (
     <Card className="flex h-[calc(100vh-200px)] shadow-elegant border-primary/20 relative overflow-hidden">
@@ -277,14 +315,16 @@ export const ChatInterface = () => {
           <div className="flex items-center gap-2 min-w-0">
             <div className="p-2 bg-primary/10 rounded-full shrink-0"><Bot className="h-5 w-5 text-primary" /></div>
             <div className="min-w-0">
-              <CardTitle className="text-sm font-bold truncate">{sessions.find(s => s.id === activeSessionId)?.title || 'Consultor JOTA AI'}</CardTitle>
-              <p className="text-[10px] text-muted-foreground">
-                {installedModuleIds.includes('skills') ? 'Modo Premium Ativo' : 'Modo Grátis (Apenas Prompts)'}
+              <CardTitle className="text-sm font-bold truncate">
+                {sessions.find(s => s.id === activeSessionId)?.title || 'Nova Conversa'}
+              </CardTitle>
+              <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                <span className="font-bold text-primary">{activePersonaName}</span> • 
+                {installedModuleIds.includes('skills') ? 'Modo Premium Ativo' : 'Modo Grátis'}
               </p>
             </div>
           </div>
           
-          {/* CONTROLE DE GROUNDING NO HEADER DO CHAT */}
           <div className="flex items-center gap-2 bg-background/50 px-3 py-1.5 rounded-full border border-border/50">
             <Globe className={cn("h-3.5 w-3.5 transition-colors", isGroundingActive ? "text-blue-500" : "text-muted-foreground")} />
             <Label htmlFor="grounding-toggle" className="text-[10px] font-bold uppercase cursor-pointer">Pesquisa Web</Label>
@@ -308,7 +348,7 @@ export const ChatInterface = () => {
                   <Sparkles className="h-12 w-12 text-primary" />
                   <div>
                     <p className="font-bold">Inicie uma conversa técnica</p>
-                    <p className="text-xs">Use <span className="font-bold">/</span> para personas, <span className="font-bold">@</span> para ferramentas ou <span className="font-bold">#</span> para agentes.</p>
+                    <p className="text-xs">Use <span className="font-bold">/</span> para invocar personas e <span className="font-bold">@</span> para usar ferramentas.</p>
                   </div>
                 </div>
               )}
@@ -364,7 +404,7 @@ export const ChatInterface = () => {
             )}
 
             <div className="max-w-4xl mx-auto flex items-end gap-2">
-              <Textarea ref={inputRef} placeholder="Digite sua dúvida... use / para prompts, @ para skills ou # para agentes." value={input} onChange={handleInputChange} onKeyDown={handleKeyDown} className="flex-1 bg-background min-h-[44px] max-h-[600px] resize-y py-3 px-4 text-base overflow-y-auto" disabled={isLoading} autoComplete="off" rows={1} />
+              <Textarea ref={inputRef} placeholder="Digite sua dúvida... use / para personas, @ para ferramentas ou # para agentes." value={input} onChange={handleInputChange} onKeyDown={handleKeyDown} className="flex-1 bg-background min-h-[44px] max-h-[600px] resize-y py-3 px-4 text-base overflow-y-auto" disabled={isLoading} autoComplete="off" rows={1} />
               <Button onClick={handleSend} disabled={isLoading || !input.trim()} className="bg-primary hover:bg-primary/90 h-11 w-11 p-0 shrink-0 mb-0.5">{isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}</Button>
             </div>
           </div>

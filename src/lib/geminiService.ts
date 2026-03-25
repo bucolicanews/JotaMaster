@@ -81,25 +81,26 @@ export async function callGeminiAgent(
   const dynamicSkills = skillsOverride || [];
   const dynamicManifests = dynamicSkills.map(s => ({ name: s.name, description: s.description, parameters: s.parameters }));
   
-  let tools: any[] | undefined = undefined;
+  const toolsArray: any[] = [];
   const isExplicitSkillCall = userContent.includes('@');
 
+  // LÓGICA DE EXCLUSIVIDADE ESTRITA
   if (isExplicitSkillCall) {
     if (dynamicManifests.length > 0) {
-      tools = [{ functionDeclarations: dynamicManifests }];
+      toolsArray.push({ functionDeclarations: dynamicManifests });
     }
   } else if (useGrounding) {
-    tools = [{ google_search: {} }];
+    toolsArray.push({ google_search: {} });
   } else if (dynamicManifests.length > 0) {
-    tools = [{ functionDeclarations: dynamicManifests }];
+    toolsArray.push({ functionDeclarations: dynamicManifests });
   }
 
-  const enhancedSystemPrompt = `${systemPrompt}\n\nREGRA CRÍTICA: Se houver uma ferramenta disponível para obter dados reais (como CEP, cotações ou cálculos), você DEVE usá-la. Se a Pesquisa Google estiver ativa, você tem acesso total à internet para responder sobre fatos atuais.`;
+  const enhancedSystemPrompt = `${systemPrompt}\n\nREGRA CRÍTICA: Se houver uma ferramenta disponível para obter dados reais (como CEP ou cálculos), você DEVE usá-la. Não responda com base em seu conhecimento interno se a ferramenta puder fornecer o dado exato.`;
 
   const initialBody = {
     system_instruction: { parts: [{ text: enhancedSystemPrompt }] },
     contents: [{ role: 'user', parts: [{ text: userContent }] }],
-    tools: tools,
+    tools: toolsArray.length > 0 ? toolsArray : undefined,
     generationConfig: { temperature: 0.1, maxOutputTokens: 8192 }, 
   };
 
@@ -122,7 +123,7 @@ export async function callGeminiAgent(
     
     const finalBody = {
       system_instruction: { parts: [{ text: enhancedSystemPrompt }] },
-      tools: tools,
+      tools: toolsArray.length > 0 ? toolsArray : undefined,
       contents: [ { role: 'user', parts: [{ text: userContent }] }, message, { role: 'function', parts: toolResults } ],
       generationConfig: { temperature: 0.1, maxOutputTokens: 8192 },
     };
@@ -140,7 +141,8 @@ export async function sendChatMessage(
   apiKey: string,
   skillsOverride: DynamicSkill[],
   onToolCall?: (toolName: string) => void,
-  useGroundingOverride?: boolean
+  useGroundingOverride?: boolean,
+  systemPromptOverride?: string // NOVO: Permite sobrescrever o papel da IA no chat
 ): Promise<string> {
   if (!apiKey) throw new Error('Chave API Gemini não configurada.');
   
@@ -154,40 +156,42 @@ export async function sendChatMessage(
     ? useGroundingOverride 
     : localStorage.getItem('jota-gemini-search') === 'true';
 
+  const toolsArray: any[] = [];
   const dynamicManifests = skillsOverride.map(s => ({ name: s.name, description: s.description, parameters: s.parameters }));
   
-  let tools: any[] | undefined = undefined;
-  let toolsDescription = "";
-
+  // LÓGICA DE EXCLUSIVIDADE ESTRITA NO CHAT
   if (isExplicitSkillCall) {
     if (dynamicManifests.length > 0) {
-      tools = [{ functionDeclarations: dynamicManifests }];
-      toolsDescription = skillsOverride.map(s => `- ${s.name}: ${s.description}`).join('\n');
+      toolsArray.push({ functionDeclarations: dynamicManifests });
     }
   } else if (useGrounding) {
-    tools = [{ google_search: {} }];
-    toolsDescription = "- Pesquisa Google: Acesso em tempo real à internet para cotações, notícias e leis.";
+    toolsArray.push({ google_search: {} });
   } else if (dynamicManifests.length > 0) {
-    tools = [{ functionDeclarations: dynamicManifests }];
-    toolsDescription = skillsOverride.map(s => `- ${s.name}: ${s.description}`).join('\n');
+    toolsArray.push({ functionDeclarations: dynamicManifests });
   }
 
-  const systemPrompt = `Você é o Assistente Inteligente da Jota Contabilidade. 
+  const skillsList = skillsOverride.map(s => `- ${s.name}: ${s.description}`).join('\n');
   
-  FERRAMENTAS ATIVAS NESTA REQUISIÇÃO:
-  ${toolsDescription || "Nenhuma ferramenta no momento (Modo Grátis)."}
+  // Se o componente de Chat passar um prompt específico (ex: Agente selecionado), usamos ele. 
+  // Senão, usamos o Assistente Padrão.
+  const baseSystemPrompt = systemPromptOverride || `Você é o Assistente Inteligente da Jota Contabilidade.`;
+
+  const finalSystemPrompt = `${baseSystemPrompt}
+  
+  FERRAMENTAS DISPONÍVEIS:
+  ${skillsList || "Nenhuma ferramenta no momento (Modo Grátis)."}
   
   DIRETRIZES OBRIGATÓRIAS:
-  1. Se a 'Pesquisa Google' estiver listada acima, você TEM acesso à internet. Use-a para responder sobre cotações de moedas, notícias de hoje e fatos em tempo real.
-  2. Se houver uma Skill específica para o assunto (ex: CEP), use a Skill.
-  3. NUNCA diga que não tem acesso a informações em tempo real se a 'Pesquisa Google' estiver ativa.
+  1. Se o usuário fornecer um dado (como CEP, CNPJ ou valores para cálculo) que possa ser processado por uma ferramenta acima, você DEVE chamar a ferramenta.
+  2. NÃO responda com base em seu conhecimento interno se houver uma ferramenta que possa obter dados em tempo real ou realizar cálculos precisos.
+  3. Se o Grounding estiver ativo, use a pesquisa do Google para dados externos (cotações, notícias, leis).
   
   Responda de forma profissional e use Markdown.`;
 
   const body = {
-    system_instruction: { parts: [{ text: systemPrompt }] },
+    system_instruction: { parts: [{ text: finalSystemPrompt }] },
     contents: history,
-    tools: tools,
+    tools: toolsArray.length > 0 ? toolsArray : undefined,
     generationConfig: { temperature: 0.2, maxOutputTokens: 4096 },
   };
 
@@ -209,7 +213,7 @@ export async function sendChatMessage(
       }
     }
     const updatedHistory = [...history, message, { role: 'function', parts: toolResults }];
-    return sendChatMessage(updatedHistory, apiKey, skillsOverride, onToolCall, useGrounding);
+    return sendChatMessage(updatedHistory, apiKey, skillsOverride, onToolCall, useGrounding, systemPromptOverride);
   }
   return message.parts?.map((p: any) => p.text || '').join('\n') || '';
 }
