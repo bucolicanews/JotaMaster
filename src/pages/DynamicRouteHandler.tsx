@@ -3,7 +3,7 @@ import { useParams, Navigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { DynamicModuleLoader } from '@/components/DynamicModuleLoader';
-import { Loader2, ShieldAlert, LockKeyhole } from 'lucide-react';
+import { Loader2, ShieldAlert } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function DynamicRouteHandler() {
@@ -89,14 +89,6 @@ export default function DynamicRouteHandler() {
   // Caminho Feliz: Injeta a aplicação externa no Modo Imersivo (100vh)
   return (
     <div className="flex flex-col h-full w-full relative animate-in fade-in duration-500 bg-background overflow-hidden">
-      
-      {/* Tag de Segurança flutuante, posicionada ao lado do FAB Menu no Layout */}
-      <div className="absolute top-5 left-[72px] z-40 pointer-events-none">
-        <span className="flex items-center gap-1.5 text-[9px] font-mono bg-amber-500/10 text-amber-600 border border-amber-500/30 px-2.5 py-1 rounded-md uppercase font-bold tracking-wider shadow-sm backdrop-blur-md">
-          <LockKeyhole className="h-3 w-3" /> Sandbox Ativo
-        </span>
-      </div>
-      
       <div className="flex-1 w-full h-full">
         <DynamicModuleLoader url={moduleData.bundle_url} title={moduleData.name} />
       </div>

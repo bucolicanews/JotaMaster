@@ -295,7 +295,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
         {/* BOTÃO FLUTUANTE DISCRETO (Modo Imersivo) */}
         {isFullscreenModule && (
-          <div className="absolute top-4 left-4 z-50">
+          <div className="absolute top-4 left-4 z-50 flex items-center gap-3">
             <Sheet open={isMobileOpen} onOpenChange={setIsMobileOpen}>
               <SheetTrigger asChild>
                 <Button variant="outline" size="icon" className="rounded-full shadow-lg bg-background/80 backdrop-blur-md border-primary/20 hover:bg-primary/10 h-10 w-10 transition-transform hover:scale-105">
@@ -313,6 +313,11 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                 <NavigationContent />
               </SheetContent>
             </Sheet>
+            
+            {/* Etiqueta ancorada ao botão */}
+            <div className="pointer-events-none flex items-center gap-1.5 text-[10px] font-mono bg-amber-500/10 text-amber-600 border border-amber-500/30 px-3 py-1.5 rounded-full uppercase font-bold tracking-wider shadow-sm backdrop-blur-md">
+              <Lock className="h-3 w-3" /> Sandbox
+            </div>
           </div>
         )}
 
