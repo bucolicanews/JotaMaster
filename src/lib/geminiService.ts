@@ -24,8 +24,10 @@ export interface AgentConfig {
   moduleId?: string;
   isGlobal?: boolean;
   userId?: string;
-  cronPrompt?: string; // Novo: O que o agente deve pensar ao acordar
-  lastRun?: string;    // Novo: Data da última execução autônoma
+  cronPrompt?: string;
+  lastRun?: string;
+  scheduleType?: 'interval' | 'specific_date'; // Novo: Tipo de agendamento
+  scheduledAt?: string; // Novo: Data e hora específica
 }
 
 export interface PromptConfig {
@@ -56,7 +58,9 @@ export async function fetchDbAgents(userId: string, isAdmin: boolean = false): P
     monitoringInterval: d.monitoring_interval, useN8n: d.use_n8n,
     n8nResponseUrl: d.n8n_response_url, webhookUrl: d.webhook_url, moduleId: d.module_id,
     isGlobal: d.is_global, userId: d.user_id,
-    cronPrompt: d.cron_prompt, lastRun: d.last_run
+    cronPrompt: d.cron_prompt, lastRun: d.last_run,
+    scheduleType: d.schedule_type || 'interval',
+    scheduledAt: d.scheduled_at
   }));
 }
 
@@ -85,12 +89,12 @@ export async function callGeminiAgent(
   const dynamicManifests = dynamicSkills.map(s => ({ name: s.name, description: s.description, parameters: s.parameters }));
   
   let tools: any[] | undefined = undefined;
-  const isExplicitSkillCall = userContent.includes('@');
+  const isExplicitSearch = userContent.toLowerCase().includes("pesquise") || 
+                           userContent.toLowerCase().includes("google") ||
+                           userContent.toLowerCase().includes("internet");
 
-  if (isExplicitSkillCall) {
-    if (dynamicManifests.length > 0) {
-      tools = [{ functionDeclarations: dynamicManifests }];
-    }
+  if (dynamicManifests.length > 0 && !isExplicitSearch) {
+    tools = [{ functionDeclarations: dynamicManifests }];
   } else if (useGrounding) {
     tools = [{ google_search: {} }];
   } else if (dynamicManifests.length > 0) {

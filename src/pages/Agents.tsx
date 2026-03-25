@@ -10,9 +10,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   Zap, Plus, Trash2, Save, Loader2, Workflow, Link2, 
-  Download, FileJson, Wrench, MessageSquareQuote, Clock, FileText, Play
+  Download, FileJson, Wrench, MessageSquareQuote, Clock, FileText, Play, Calendar
 } from 'lucide-react';
 import { AgentConfig, fetchDbAgents, fetchDbPrompts, callGeminiAgent } from '@/lib/geminiService';
 import { DynamicSkill, fetchDbSkills } from '@/lib/skills/taxSkills';
@@ -100,6 +101,7 @@ export default function Agents() {
       n8nResponseUrl: 'http://localhost:3001/agent-result',
       enableMonitoring: false,
       monitoringInterval: 60,
+      scheduleType: 'interval',
       cronPrompt: 'Inicie sua rotina de auditoria autônoma agora.',
       userId: session?.user.id,
       isGlobal: false
@@ -167,6 +169,8 @@ export default function Agents() {
         selected_skills: a.selectedSkills || [],
         enable_monitoring: a.enableMonitoring,
         monitoring_interval: a.monitoringInterval,
+        schedule_type: a.scheduleType || 'interval',
+        scheduled_at: a.scheduledAt || null,
         use_n8n: a.useN8n,
         n8n_response_url: a.n8nResponseUrl,
         webhook_url: a.webhookUrl,
@@ -225,21 +229,21 @@ export default function Agents() {
 
       if (insertError) {
         console.error("[Agent Test] Erro ao gravar log no Supabase:", insertError);
-        throw new Error("A IA respondeu, mas não foi possível salvar o Log.");
+        throw new Error("A IA respondeu, mas não foi possível salvar o Log. Verifique as permissões RLS da tabela 'agent_execution_logs'.");
       }
 
-      toast.success(`Teste do agente '${agent.nome}' concluído! Veja a aba Logs.`);
-      await fetchLogs();
+      toast.success(`Teste do agente '${agent.nome}' concluído!`);
+      await fetchLogs(); // Atualiza a aba de logs imediatamente
 
     } catch (error: any) {
-      console.error("[Agent Test] Erro geral na execução:", error);
+      console.error("Erro na execução do agente:", error);
       
-      // Tenta gravar o erro no log
+      // Tenta gravar o erro no log, se o agente existir
       await supabase.from('agent_execution_logs').insert({
         agent_id: agent.id,
         user_id: session.user.id,
         status: 'error',
-        execution_log: `Falha na execução: ${error.message}`
+        execution_log: error.message
       });
       
       toast.error(`Erro na execução: ${error.message}`);
@@ -342,61 +346,95 @@ export default function Agents() {
                         </div>
                       )}
 
+                      <div className="space-y-2">
+                        <Label>Nome do Agente</Label>
+                        <Input value={agent.nome} disabled={!canEdit || !!agent.moduleId} onChange={e => updateAgent(agent.id, 'nome', e.target.value)} />
+                      </div>
+
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 border rounded-lg bg-muted/10">
-                        <div className="space-y-4">
-                          <div className="space-y-2">
-                            <Label>Nome do Agente</Label>
-                            <Input value={agent.nome} disabled={!canEdit || !!agent.moduleId} onChange={e => updateAgent(agent.id, 'nome', e.target.value)} />
+                        
+                        {/* OPÇÃO 1: MOTOR NATIVO (CRON) */}
+                        <div className="space-y-4 p-4 border border-emerald-500/20 bg-emerald-500/5 rounded-lg transition-all hover:shadow-md">
+                          <div className="flex items-center justify-between border-b border-emerald-500/20 pb-2">
+                            <div className="space-y-0.5">
+                              <Label className="text-emerald-700 font-bold flex items-center gap-2"><Clock className="h-4 w-4" /> Motor Autônomo Nativo</Label>
+                              <p className="text-[10px] text-muted-foreground">Roda em background via Supabase.</p>
+                            </div>
+                            <Switch checked={agent.enableMonitoring} disabled={!canEdit} onCheckedChange={v => { updateAgent(agent.id, 'enableMonitoring', v); if(v) updateAgent(agent.id, 'useN8n', false); }} />
                           </div>
                           
-                          {/* OPÇÃO 1: MOTOR NATIVO (CRON) */}
-                          <div className="space-y-4 p-4 border border-emerald-500/20 bg-emerald-500/5 rounded-lg transition-all hover:shadow-md">
-                            <div className="flex items-center justify-between border-b border-emerald-500/20 pb-2">
-                              <div className="space-y-0.5">
-                                <Label className="text-emerald-700 font-bold flex items-center gap-2"><Clock className="h-4 w-4" /> Motor Autônomo Nativo</Label>
-                                <p className="text-[10px] text-muted-foreground">Roda em background via Supabase.</p>
-                              </div>
-                              <Switch checked={agent.enableMonitoring} disabled={!canEdit} onCheckedChange={v => { updateAgent(agent.id, 'enableMonitoring', v); if(v) updateAgent(agent.id, 'useN8n', false); }} />
-                            </div>
-                            <div className="grid grid-cols-2 gap-2">
-                              <div className="space-y-2">
-                                <Label className="text-[10px] uppercase">Acordar a cada (Minutos)</Label>
-                                <Input type="number" disabled={!canEdit || !agent.enableMonitoring} value={agent.monitoringInterval || 60} onChange={e => updateAgent(agent.id, 'monitoringInterval', parseInt(e.target.value) || 0)} />
-                              </div>
-                            </div>
-                            <div className="space-y-2 pt-2">
-                              <Label className="text-[10px] uppercase">Gatilho Inicial (O que ele deve fazer ao acordar?)</Label>
-                              <Textarea 
-                                className="text-[11px] h-20 resize-none font-mono bg-white/50 border-emerald-500/20 focus-visible:ring-emerald-500" 
-                                placeholder="Ex: Verifique a tabela de clientes e me alerte sobre os inativos."
-                                disabled={!canEdit || !agent.enableMonitoring} 
-                                value={agent.cronPrompt || ''} 
-                                onChange={e => updateAgent(agent.id, 'cronPrompt', e.target.value)} 
-                              />
-                            </div>
-                          </div>
-                        </div>
-                        
-                        <div className="space-y-4">
-                          {/* OPÇÃO 2: N8N (WEBHOOK) */}
-                          <div className="space-y-4 p-4 border border-orange-500/20 bg-orange-500/5 rounded-lg transition-all hover:shadow-md h-full">
-                            <div className="flex items-center justify-between border-b border-orange-500/20 pb-2">
-                              <div className="space-y-0.5">
-                                <Label className="text-orange-700 font-bold flex items-center gap-2"><Workflow className="h-4 w-4" /> Integração Externa (n8n)</Label>
-                                <p className="text-[10px] text-muted-foreground">Delega a execução para um Webhook.</p>
-                              </div>
-                              <Switch checked={agent.useN8n} disabled={!canEdit} onCheckedChange={v => { updateAgent(agent.id, 'useN8n', v); if(v) updateAgent(agent.id, 'enableMonitoring', false); }} />
-                            </div>
-                            <div className="space-y-2 pt-2">
-                              <Label className="text-[10px] uppercase">URL do Webhook (n8n)</Label>
-                              <Input disabled={!canEdit || !agent.useN8n} value={agent.webhookUrl || ''} onChange={e => updateAgent(agent.id, 'webhookUrl', e.target.value)} placeholder="https://n8n.seu-servidor.com/..." className="bg-white/50 border-orange-500/20" />
-                            </div>
+                          <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
-                              <Label className="text-[10px] uppercase flex items-center gap-1"><Link2 className="h-3 w-3" /> URL de Resposta Assíncrona</Label>
-                              <Input disabled={!canEdit || !agent.useN8n} value={agent.n8nResponseUrl || ''} onChange={e => updateAgent(agent.id, 'n8nResponseUrl', e.target.value)} className="bg-white/50 border-orange-500/20" />
+                              <Label className="text-[10px] uppercase">Tipo de Agendamento</Label>
+                              <Select 
+                                disabled={!canEdit || !agent.enableMonitoring} 
+                                value={agent.scheduleType || 'interval'} 
+                                onValueChange={v => updateAgent(agent.id, 'scheduleType', v)}
+                              >
+                                <SelectTrigger className="h-8 text-xs bg-white/50 border-emerald-500/30"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="interval" className="text-xs">Repetição (Minutos)</SelectItem>
+                                  <SelectItem value="specific_date" className="text-xs flex items-center gap-1"><Calendar className="h-3 w-3" /> Data e Hora Específica</SelectItem>
+                                </SelectContent>
+                              </Select>
                             </div>
+
+                            {agent.scheduleType === 'specific_date' ? (
+                              <div className="space-y-2 animate-in fade-in">
+                                <Label className="text-[10px] uppercase text-emerald-800 font-bold">Agendar para</Label>
+                                <Input 
+                                  type="datetime-local" 
+                                  disabled={!canEdit || !agent.enableMonitoring} 
+                                  value={agent.scheduledAt || ''} 
+                                  onChange={e => updateAgent(agent.id, 'scheduledAt', e.target.value)} 
+                                  className="h-8 text-xs bg-white/50 border-emerald-500/50 focus-visible:ring-emerald-500"
+                                />
+                              </div>
+                            ) : (
+                              <div className="space-y-2 animate-in fade-in">
+                                <Label className="text-[10px] uppercase text-emerald-800 font-bold">Acordar a cada (Minutos)</Label>
+                                <Input 
+                                  type="number" 
+                                  disabled={!canEdit || !agent.enableMonitoring} 
+                                  value={agent.monitoringInterval || 60} 
+                                  onChange={e => updateAgent(agent.id, 'monitoringInterval', parseInt(e.target.value) || 0)} 
+                                  className="h-8 text-xs bg-white/50 border-emerald-500/50 focus-visible:ring-emerald-500"
+                                />
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="space-y-2 pt-2">
+                            <Label className="text-[10px] uppercase">Gatilho Inicial (O que ele deve fazer ao acordar?)</Label>
+                            <Textarea 
+                              className="text-[11px] h-20 resize-none font-mono bg-white/50 border-emerald-500/20 focus-visible:ring-emerald-500" 
+                              placeholder="Ex: Verifique a tabela de clientes e me alerte sobre os inativos."
+                              disabled={!canEdit || !agent.enableMonitoring} 
+                              value={agent.cronPrompt || ''} 
+                              onChange={e => updateAgent(agent.id, 'cronPrompt', e.target.value)} 
+                            />
                           </div>
                         </div>
+
+                        {/* OPÇÃO 2: N8N (WEBHOOK) */}
+                        <div className="space-y-4 p-4 border border-orange-500/20 bg-orange-500/5 rounded-lg transition-all hover:shadow-md h-full">
+                          <div className="flex items-center justify-between border-b border-orange-500/20 pb-2">
+                            <div className="space-y-0.5">
+                              <Label className="text-orange-700 font-bold flex items-center gap-2"><Workflow className="h-4 w-4" /> Integração Externa (n8n)</Label>
+                              <p className="text-[10px] text-muted-foreground">Delega a execução para um Webhook.</p>
+                            </div>
+                            <Switch checked={agent.useN8n} disabled={!canEdit} onCheckedChange={v => { updateAgent(agent.id, 'useN8n', v); if(v) updateAgent(agent.id, 'enableMonitoring', false); }} />
+                          </div>
+                          <div className="space-y-2 pt-2">
+                            <Label className="text-[10px] uppercase">URL do Webhook (n8n)</Label>
+                            <Input disabled={!canEdit || !agent.useN8n} value={agent.webhookUrl || ''} onChange={e => updateAgent(agent.id, 'webhookUrl', e.target.value)} placeholder="https://n8n.seu-servidor.com/..." className="bg-white/50 border-orange-500/20" />
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-[10px] uppercase flex items-center gap-1"><Link2 className="h-3 w-3" /> URL de Resposta Assíncrona</Label>
+                            <Input disabled={!canEdit || !agent.useN8n} value={agent.n8nResponseUrl || ''} onChange={e => updateAgent(agent.id, 'n8nResponseUrl', e.target.value)} className="bg-white/50 border-orange-500/20" />
+                          </div>
+                        </div>
+
                       </div>
 
                       <div className="space-y-4 p-4 border rounded-lg bg-blue-500/5 border-blue-500/20">
