@@ -52,7 +52,7 @@ export async function fetchDbAgents(userId: string, isAdmin: boolean = false): P
     id: d.id, nome: d.nome, systemPrompt: d.system_prompt, order: d.order_index,
     selectedSkills: d.selected_skills || [], enableMonitoring: d.enable_monitoring,
     monitoringInterval: d.monitoring_interval, useN8n: d.use_n8n,
-    n8nResponseUrl: d.n8n_response_url, webhookUrl: d.webhook_url, moduleId: d.module_id,
+    n8n_response_url: d.n8n_response_url, webhookUrl: d.webhook_url, moduleId: d.module_id,
     isGlobal: d.is_global, userId: d.user_id
   }));
 }
@@ -79,17 +79,15 @@ export async function callGeminiAgent(
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
   
   const dynamicSkills = skillsOverride || [];
+  const dynamicManifests = dynamicSkills.map(s => ({ name: s.name, description: s.description, parameters: s.parameters }));
+  
   const toolsArray: any[] = [];
 
-  // Adiciona Skills customizadas se houver
-  const dynamicManifests = dynamicSkills.map(s => ({ name: s.name, description: s.description, parameters: s.parameters }));
+  // LÓGICA DE PRIORIDADE: A API do Gemini não permite combinar Function Calling com Google Search.
+  // Priorizamos as Skills do sistema sobre a pesquisa genérica.
   if (dynamicManifests.length > 0) {
     toolsArray.push({ functionDeclarations: dynamicManifests });
-  }
-
-  // Adiciona Grounding (Google Search) se ativado nas configurações
-  // Corrigido para o novo formato exigido pela API: google_search
-  if (useGrounding) {
+  } else if (useGrounding) {
     toolsArray.push({ google_search: {} });
   }
 
@@ -107,7 +105,6 @@ export async function callGeminiAgent(
   let message = data?.candidates?.[0]?.content;
   if (!message) return "Sem resposta da IA.";
 
-  // Se a IA chamou uma função (Skill), executa e retorna
   if (message.parts?.some((p: any) => p.functionCall)) {
     const toolResults: any[] = [];
     for (const part of message.parts) {
@@ -145,15 +142,14 @@ export async function sendChatMessage(
   const useGrounding = localStorage.getItem('jota-gemini-search') === 'true';
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
   
-  const toolsArray: any[] = [];
   const dynamicManifests = skillsOverride.map(s => ({ name: s.name, description: s.description, parameters: s.parameters }));
   
+  const toolsArray: any[] = [];
+
+  // LÓGICA DE PRIORIDADE: Evita erro 400 por conflito de ferramentas.
   if (dynamicManifests.length > 0) {
     toolsArray.push({ functionDeclarations: dynamicManifests });
-  }
-
-  // Corrigido para o novo formato exigido pela API: google_search
-  if (useGrounding) {
+  } else if (useGrounding) {
     toolsArray.push({ google_search: {} });
   }
 
