@@ -54,6 +54,25 @@ export default function Prompts() {
     setPrompts([newPrompt, ...prompts]);
   };
 
+  // Correção do Ghosting: Deleta fisicamente do banco de dados
+  const handleDelete = async (id: string) => {
+    if (!confirm("Tem certeza que deseja excluir permanentemente esta persona?")) return;
+    
+    // 1. Remove da tela imediatamente (Optimistic UI)
+    setPrompts(prev => prev.filter(p => p.id !== id));
+    
+    // 2. Se o Prompt já existia no banco (tem '-' no UUID do Supabase), deleta no backend
+    if (session?.user && id.includes('-')) {
+      try {
+        const { error } = await supabase.from('ai_prompts').delete().eq('id', id);
+        if (error) throw error;
+        toast.success("Prompt removido com sucesso.");
+      } catch (err: any) {
+        toast.error("Erro ao excluir do banco de dados: " + err.message);
+      }
+    }
+  };
+
   const handleExport = () => {
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(prompts, null, 2));
     const downloadAnchorNode = document.createElement('a');
@@ -194,7 +213,7 @@ export default function Prompts() {
                       </div>
                     </div>
                     {canEdit && !prompt.moduleId && (
-                      <Button type="button" variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10" onClick={() => setPrompts(prev => prev.filter(p => p.id !== prompt.id))}>
+                      <Button type="button" variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10" onClick={() => handleDelete(prompt.id)}>
                         <Trash2 className="h-4 w-4 mr-2" /> Remover
                       </Button>
                     )}

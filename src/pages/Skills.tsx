@@ -59,6 +59,25 @@ export default function Skills() {
     setDynamicSkills([newSkill, ...dynamicSkills]);
   };
 
+  // Correção do Ghosting: Deleta fisicamente do banco de dados
+  const handleDelete = async (id: string) => {
+    if (!confirm("Tem certeza que deseja excluir permanentemente esta ferramenta?")) return;
+    
+    // 1. Remove da tela imediatamente (Optimistic UI)
+    setDynamicSkills(prev => prev.filter(s => s.id !== id));
+    
+    // 2. Se a Skill já existia no banco (tem '-' no UUID do Supabase), deleta no backend
+    if (session?.user && id.includes('-')) {
+      try {
+        const { error } = await supabase.from('ai_skills').delete().eq('id', id);
+        if (error) throw error;
+        toast.success("Skill removida com sucesso.");
+      } catch (err: any) {
+        toast.error("Erro ao excluir do banco de dados: " + err.message);
+      }
+    }
+  };
+
   const handleExport = () => {
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(dynamicSkills, null, 2));
     const downloadAnchorNode = document.createElement('a');
@@ -225,7 +244,7 @@ export default function Skills() {
                       <Play className="h-4 w-4 mr-2" /> Testar Agora
                     </Button>
                     {canEdit && !skill.moduleId && (
-                      <Button type="button" variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10" onClick={() => setDynamicSkills(prev => prev.filter(s => s.id !== skill.id))}>
+                      <Button type="button" variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10" onClick={() => handleDelete(skill.id)}>
                         <Trash2 className="h-4 w-4 mr-2" /> Remover Skill
                       </Button>
                     )}
