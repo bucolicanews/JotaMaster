@@ -79,6 +79,29 @@ export default function Agents() {
     loadData();
   }, [session, isAdmin]);
 
+  // LÓGICA DE REALTIME: Escuta novos logs inseridos no banco
+  useEffect(() => {
+    if (!session?.user) return;
+
+    const channel = supabase
+      .channel('agent_logs_realtime')
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'agent_execution_logs',
+        filter: `user_id=eq.${session.user.id}`
+      }, (payload) => {
+        console.log("[Realtime] Novo log detectado:", payload.new);
+        fetchLogs(); // Atualiza a lista automaticamente
+        toast.info("Novo relatório de agente disponível!");
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [session]);
+
   const fetchLogs = async () => {
     if (!session?.user) return;
     const { data, error } = await supabase
