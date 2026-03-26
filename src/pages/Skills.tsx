@@ -8,9 +8,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Dialog, DialogContent, DialogHeader as UIDialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
   Wrench, Plus, Trash2, Globe, Code, Search, Book, 
-  Play, Loader2, Upload, Save, Download, FileJson
+  Play, Loader2, Upload, Save, Download, FileJson, Terminal
 } from 'lucide-react';
 import { DynamicSkill, fetchDbSkills, executeSkill } from '@/lib/skills/taxSkills';
 import { useAuth } from '@/contexts/AuthContext';
@@ -20,7 +22,7 @@ import { cn } from '@/lib/utils';
 import * as XLSX from 'xlsx';
 import * as pdfjsLib from 'pdfjs-dist';
 
-// CORREÇÃO: Utilizando UNPKG para garantir o arquivo original minificado mjs (compatível com ESM e Vite)
+// Configuração do Worker do PDF.js
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
 
 export default function Skills() {
@@ -29,6 +31,10 @@ export default function Skills() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploadingFile, setIsUploadingFile] = useState<string | null>(null);
+  const [isTestingSkill, setIsTestingSkill] = useState<string | null>(null);
+  
+  // Estado para armazenar o resultado do teste e controlar o Modal de Debug
+  const [testResult, setTestResult] = useState<{ skillName: string, output: string } | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const importRef = useRef<HTMLInputElement>(null);
@@ -173,7 +179,7 @@ export default function Skills() {
           extractedText += `--- Planilha: ${sheetName} ---\n${XLSX.utils.sheet_to_csv(sheet)}\n\n`;
         });
       } else {
-        extractedText = await file.text(); // Fallback para TXT/JSON
+        extractedText = await file.text(); 
       }
 
       updateSkill(skillId, 'knowledgeBaseText', extractedText);
@@ -182,7 +188,32 @@ export default function Skills() {
       toast.error("Erro ao extrair arquivo: " + err.message);
     } finally {
       setIsUploadingFile(null);
-      event.target.value = ''; // Reseta o input
+      event.target.value = ''; 
+    }
+  };
+
+  // NOVA FUNÇÃO: Executa a ferramenta e captura o resultado para exibição (Debug)
+  const handleTestSkill = async (skill: DynamicSkill) => {
+    setIsTestingSkill(skill.id);
+    try {
+      // Mock de argumentos vazios para o teste
+      const mockArgs = {}; 
+      const result = await executeSkill(skill.name, mockArgs, dynamicSkills);
+      
+      // Formata a saída (JSON legível)
+      setTestResult({
+        skillName: skill.name,
+        output: JSON.stringify(result, null, 2)
+      });
+      toast.success("Teste concluído!");
+    } catch (error: any) {
+      setTestResult({
+        skillName: skill.name,
+        output: JSON.stringify({ error: error.message }, null, 2)
+      });
+      toast.error("Erro na execução do teste.");
+    } finally {
+      setIsTestingSkill(null);
     }
   };
 
@@ -190,6 +221,28 @@ export default function Skills() {
     <div className="container mx-auto px-4 py-8 space-y-6 animate-in fade-in duration-500">
       <input type="file" ref={importRef} className="hidden" accept=".json" onChange={handleImport} />
       
+      {/* MODAL DE DEBUG DE RESULTADOS */}
+      <Dialog open={!!testResult} onOpenChange={(open) => !open && setTestResult(null)}>
+        <DialogContent className="sm:max-w-2xl h-[70vh] flex flex-col p-0 overflow-hidden bg-card border-emerald-500/20">
+          <UIDialogHeader className="p-4 border-b bg-emerald-500/10 shrink-0">
+            <DialogTitle className="flex items-center gap-2 text-emerald-700">
+              <Terminal className="h-5 w-5" /> Resultado do Teste
+            </DialogTitle>
+            <DialogDescription className="text-emerald-700/70">
+              Output bruto retornado pela Skill <strong>{testResult?.skillName}</strong>. Este é o exato JSON que a IA receberá para processar a resposta.
+            </DialogDescription>
+          </UIDialogHeader>
+          <ScrollArea className="flex-1 bg-slate-950 p-4">
+            <pre className="font-mono text-xs text-emerald-400 whitespace-pre-wrap break-words">
+              {testResult?.output}
+            </pre>
+          </ScrollArea>
+          <div className="p-4 border-t bg-muted/10 flex justify-end shrink-0">
+            <Button variant="outline" onClick={() => setTestResult(null)}>Fechar Debug</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between border-b border-border pb-6 gap-6">
         <div className="flex items-center gap-3 w-full md:w-auto">
           <div className="p-3 bg-emerald-500/10 rounded-lg border border-emerald-500/20 shrink-0">
@@ -293,7 +346,7 @@ export default function Skills() {
                     <Input value={skill.description} disabled={!canEdit || !!skill.moduleId} onChange={e => updateSkill(skill.id, 'description', e.target.value)} />
                   </div>
 
-                  {/* RESTAURAÇÃO: Blocos Condicionais de Configuração por Tipo */}
+                  {/* Blocos Condicionais de Configuração por Tipo */}
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>Parâmetros JSON (Schema)</Label>
@@ -391,18 +444,27 @@ export default function Skills() {
 
                   <div className="flex flex-wrap justify-between items-center pt-4 border-t border-border/50 gap-4">
                     <div className="flex flex-wrap items-center gap-4 w-full sm:w-auto">
-                      <Button type="button" variant="outline" size="sm" className="w-full sm:w-auto text-emerald-600 border-emerald-200" onClick={() => executeSkill(skill.name, {}, dynamicSkills)}>
-                        <Play className="h-4 w-4 mr-2" /> Testar Agora
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        size="sm" 
+                        className="w-full sm:w-auto text-emerald-600 border-emerald-200" 
+                        onClick={() => handleTestSkill(skill)}
+                        disabled={isTestingSkill === skill.id}
+                      >
+                        {isTestingSkill === skill.id ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Play className="h-4 w-4 mr-2" />} 
+                        Testar Agora
                       </Button>
                       
+                      {/* CONTROLE GLOBAL PARA O ADMIN */}
                       {isAdmin && (
-                        <div className="flex items-center gap-2 bg-amber-500/5 px-3 py-1.5 rounded-md border border-amber-500/10 w-full sm:w-auto justify-between sm:justify-start">
+                        <div className="flex items-center gap-2 bg-amber-500/5 px-3 py-1.5 rounded-md border border-amber-500/10 w-full sm:w-auto justify-center">
                           <Switch checked={skill.isGlobal || false} onCheckedChange={v => updateSkill(skill.id, 'isGlobal', v)} />
                           <Label className="text-amber-700 font-bold text-[10px] uppercase">Global</Label>
                         </div>
                       )}
                     </div>
-                    
+
                     {canEdit && !skill.moduleId && (
                       <Button type="button" variant="ghost" size="sm" className="w-full sm:w-auto text-destructive hover:bg-destructive/10" onClick={() => handleDelete(skill.id)}>
                         <Trash2 className="h-4 w-4 mr-2" /> Remover Skill
