@@ -25,7 +25,6 @@ import { Dialog, DialogContent, DialogHeader as UIDialogHeader, DialogTitle, Dia
 import { ScrollArea } from '@/components/ui/scroll-area';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { cn } from '@/lib/utils';
 
 export default function Agents() {
   const { session, isAdmin } = useAuth();
@@ -40,6 +39,9 @@ export default function Agents() {
   const [selectedReport, setSelectedReport] = useState<{title: string, content: string} | null>(null);
   
   const importRef = useRef<HTMLInputElement>(null);
+
+  // Verificação de segurança (AppSec) para bloquear ativação sem chave
+  const hasApiKey = !!localStorage.getItem('jota-gemini-key');
 
   const formatDateTimeLocal = (isoString?: string) => {
     if (!isoString) return '';
@@ -200,28 +202,30 @@ export default function Agents() {
     setIsSaving(true);
     try {
       const uid = session.user.id;
-      const agentsToSave = agents.filter(a => isAdmin || (!a.userId || a.userId === uid));
-
-      const dataToUpsert = agentsToSave.map(a => ({
-        id: a.id,
-        user_id: a.userId || uid,
-        module_id: a.moduleId || null,
-        nome: a.nome,
-        system_prompt: a.systemPrompt,
-        order_index: a.order,
-        selected_skills: a.selectedSkills || [],
-        enable_monitoring: a.enableMonitoring,
-        monitoring_interval: a.monitoringInterval,
-        schedule_type: a.scheduleType || 'interval',
-        scheduled_at: a.scheduledAt || null,
-        schedule_day: a.scheduleDay || null,
-        use_n8n: a.useN8n,
-        n8n_response_url: a.n8nResponseUrl,
-        webhook_url: a.webhookUrl,
-        cron_prompt: a.cronPrompt,
-        is_active: true,
-        is_global: a.isGlobal || false
-      }));
+      
+      // CORREÇÃO (RBAC/Multi-Tenant): Filtra os agentes que o usuário tem permissão para salvar.
+      const dataToUpsert = agents
+        .filter(a => isAdmin || a.userId === uid || !a.userId)
+        .map(a => ({
+          id: a.id,
+          user_id: a.userId || uid,
+          module_id: a.moduleId || null,
+          nome: a.nome,
+          system_prompt: a.systemPrompt,
+          order_index: a.order,
+          selected_skills: a.selectedSkills || [],
+          enable_monitoring: a.enableMonitoring,
+          monitoring_interval: a.monitoringInterval,
+          schedule_type: a.scheduleType || 'interval',
+          scheduled_at: a.scheduledAt || null,
+          schedule_day: a.scheduleDay || null,
+          use_n8n: a.useN8n,
+          n8n_response_url: a.n8nResponseUrl,
+          webhook_url: a.webhookUrl,
+          cron_prompt: a.cronPrompt,
+          is_active: true,
+          is_global: a.isGlobal || false
+        }));
 
       if (dataToUpsert.length > 0) {
         const { error } = await supabase.from('ai_agents').upsert(dataToUpsert);
@@ -274,7 +278,6 @@ export default function Agents() {
       }
 
       toast.success(`Teste do agente '${agent.nome}' concluído! Veja a aba Logs.`);
-      await fetchLogs();
 
     } catch (error: any) {
       console.error("[Agent Test] Erro geral na execução:", error);
@@ -287,13 +290,11 @@ export default function Agents() {
       });
       
       toast.error(`Erro na execução: ${error.message}`);
-      await fetchLogs();
     } finally {
       setIsTesting(null);
     }
   };
 
-  const hasApiKey = !!localStorage.getItem('jota-gemini-key');
   const handleToggleMonitoring = (agentId: string, checked: boolean) => {
     if (checked && !hasApiKey) {
       toast.error("API Key não encontrada.", {
@@ -326,7 +327,6 @@ export default function Agents() {
         </DialogContent>
       </Dialog>
 
-      {/* HEADER REFORMULADO */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between border-b border-border pb-6 gap-6">
         <div className="flex items-center gap-3 w-full md:w-auto">
           <div className="p-3 bg-primary/10 rounded-lg border border-primary/20 shrink-0">
@@ -334,11 +334,10 @@ export default function Agents() {
           </div>
           <div className="min-w-0">
             <h1 className="text-xl md:text-2xl font-bold leading-tight">Agentes Especialistas</h1>
-            <p className="text-xs text-muted-foreground">Sequência de inteligência autônoma.</p>
+            <p className="text-xs md:text-sm text-muted-foreground truncate">Importe ou configure a sequência de inteligência autônoma.</p>
           </div>
         </div>
         
-        {/* GRID DE BOTÕES */}
         <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 w-full md:w-auto">
           <Button variant="outline" size="sm" className="h-10 text-xs" onClick={() => importRef.current?.click()}>
             <FileJson className="h-4 w-4 mr-2 shrink-0" /> <span className="truncate">Importar</span>
@@ -416,6 +415,7 @@ export default function Agents() {
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 border rounded-lg bg-muted/10">
                         
+                        {/* OPÇÃO 1: MOTOR NATIVO (CRON) */}
                         <div className="space-y-4 p-4 border border-emerald-500/20 bg-emerald-500/5 rounded-lg transition-all hover:shadow-md">
                           <div className="flex items-center justify-between border-b border-emerald-500/20 pb-2">
                             <div className="space-y-0.5">
@@ -435,41 +435,46 @@ export default function Agents() {
                               >
                                 <SelectTrigger className="h-8 text-xs bg-white/50 border-emerald-500/30"><SelectValue /></SelectTrigger>
                                 <SelectContent>
-                                  <SelectItem value="interval" className="text-xs">Repetição (Minutos)</SelectItem>
-                                  <SelectItem value="daily" className="text-xs">Todo Dia (Horário)</SelectItem>
-                                  <SelectItem value="weekdays" className="text-xs">Dias Úteis (Seg-Sex)</SelectItem>
-                                  <SelectItem value="monthly" className="text-xs">Mensal (Dia Fixo)</SelectItem>
+                                  <SelectItem value="interval" className="text-xs">A cada X Minutos</SelectItem>
+                                  <SelectItem value="daily" className="text-xs">Todo Dia (Horário Fixo)</SelectItem>
+                                  <SelectItem value="weekdays" className="text-xs">Segunda a Sexta (Horário Fixo)</SelectItem>
+                                  <SelectItem value="monthly" className="text-xs">Todo Mês (Dia e Hora)</SelectItem>
                                   <SelectItem value="specific_date" className="text-xs flex items-center gap-1"><Calendar className="h-3 w-3" /> Data e Hora Exata</SelectItem>
                                 </SelectContent>
                               </Select>
                             </div>
 
-                            {agent.scheduleType === 'specific_date' ? (
-                              <div className="space-y-2 animate-in fade-in">
-                                <Label className="text-[10px] uppercase text-emerald-800 font-bold">Agendar para</Label>
-                                <Input 
-                                  type="datetime-local" 
-                                  disabled={!canEdit || !agent.enableMonitoring} 
-                                  value={formatDateTimeLocal(agent.scheduledAt)} 
-                                  onChange={e => updateAgent(agent.id, 'scheduledAt', parseDateTimeLocal(e.target.value))} 
-                                  className="h-8 text-xs bg-white/50 border-emerald-500/50 focus-visible:ring-emerald-500"
-                                />
-                              </div>
-                            ) : agent.scheduleType === 'interval' ? (
+                            {/* Campos Condicionais baseados na escolha */}
+                            {agent.scheduleType === 'interval' && (
                               <div className="space-y-2 animate-in fade-in">
                                 <Label className="text-[10px] uppercase text-emerald-800 font-bold">Acordar a cada (Minutos)</Label>
                                 <Input 
-                                  type="number" 
+                                  type="number" min="1"
                                   disabled={!canEdit || !agent.enableMonitoring} 
                                   value={agent.monitoringInterval || 60} 
                                   onChange={e => updateAgent(agent.id, 'monitoringInterval', parseInt(e.target.value) || 0)} 
-                                  className="h-8 text-xs bg-white/50 border-emerald-500/50 focus-visible:ring-emerald-500"
+                                  className="h-8 text-xs bg-white/50 border-emerald-500/50"
                                 />
                               </div>
-                            ) : agent.scheduleType === 'monthly' ? (
-                              <div className="flex gap-2 animate-in fade-in">
+                            )}
+
+                            {(agent.scheduleType === 'daily' || agent.scheduleType === 'weekdays') && (
+                              <div className="space-y-2 animate-in fade-in">
+                                <Label className="text-[10px] uppercase text-emerald-800 font-bold">Horário (HH:mm)</Label>
+                                <Input 
+                                  type="time" 
+                                  disabled={!canEdit || !agent.enableMonitoring} 
+                                  value={agent.scheduledAt || '08:00'} 
+                                  onChange={e => updateAgent(agent.id, 'scheduledAt', e.target.value)} 
+                                  className="h-8 text-xs bg-white/50 border-emerald-500/50"
+                                />
+                              </div>
+                            )}
+
+                            {agent.scheduleType === 'monthly' && (
+                              <div className="grid grid-cols-2 gap-2 animate-in fade-in">
                                 <div className="space-y-2 flex-1">
-                                  <Label className="text-[10px] uppercase text-emerald-800 font-bold">Dia</Label>
+                                  <Label className="text-[10px] uppercase text-emerald-800 font-bold">Dia do Mês</Label>
                                   <Input type="number" min="1" max="31" disabled={!canEdit || !agent.enableMonitoring} value={agent.scheduleDay || 1} onChange={e => updateAgent(agent.id, 'scheduleDay', parseInt(e.target.value) || 1)} className="h-8 text-xs bg-white/50 border-emerald-500/50" />
                                 </div>
                                 <div className="space-y-2 flex-1">
@@ -477,15 +482,17 @@ export default function Agents() {
                                   <Input type="time" disabled={!canEdit || !agent.enableMonitoring} value={agent.scheduledAt || '08:00'} onChange={e => updateAgent(agent.id, 'scheduledAt', e.target.value)} className="h-8 text-xs bg-white/50 border-emerald-500/50" />
                                 </div>
                               </div>
-                            ) : (
+                            )}
+
+                            {agent.scheduleType === 'specific_date' && (
                               <div className="space-y-2 animate-in fade-in">
-                                <Label className="text-[10px] uppercase text-emerald-800 font-bold">Horário de Execução</Label>
+                                <Label className="text-[10px] uppercase text-emerald-800 font-bold">Data e Hora Exata</Label>
                                 <Input 
-                                  type="time" 
+                                  type="datetime-local" 
                                   disabled={!canEdit || !agent.enableMonitoring} 
-                                  value={agent.scheduledAt || '08:00'} 
-                                  onChange={e => updateAgent(agent.id, 'scheduledAt', e.target.value)} 
-                                  className="h-8 text-xs bg-white/50 border-emerald-500/50 focus-visible:ring-emerald-500"
+                                  value={formatDateTimeLocal(agent.scheduledAt)} 
+                                  onChange={e => updateAgent(agent.id, 'scheduledAt', parseDateTimeLocal(e.target.value))} 
+                                  className="h-8 text-xs bg-white/50 border-emerald-500/50"
                                 />
                               </div>
                             )}
@@ -504,6 +511,7 @@ export default function Agents() {
                         </div>
                         
                         <div className="space-y-4">
+                          {/* OPÇÃO 2: N8N (WEBHOOK) */}
                           <div className="space-y-4 p-4 border border-orange-500/20 bg-orange-500/5 rounded-lg transition-all hover:shadow-md h-full">
                             <div className="flex items-center justify-between border-b border-orange-500/20 pb-2">
                               <div className="space-y-0.5">
@@ -526,7 +534,7 @@ export default function Agents() {
 
                       <div className="space-y-4 p-4 border rounded-lg bg-blue-500/5 border-blue-500/20">
                         <h4 className="text-xs font-bold uppercase text-blue-700 flex items-center gap-2"><Wrench className="h-3 w-3" /> Skills Vinculadas</h4>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                           {skills.map(skill => (
                             <div key={skill.id} className="flex items-center space-x-2 p-2 rounded border bg-background hover:bg-blue-50 transition-colors overflow-hidden">
                               <Checkbox id={`skill-${agent.id}-${skill.id}`} checked={(agent.selectedSkills || []).includes(skill.id)} onCheckedChange={() => toggleAgentSkill(agent.id, skill.id)} disabled={!canEdit || !!agent.moduleId} />
@@ -547,35 +555,33 @@ export default function Agents() {
                         />
                       </div>
 
-                      <div className="flex flex-wrap justify-between items-center pt-4 border-t border-border/50 gap-4">
-                        <div className="flex flex-wrap items-center gap-4 w-full sm:w-auto">
+                      <div className="flex justify-between items-center pt-4 border-t border-border/50">
+                        <div className="flex items-center gap-6">
                           <Button 
                             type="button" 
                             variant="outline" 
                             size="sm" 
-                            className="w-full sm:w-auto text-primary border-primary/30 bg-primary/5 hover:bg-primary/10" 
+                            className="text-primary border-primary/30 bg-primary/5 hover:bg-primary/10" 
                             onClick={() => handleTestAgent(agent)}
                             disabled={isTesting === agent.id}
                           >
-                            {isTesting === agent.id ? <Loader2 className="h-4 w-4 animate-spin mr-2 shrink-0" /> : <Play className="h-4 w-4 mr-2 shrink-0" />} <span className="truncate">Testar Lógica Agora</span>
+                            {isTesting === agent.id ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Play className="h-4 w-4 mr-2" />} Testar Lógica Agora
                           </Button>
                           
-                          <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-start">
+                          <div className="flex items-center gap-2">
                             <Label className="text-xs font-bold">Ordem:</Label>
                             <Input type="number" className="w-16 h-8 text-center" disabled={!canEdit || !!agent.moduleId} value={agent.order || 0} onChange={e => updateAgent(agent.id, 'order', parseInt(e.target.value) || 0)} />
                           </div>
-                          
                           {isAdmin && (
-                            <div className="flex items-center gap-2 bg-amber-500/5 px-3 py-1.5 rounded-md border border-amber-500/10 w-full sm:w-auto justify-between sm:justify-start">
-                              <Label className="text-amber-700 font-bold text-[10px] uppercase">Global</Label>
+                            <div className="flex items-center gap-2 bg-amber-500/5 px-3 py-1.5 rounded-md border border-amber-500/10">
                               <Switch checked={agent.isGlobal || false} onCheckedChange={v => updateAgent(agent.id, 'isGlobal', v)} />
+                              <Label className="text-amber-700 font-bold text-[10px] uppercase">Global</Label>
                             </div>
                           )}
                         </div>
-                        
                         {canEdit && !agent.moduleId && (
-                          <Button type="button" variant="ghost" size="sm" className="w-full sm:w-auto text-destructive hover:bg-destructive/10" onClick={() => handleDelete(agent.id)}>
-                            <Trash2 className="h-4 w-4 mr-2 shrink-0" /> <span className="truncate">Remover Agente</span>
+                          <Button type="button" variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10" onClick={() => handleDelete(agent.id)}>
+                            <Trash2 className="h-4 w-4 mr-2" /> Remover Agente
                           </Button>
                         )}
                       </div>
@@ -589,34 +595,34 @@ export default function Agents() {
 
         <TabsContent value="logs" className="space-y-4">
           <Card className="shadow-elegant border-primary/20">
-            <CardHeader className="bg-muted/10 border-b border-border/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 py-4">
-              <div className="w-full sm:w-auto">
+            <CardHeader className="bg-muted/10 border-b border-border/50 flex flex-col sm:flex-row items-start sm:items-center justify-between py-4">
+              <div>
                 <CardTitle className="text-lg flex items-center gap-2"><FileText className="h-5 w-5 text-primary" /> Relatórios Autônomos</CardTitle>
                 <CardDescription className="text-xs sm:text-sm">Histórico de execução em background.</CardDescription>
               </div>
-              <Button variant="outline" size="sm" onClick={fetchLogs} className="w-full sm:w-auto"><Clock className="h-4 w-4 mr-2" /> Atualizar</Button>
+              <Button variant="outline" size="sm" onClick={fetchLogs}><Clock className="h-4 w-4 mr-2" /> Atualizar</Button>
             </CardHeader>
             <CardContent className="p-0 overflow-x-auto custom-scrollbar">
               <Table className="min-w-[600px]">
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[140px] sm:w-[180px]">Data e Hora</TableHead>
+                    <TableHead className="w-[180px]">Data e Hora</TableHead>
                     <TableHead>Agente</TableHead>
-                    <TableHead className="w-[100px] sm:w-[120px]">Status</TableHead>
-                    <TableHead className="text-right w-[120px] sm:w-[150px]">Ação</TableHead>
+                    <TableHead className="w-[120px]">Status</TableHead>
+                    <TableHead className="text-right w-[150px]">Ação</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {executionLogs.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={4} className="text-center py-12 text-muted-foreground italic">Nenhum log encontrado.</TableCell>
+                      <TableCell colSpan={4} className="text-center py-12 text-muted-foreground italic">Nenhum log de execução encontrado.</TableCell>
                     </TableRow>
                   ) : executionLogs.map((log) => (
                     <TableRow key={log.id}>
-                      <TableCell className="font-mono text-[10px] sm:text-xs text-muted-foreground whitespace-nowrap">{new Date(log.created_at).toLocaleString('pt-BR')}</TableCell>
-                      <TableCell className="font-semibold text-xs sm:text-sm truncate max-w-[150px] sm:max-w-none">{log.ai_agents?.nome || 'Desconhecido'}</TableCell>
+                      <TableCell className="font-mono text-xs text-muted-foreground">{new Date(log.created_at).toLocaleString('pt-BR')}</TableCell>
+                      <TableCell className="font-semibold">{log.ai_agents?.nome || 'Agente Desconhecido'}</TableCell>
                       <TableCell>
-                        <Badge variant={log.status === 'success' ? 'success' : 'destructive'} className="text-[9px] sm:text-[10px] uppercase">
+                        <Badge variant={log.status === 'success' ? 'success' : 'destructive'} className="text-[10px] uppercase">
                           {log.status === 'success' ? 'Concluído' : 'Falha'}
                         </Badge>
                       </TableCell>
@@ -624,10 +630,10 @@ export default function Agents() {
                         <Button 
                           variant="ghost" 
                           size="sm" 
-                          className="text-primary hover:bg-primary/10 h-8 px-2 sm:px-3 text-xs"
+                          className="text-primary hover:bg-primary/10"
                           onClick={() => setSelectedReport({ title: log.ai_agents?.nome || 'Log', content: log.execution_log })}
                         >
-                          <FileText className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2 shrink-0" /> <span className="hidden sm:inline">Ver</span>
+                          <FileText className="h-4 w-4 mr-2" /> Ver Relatório
                         </Button>
                       </TableCell>
                     </TableRow>

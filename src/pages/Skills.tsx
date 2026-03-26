@@ -128,27 +128,34 @@ export default function Skills() {
     try {
       const uid = session.user.id;
       
-      // CORREÇÃO: Força a injeção do user_id ativo para Skills recém-criadas, mitigando o erro de RLS
-      const skillsToUpsert = dynamicSkills.map(s => ({
-        id: s.id,
-        user_id: s.userId || uid,
-        module_id: s.moduleId || null,
-        name: s.name,
-        description: s.description,
-        suggested_instruction: s.suggestedInstruction,
-        parameters: s.parameters,
-        execution_type: s.executionType,
-        js_code: s.jsCode,
-        webhook_url: s.webhookUrl,
-        knowledge_base_text: s.knowledgeBaseText,
-        url: s.url,
-        selector: s.selector,
-        is_active: s.isActive,
-        is_global: s.isGlobal || false
-      }));
+      // CORREÇÃO (RBAC/Multi-Tenant): Filtra as skills que o usuário tem permissão para salvar.
+      // Usuário comum só salva o que for dele (userId igual ao dele ou indefinido para skills recém-criadas).
+      // Admin salva tudo.
+      const skillsToUpsert = dynamicSkills
+        .filter(s => isAdmin || s.userId === uid || !s.userId)
+        .map(s => ({
+          id: s.id,
+          user_id: s.userId || uid,
+          module_id: s.moduleId || null,
+          name: s.name,
+          description: s.description,
+          suggested_instruction: s.suggestedInstruction,
+          parameters: s.parameters,
+          execution_type: s.executionType,
+          js_code: s.jsCode,
+          webhook_url: s.webhookUrl,
+          knowledge_base_text: s.knowledgeBaseText,
+          url: s.url,
+          selector: s.selector,
+          is_active: s.isActive,
+          is_global: s.isGlobal || false
+        }));
 
-      const { error } = await supabase.from('ai_skills').upsert(skillsToUpsert);
-      if (error) throw error;
+      if (skillsToUpsert.length > 0) {
+        const { error } = await supabase.from('ai_skills').upsert(skillsToUpsert);
+        if (error) throw error;
+      }
+      
       toast.success("Skills salvas com sucesso!");
     } catch (e: any) {
       toast.error("Erro ao salvar: " + e.message);

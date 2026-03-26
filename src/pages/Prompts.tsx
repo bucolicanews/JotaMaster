@@ -110,19 +110,26 @@ export default function Prompts() {
     setIsSaving(true);
     try {
       const uid = session.user.id;
-      const dataToUpsert = prompts.map(p => ({
-        id: p.id,
-        user_id: p.userId || uid,
-        module_id: p.moduleId || null,
-        title: p.title,
-        role: p.role,
-        content: p.content,
-        is_active: p.isActive,
-        is_global: p.isGlobal || false
-      }));
+      
+      // CORREÇÃO (RBAC/Multi-Tenant): Filtra os prompts que o usuário tem permissão para salvar.
+      const dataToUpsert = prompts
+        .filter(p => isAdmin || p.userId === uid || !p.userId)
+        .map(p => ({
+          id: p.id,
+          user_id: p.userId || uid,
+          module_id: p.moduleId || null,
+          title: p.title,
+          role: p.role,
+          content: p.content,
+          is_active: p.isActive,
+          is_global: p.isGlobal || false
+        }));
 
-      const { error } = await supabase.from('ai_prompts').upsert(dataToUpsert);
-      if (error) throw error;
+      if (dataToUpsert.length > 0) {
+        const { error } = await supabase.from('ai_prompts').upsert(dataToUpsert);
+        if (error) throw error;
+      }
+      
       toast.success("Biblioteca de Prompts atualizada!");
     } catch (e: any) {
       toast.error("Erro ao salvar: " + e.message);
@@ -135,7 +142,6 @@ export default function Prompts() {
     <div className="container mx-auto px-4 py-8 space-y-6 animate-in fade-in duration-500">
       <input type="file" ref={importRef} className="hidden" accept=".json" onChange={handleImport} />
       
-      {/* HEADER REFORMULADO: Responsividade Mobile-First */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between border-b border-border pb-6 gap-6">
         <div className="flex items-center gap-3 w-full md:w-auto">
           <div className="p-3 bg-indigo-500/10 rounded-lg border border-indigo-500/20 shrink-0">
@@ -147,7 +153,6 @@ export default function Prompts() {
           </div>
         </div>
         
-        {/* GRID DE BOTÕES: 2 colunas no mobile, flex no desktop */}
         <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 w-full md:w-auto">
           <Button variant="outline" size="sm" className="h-10 text-xs" onClick={() => importRef.current?.click()}>
             <FileJson className="h-4 w-4 mr-2 shrink-0" /> <span className="truncate">Importar</span>
