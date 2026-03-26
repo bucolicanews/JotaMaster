@@ -1,25 +1,14 @@
 # Correção de Layout Crítico e Viewport
 
 ## Descrição
-Resolução de problemas de clipping (corte de conteúdo) e sobreposição de elementos em dispositivos móveis. A principal mudança foi a substituição de alturas fixas (`h-[...]`) por estruturas flexíveis que respeitam os limites do contêiner pai.
-
-## Entradas
-- Viewport do navegador (Mobile/Desktop).
-
-## Saídas
-- Chat com campo de texto sempre visível no rodapé.
-- Cabeçalhos de página com botões empilhados corretamente.
+Resolução de problemas de clipping (corte de conteúdo) e sobreposição de elementos em dispositivos móveis e desktop.
 
 ## Fluxo de Execução
 1. **Layout:** Ajuste do container `main` para `display: flex` e `flex-direction: column`.
-2. **Chat:** O container principal do chat agora usa `h-full` em vez de cálculos de `vh`, permitindo que o Flexbox do Layout gerencie o espaço.
-3. **Headers:** Implementação de `grid-cols-1` no mobile para separar o título das ações.
-
-## Riscos / Observações
-- **Risco:** Em telas muito pequenas (iPhone SE), o cabeçalho do chat pode ocupar muito espaço.
-- **Mitigação:** Redução de paddings e tamanhos de fonte via classes `sm:` e `md:`.
+2. **Chat:** O container principal do chat agora usa `h-full` permitindo que o Flexbox gerencie o espaço.
+3. **Sidebar Footer:** Alteração do container `NavigationContent` para `flex-1` em vez de `h-full`, garantindo que o rodapé do menu lateral não seja empurrado para fora da tela pelo cabeçalho do menu.
 
 ## Histórico de Alterações
 - Data: Sessão Atual
-- Alteração: Fix de visibilidade do input de chat e overflow de botões.
-- Motivo: Erro de usabilidade reportado pelo usuário (telas montadas).
+- Alteração: Fix do rodapé do menu lateral (perfil/logout).
+- Motivo: Conteúdo do rodapé inacessível devido a estouro de altura no container pai.
