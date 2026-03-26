@@ -33,7 +33,6 @@ export default function Skills() {
   const [isUploadingFile, setIsUploadingFile] = useState<string | null>(null);
   const [isTestingSkill, setIsTestingSkill] = useState<string | null>(null);
   
-  // Estado para armazenar o resultado do teste e controlar o Modal de Debug
   const [testResult, setTestResult] = useState<{ skillName: string, output: string } | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -128,9 +127,6 @@ export default function Skills() {
     try {
       const uid = session.user.id;
       
-      // CORREÇÃO (RBAC/Multi-Tenant): Filtra as skills que o usuário tem permissão para salvar.
-      // Usuário comum só salva o que for dele (userId igual ao dele ou indefinido para skills recém-criadas).
-      // Admin salva tudo.
       const skillsToUpsert = dynamicSkills
         .filter(s => isAdmin || s.userId === uid || !s.userId)
         .map(s => ({
@@ -351,7 +347,7 @@ export default function Skills() {
                     <Input value={skill.description} disabled={!canEdit || !!skill.moduleId} onChange={e => updateSkill(skill.id, 'description', e.target.value)} />
                   </div>
 
-                  {/* Blocos Condicionais de Configuração por Tipo */}
+                  {/* Blocos Condicionais de Configuração por Tipo - LAYOUT LIMPO */}
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>Parâmetros JSON (Schema)</Label>
@@ -378,21 +374,22 @@ export default function Skills() {
 
                     {/* BLOCO: Webhook */}
                     {skill.executionType === 'webhook' && (
-                      <div className="space-y-2 animate-in fade-in duration-300">
-                        <Label className="text-blue-600 font-bold">URL do Webhook (n8n, Make, Zapier)</Label>
-                        <Input 
-                          className="bg-blue-500/5 border-blue-500/20"
-                          disabled={!canEdit} 
-                          value={skill.webhookUrl || ''} 
-                          onChange={e => updateSkill(skill.id, 'webhookUrl', e.target.value)} 
-                          placeholder="https://n8n.seu-servidor.com/webhook/..." 
-                        />
+                      <div className="space-y-4 animate-in fade-in duration-300 flex flex-col justify-start">
+                        <div className="space-y-2">
+                          <Label className="text-blue-600 font-bold">URL do Webhook (n8n, Make, Zapier)</Label>
+                          <Input 
+                            disabled={!canEdit} 
+                            value={skill.webhookUrl || ''} 
+                            onChange={e => updateSkill(skill.id, 'webhookUrl', e.target.value)} 
+                            placeholder="https://n8n.seu-servidor.com/webhook/..." 
+                          />
+                        </div>
                       </div>
                     )}
 
                     {/* BLOCO: Web Scraping */}
                     {skill.executionType === 'web_scraping' && (
-                      <div className="space-y-4 animate-in fade-in duration-300 bg-orange-500/5 p-4 rounded-lg border border-orange-500/20">
+                      <div className="space-y-4 animate-in fade-in duration-300 flex flex-col justify-start">
                         <div className="space-y-2">
                           <Label className="text-orange-600 font-bold">URL Alvo (Site a ser lido)</Label>
                           <Input 
