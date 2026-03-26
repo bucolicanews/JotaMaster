@@ -127,6 +127,8 @@ export default function Skills() {
     setIsSaving(true);
     try {
       const uid = session.user.id;
+      
+      // CORREÇÃO: Força a injeção do user_id ativo para Skills recém-criadas, mitigando o erro de RLS
       const skillsToUpsert = dynamicSkills.map(s => ({
         id: s.id,
         user_id: s.userId || uid,
@@ -192,15 +194,12 @@ export default function Skills() {
     }
   };
 
-  // NOVA FUNÇÃO: Executa a ferramenta e captura o resultado para exibição (Debug)
   const handleTestSkill = async (skill: DynamicSkill) => {
     setIsTestingSkill(skill.id);
     try {
-      // Mock de argumentos vazios para o teste
       const mockArgs = {}; 
       const result = await executeSkill(skill.name, mockArgs, dynamicSkills);
       
-      // Formata a saída (JSON legível)
       setTestResult({
         skillName: skill.name,
         output: JSON.stringify(result, null, 2)
@@ -221,7 +220,6 @@ export default function Skills() {
     <div className="container mx-auto px-4 py-8 space-y-6 animate-in fade-in duration-500">
       <input type="file" ref={importRef} className="hidden" accept=".json" onChange={handleImport} />
       
-      {/* MODAL DE DEBUG DE RESULTADOS */}
       <Dialog open={!!testResult} onOpenChange={(open) => !open && setTestResult(null)}>
         <DialogContent className="sm:max-w-2xl h-[70vh] flex flex-col p-0 overflow-hidden bg-card border-emerald-500/20">
           <UIDialogHeader className="p-4 border-b bg-emerald-500/10 shrink-0">
