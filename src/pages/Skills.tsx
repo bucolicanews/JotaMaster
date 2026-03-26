@@ -114,27 +114,34 @@ export default function Skills() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-6 space-y-6 animate-in fade-in duration-500">
+    <div className="container mx-auto px-4 py-8 space-y-6 animate-in fade-in duration-500">
       <input type="file" ref={importRef} className="hidden" accept=".json" onChange={handleImport} />
       
-      {/* HEADER RESPONSIVO: Grid garante que o título e botões não se encavalem */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-center border-b border-border pb-6">
-        <div className="flex items-center gap-3">
+      {/* HEADER REFORMULADO */}
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between border-b border-border pb-6 gap-6">
+        <div className="flex items-center gap-3 w-full md:w-auto">
           <div className="p-3 bg-emerald-500/10 rounded-lg border border-emerald-500/20 shrink-0">
             <Wrench className="h-6 w-6 text-emerald-600" />
           </div>
           <div className="min-w-0">
-            <h1 className="text-xl font-bold truncate">Skills e Ferramentas</h1>
-            <p className="text-xs text-muted-foreground truncate">Crie novas habilidades para sua IA.</p>
+            <h1 className="text-xl md:text-2xl font-bold leading-tight">Skills e Ferramentas</h1>
+            <p className="text-xs md:text-sm text-muted-foreground truncate">Importe ou crie novas habilidades para sua IA.</p>
           </div>
         </div>
         
-        <div className="flex flex-wrap gap-2 justify-start lg:justify-end">
-          <Button variant="outline" size="sm" className="flex-1 sm:flex-none" onClick={() => importRef.current?.click()}><FileJson className="h-4 w-4 mr-2" /> Importar</Button>
-          <Button variant="outline" size="sm" className="flex-1 sm:flex-none" onClick={handleExport}><Download className="h-4 w-4 mr-2" /> Exportar</Button>
-          <Button variant="outline" size="sm" className="flex-1 sm:flex-none border-primary/20 text-primary" onClick={addSkill}><Plus className="h-4 w-4 mr-2" /> Nova Skill</Button>
-          <Button size="sm" onClick={handleSave} disabled={isSaving} className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700">
-            {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />} Salvar
+        {/* GRID DE BOTÕES */}
+        <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 w-full md:w-auto">
+          <Button variant="outline" size="sm" className="h-10 text-xs" onClick={() => importRef.current?.click()}>
+            <FileJson className="h-4 w-4 mr-2 shrink-0" /> <span className="truncate">Importar</span>
+          </Button>
+          <Button variant="outline" size="sm" className="h-10 text-xs" onClick={handleExport}>
+            <Download className="h-4 w-4 mr-2 shrink-0" /> <span className="truncate">Exportar</span>
+          </Button>
+          <Button variant="outline" size="sm" className="h-10 text-xs border-primary/20 text-primary hover:bg-primary/10" onClick={addSkill}>
+            <Plus className="h-4 w-4 mr-2 shrink-0" /> <span className="truncate">Nova Skill</span>
+          </Button>
+          <Button size="sm" onClick={handleSave} disabled={isSaving} className="h-10 text-xs bg-emerald-600 hover:bg-emerald-700 shadow-md col-span-2 sm:col-span-1">
+            {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2 shrink-0" /> : <Save className="h-4 w-4 mr-2 shrink-0" />} <span className="truncate">Salvar Alterações</span>
           </Button>
         </div>
       </div>

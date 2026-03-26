@@ -15,6 +15,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { PromptSystemEditor } from '@/components/PromptSystemEditor';
+import { cn } from '@/lib/utils';
 
 export default function Prompts() {
   const { session, isAdmin } = useAuth();
@@ -131,25 +132,34 @@ export default function Prompts() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8 space-y-6">
+    <div className="container mx-auto px-4 py-8 space-y-6 animate-in fade-in duration-500">
       <input type="file" ref={importRef} className="hidden" accept=".json" onChange={handleImport} />
       
-      <div className="flex items-center justify-between border-b border-border pb-4">
-        <div className="flex items-center gap-3">
-          <div className="p-3 bg-indigo-500/10 rounded-lg border border-indigo-500/20">
+      {/* HEADER REFORMULADO: Responsividade Mobile-First */}
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between border-b border-border pb-6 gap-6">
+        <div className="flex items-center gap-3 w-full md:w-auto">
+          <div className="p-3 bg-indigo-500/10 rounded-lg border border-indigo-500/20 shrink-0">
             <MessageSquareQuote className="h-6 w-6 text-indigo-600" />
           </div>
-          <div>
-            <h1 className="text-2xl font-bold">Biblioteca de Prompts</h1>
-            <p className="text-sm text-muted-foreground">Gerencie e importe personas para sua IA.</p>
+          <div className="min-w-0">
+            <h1 className="text-xl md:text-2xl font-bold leading-tight">Biblioteca de Prompts</h1>
+            <p className="text-xs text-muted-foreground">Gerencie e importe personas para sua IA.</p>
           </div>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => importRef.current?.click()}><FileJson className="h-4 w-4 mr-2" /> Importar</Button>
-          <Button variant="outline" onClick={handleExport}><Download className="h-4 w-4 mr-2" /> Exportar</Button>
-          <Button variant="outline" onClick={addPrompt}><Plus className="h-4 w-4 mr-2" /> Novo Prompt</Button>
-          <Button onClick={handleSave} disabled={isSaving} className="bg-indigo-600 hover:bg-indigo-700">
-            {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />} Salvar Biblioteca
+        
+        {/* GRID DE BOTÕES: 2 colunas no mobile, flex no desktop */}
+        <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 w-full md:w-auto">
+          <Button variant="outline" size="sm" className="h-10 text-xs" onClick={() => importRef.current?.click()}>
+            <FileJson className="h-4 w-4 mr-2 shrink-0" /> <span className="truncate">Importar</span>
+          </Button>
+          <Button variant="outline" size="sm" className="h-10 text-xs" onClick={handleExport}>
+            <Download className="h-4 w-4 mr-2 shrink-0" /> <span className="truncate">Exportar</span>
+          </Button>
+          <Button variant="outline" size="sm" className="h-10 text-xs border-primary/20 text-primary hover:bg-primary/10" onClick={addPrompt}>
+            <Plus className="h-4 w-4 mr-2 shrink-0" /> <span className="truncate">Novo Prompt</span>
+          </Button>
+          <Button onClick={handleSave} disabled={isSaving} className="h-10 text-xs bg-indigo-600 hover:bg-indigo-700 shadow-md col-span-2 sm:col-span-1">
+            {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2 shrink-0" /> : <Save className="h-4 w-4 mr-2 shrink-0" />} <span className="truncate">Salvar Biblioteca</span>
           </Button>
         </div>
       </div>
@@ -166,26 +176,27 @@ export default function Prompts() {
             const canEdit = isOwner || isAdmin;
 
             return (
-              <AccordionItem key={prompt.id} value={prompt.id} className="border rounded-xl bg-card px-4 shadow-sm">
+              <AccordionItem key={prompt.id} value={prompt.id} className="border rounded-xl bg-card px-3 md:px-4 shadow-sm">
                 <AccordionTrigger className="hover:no-underline py-4">
-                  <div className="flex items-center gap-4">
-                    <div className={prompt.isActive ? "text-indigo-500" : "text-muted-foreground"}>
+                  <div className="flex items-center gap-3 w-full pr-4">
+                    <div className={cn("shrink-0", prompt.isActive ? "text-indigo-500" : "text-muted-foreground")}>
                       <Bot className="h-5 w-5" />
                     </div>
-                    <div className="text-left">
-                      <span className="font-bold text-sm block">{prompt.title}</span>
-                      <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{prompt.role}</span>
+                    <div className="text-left flex-1 min-w-0">
+                      <span className="font-bold text-sm block truncate">{prompt.title}</span>
+                      <span className="text-[10px] text-muted-foreground uppercase tracking-wider block truncate">{prompt.role}</span>
                     </div>
                     
-                    {/* INDICADORES VISUAIS DE GOVERNANÇA */}
-                    {prompt.isGlobal && (
-                      <Badge className="bg-amber-500/10 text-amber-600 border-amber-500/20 text-[8px]">
-                        {isAdmin ? 'GLOBAL' : 'GLOBAL (ADMIN)'}
-                      </Badge>
-                    )}
-                    {!isOwner && !prompt.isGlobal && (
-                      <Badge variant="outline" className="text-[8px]">COMUNIDADE</Badge>
-                    )}
+                    <div className="flex flex-col items-end gap-1 shrink-0 hidden sm:flex">
+                      {prompt.isGlobal && (
+                        <Badge className="bg-amber-500/10 text-amber-600 border-amber-500/20 text-[8px]">
+                          {isAdmin ? 'GLOBAL' : 'GLOBAL (ADMIN)'}
+                        </Badge>
+                      )}
+                      {!isOwner && !prompt.isGlobal && (
+                        <Badge variant="outline" className="text-[8px]">COMUNIDADE</Badge>
+                      )}
+                    </div>
                   </div>
                 </AccordionTrigger>
                 <AccordionContent className="pt-2 pb-6 space-y-6">
@@ -218,25 +229,24 @@ export default function Prompts() {
                     />
                   </div>
 
-                  <div className="flex justify-between items-center pt-4 border-t border-border/50">
-                    <div className="flex items-center gap-6">
-                      <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap justify-between items-center pt-4 border-t border-border/50 gap-4">
+                    <div className="flex flex-wrap items-center gap-6 w-full sm:w-auto">
+                      <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-start">
+                        <Label className="font-bold">Ativo no Sistema</Label>
                         <Switch checked={prompt.isActive} disabled={!canEdit} onCheckedChange={v => updatePrompt(prompt.id, 'isActive', v)} />
-                        <Label>Ativo</Label>
                       </div>
 
-                      {/* CONTROLE GLOBAL PARA O ADMIN */}
                       {isAdmin && (
-                        <div className="flex items-center gap-2 bg-amber-500/5 px-3 py-1.5 rounded-md border border-amber-500/10">
+                        <div className="flex items-center gap-2 bg-amber-500/5 px-3 py-1.5 rounded-md border border-amber-500/10 w-full sm:w-auto justify-between sm:justify-start">
+                          <Label className="text-amber-700 font-bold text-[10px] uppercase">Acesso Global</Label>
                           <Switch checked={prompt.isGlobal || false} onCheckedChange={v => updatePrompt(prompt.id, 'isGlobal', v)} />
-                          <Label className="text-amber-700 font-bold text-[10px] uppercase">Global</Label>
                         </div>
                       )}
                     </div>
                     
                     {canEdit && !prompt.moduleId && (
-                      <Button type="button" variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10" onClick={() => handleDelete(prompt.id)}>
-                        <Trash2 className="h-4 w-4 mr-2" /> Remover
+                      <Button type="button" variant="ghost" size="sm" className="w-full sm:w-auto text-destructive hover:bg-destructive/10" onClick={() => handleDelete(prompt.id)}>
+                        <Trash2 className="h-4 w-4 mr-2" /> Remover Persona
                       </Button>
                     )}
                   </div>
