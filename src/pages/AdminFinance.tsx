@@ -35,18 +35,25 @@ export default function AdminFinance() {
   const fetchFinancialData = async () => {
     setIsLoading(true);
     try {
-      // 1. Busca Logs de Uso
+      // 1. Busca os Logs de Uso (sem tentar o JOIN problemático)
       const { data: logs, error: logsError } = await supabase
         .from('ai_usage_logs')
-        .select('*, profiles(company_name, first_name)');
+        .select('*');
       
       if (logsError) throw logsError;
 
-      // 2. Calcula Estatísticas Globais
+      // 2. Busca os Perfis separadamente (Resiliência de Arquitetura)
+      const { data: profiles, error: profError } = await supabase
+        .from('profiles')
+        .select('id, company_name, first_name');
+        
+      if (profError) throw profError;
+
+      // 3. Calcula Estatísticas Globais
       const totals = (logs || []).reduce((acc, log) => ({
         totalCost: acc.totalCost + (Number(log.cost_to_google) || 0),
         totalRevenue: acc.totalRevenue + (Number(log.price_charged) || 0),
-        totalTokens: acc.totalTokens + (log.input_tokens + log.output_tokens)
+        totalTokens: acc.totalTokens + (Number(log.input_tokens) || 0) + (Number(log.output_tokens) || 0)
       }), { totalCost: 0, totalRevenue: 0, totalTokens: 0 });
 
       setStats({
@@ -54,22 +61,27 @@ export default function AdminFinance() {
         totalProfit: totals.totalRevenue - totals.totalCost
       });
 
-      // 3. Agrupa por Usuário
+      // 4. Agrupa por Usuário Cruzando as Tabelas em Memória
       const grouped = (logs || []).reduce((acc: any, log) => {
         const userId = log.user_id;
+        const userProfile = profiles?.find(p => p.id === userId);
+        const userName = userProfile?.company_name || userProfile?.first_name || 'Usuário Desconhecido';
+
         if (!acc[userId]) {
           acc[userId] = {
-            name: log.profiles?.company_name || log.profiles?.first_name || 'Usuário Desconhecido',
+            name: userName,
             cost: 0,
             revenue: 0,
             tokens: 0,
             requests: 0
           };
         }
+        
         acc[userId].cost += (Number(log.cost_to_google) || 0);
         acc[userId].revenue += (Number(log.price_charged) || 0);
-        acc[userId].tokens += (log.input_tokens + log.output_tokens);
+        acc[userId].tokens += (Number(log.input_tokens) || 0) + (Number(log.output_tokens) || 0);
         acc[userId].requests += 1;
+        
         return acc;
       }, {});
 
@@ -77,6 +89,7 @@ export default function AdminFinance() {
 
     } catch (error: any) {
       toast.error("Erro ao carregar dados financeiros: " + error.message);
+      console.error("[Admin Finance] Erro:", error);
     } finally {
       setIsLoading(false);
     }
@@ -86,18 +99,18 @@ export default function AdminFinance() {
 
   return (
     <div className="container mx-auto px-4 py-8 space-y-8 animate-in fade-in duration-500">
-      <div className="flex items-center justify-between border-b border-border pb-6">
-        <div className="flex items-center gap-3">
-          <div className="p-3 bg-blue-500/10 rounded-lg border border-blue-500/20">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between border-b border-border pb-6 gap-4">
+        <div className="flex items-center gap-3 w-full md:w-auto">
+          <div className="p-3 bg-blue-500/10 rounded-lg border border-blue-500/20 shrink-0">
             <BarChart3 className="h-8 w-8 text-blue-600" />
           </div>
-          <div>
-            <h1 className="text-2xl font-bold">Painel Financeiro Master</h1>
-            <p className="text-sm text-muted-foreground">Monitoramento de custos Vertex AI e lucratividade SaaS.</p>
+          <div className="min-w-0">
+            <h1 className="text-xl md:text-2xl font-bold truncate">Painel Financeiro Master</h1>
+            <p className="text-xs md:text-sm text-muted-foreground truncate">Monitoramento de custos Vertex AI e lucratividade SaaS.</p>
           </div>
         </div>
-        <Button variant="outline" onClick={fetchFinancialData} disabled={isLoading}>
-          {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Activity className="h-4 w-4 mr-2" />} Atualizar Dados
+        <Button variant="outline" onClick={fetchFinancialData} disabled={isLoading} className="w-full md:w-auto">
+          {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Activity className="h-4 w-4 mr-2" />} Atualizar Dados
         </Button>
       </div>
 
@@ -153,8 +166,8 @@ export default function AdminFinance() {
           </div>
           <CardDescription>Detalhamento de custos e receitas individuais.</CardDescription>
         </CardHeader>
-        <CardContent className="p-0">
-          <Table>
+        <CardContent className="p-0 overflow-x-auto custom-scrollbar">
+          <Table className="min-w-[600px]">
             <TableHeader>
               <TableRow className="bg-muted/5">
                 <TableHead>Empresa / Usuário</TableHead>
@@ -178,7 +191,7 @@ export default function AdminFinance() {
                 
                 return (
                   <TableRow key={idx} className="hover:bg-muted/30 transition-colors">
-                    <TableCell className="font-bold">{user.name}</TableCell>
+                    <TableCell className="font-bold truncate max-w-[200px]">{user.name}</TableCell>
                     <TableCell className="text-right font-mono text-xs">{user.requests}</TableCell>
                     <TableCell className="text-right text-destructive font-mono text-xs">{formatCurrency(user.cost)}</TableCell>
                     <TableCell className="text-right text-primary font-bold">{formatCurrency(user.revenue)}</TableCell>
