@@ -20,8 +20,8 @@ import { cn } from '@/lib/utils';
 import * as XLSX from 'xlsx';
 import * as pdfjsLib from 'pdfjs-dist';
 
-// Configuração do Worker do PDF.js usando CDN para evitar erros de compilação no Vite
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+// CORREÇÃO: Utilizando UNPKG para garantir o arquivo original minificado mjs (compatível com ESM e Vite)
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
 
 export default function Skills() {
   const { session, isAdmin } = useAuth();
@@ -149,7 +149,6 @@ export default function Skills() {
     }
   };
 
-  // RESTAURAÇÃO: Motor de extração de arquivos (PDF, Excel, TXT)
   const handleKnowledgeFileUpload = async (event: React.ChangeEvent<HTMLInputElement>, skillId: string) => {
     const file = event.target.files?.[0];
     if (!file) return;
