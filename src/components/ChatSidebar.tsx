@@ -51,7 +51,6 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
   };
 
   return (
-    // CORREÇÃO: Largura unificada para w-64 para alinhar com a sidebar do sistema
     <div className="w-64 flex flex-col bg-muted/10 h-full shrink-0 border-r border-border/50">
       <div className="p-3 border-b border-border/50">
         <Button 
@@ -105,57 +104,23 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                         {session.title}
                       </p>
                       <p className="text-[8px] opacity-60 flex items-center gap-1">
-                        <Clock className="h-2 w-2" />
+                        <Clock className="h-2.5 w-2.5" />
                         {new Date(session.createdAt).toLocaleDateString('pt-BR')}
                       </p>
                     </div>
                   )}
                 </div>
 
-                {/* Botões de ação com visibilidade controlada e shrink-0 */}
                 <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                   {editingId === session.id ? (
                     <>
-                      <Button 
-                        size="icon" 
-                        variant="ghost" 
-                        className="h-6 w-6 text-success hover:text-success hover:bg-success/10" 
-                        onClick={saveEdit}
-                      >
-                        <Check className="h-3 w-3" />
-                      </Button>
-                      <Button 
-                        size="icon" 
-                        variant="ghost" 
-                        className="h-6 w-6 text-muted-foreground hover:bg-muted" 
-                        onClick={cancelEdit}
-                      >
-                        <X className="h-3 w-3" />
-                      </Button>
+                      <Button size="icon" variant="ghost" className="h-6 w-6 text-success hover:bg-success/10" onClick={saveEdit}><Check className="h-3 w-3" /></Button>
+                      <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground hover:bg-muted" onClick={cancelEdit}><X className="h-3 w-3" /></Button>
                     </>
                   ) : (
                     <>
-                      <Button 
-                        size="icon" 
-                        variant="ghost" 
-                        className="h-6 w-6 hover:text-primary hover:bg-primary/10" 
-                        onClick={(e) => startEditing(e, session)}
-                        title="Editar título"
-                      >
-                        <Pencil className="h-3 w-3" />
-                      </Button>
-                      <Button 
-                        size="icon" 
-                        variant="ghost" 
-                        className="h-6 w-6 hover:text-destructive hover:bg-destructive/10" 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onDeleteSession(session.id);
-                        }}
-                        title="Excluir conversa"
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
+                      <Button size="icon" variant="ghost" className="h-6 w-6 hover:text-primary hover:bg-primary/10" onClick={(e) => startEditing(e, session)}><Pencil className="h-3 w-3" /></Button>
+                      <Button size="icon" variant="ghost" className="h-6 w-6 hover:text-destructive hover:bg-destructive/10" onClick={(e) => { e.stopPropagation(); onDeleteSession(session.id); }}><Trash2 className="h-3 w-3" /></Button>
                     </>
                   )}
                 </div>
