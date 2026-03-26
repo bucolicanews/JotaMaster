@@ -183,28 +183,32 @@ export async function executeSkill(name: string, args: any, skillsOverride?: Dyn
       }
     }
     
-    // CORREÇÃO: CORS Proxy
-    // O navegador bloqueia requisições Cross-Origin (CORS). Usamos o proxy público AllOrigins para baixar o HTML livremente.
-    const proxyUrl = 'https://api.allorigins.win/get?url=' + encodeURIComponent(targetUrl);
+    // AUTO-CORREÇÃO DE URL (Prevenção de falhas no proxy)
+    if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
+      targetUrl = 'https://' + targetUrl;
+    }
+    
+    // MUDANÇA ARQUITETURAL: Uso da rota /raw do proxy para evitar problemas de JSON e bloqueios CORS
+    const proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(targetUrl);
     
     try {
       const response = await fetch(proxyUrl);
       if (!response.ok) throw new Error('Status HTTP Proxy: ' + response.status);
       
-      const data = await response.json();
-      const html = data.contents || "";
+      // Lê o HTML direto em formato texto
+      const html = await response.text();
       
-      // Parseia o HTML sujo
+      // Parseia o HTML bruto
       const parser = new DOMParser();
       const doc = parser.parseFromString(html, 'text/html');
       let targetElement: Element | null = doc.body;
       
       if (skill.selector) {
         targetElement = doc.querySelector(skill.selector);
-        if (!targetElement) return { error: `Seletor CSS '${skill.selector}' não encontrado na página.` };
+        if (!targetElement) return { error: `Seletor CSS '${skill.selector}' não encontrado na página alvo.` };
       }
       
-      // Remove ruídos que quebram o contexto ou sujam os tokens da IA
+      // Limpeza de ruído que quebra os tokens da IA (Sanitização)
       const noise = targetElement.querySelectorAll('script, style, nav, footer, header, iframe, svg, img');
       noise.forEach(n => n.remove());
       
@@ -214,7 +218,7 @@ export async function executeSkill(name: string, args: any, skillsOverride?: Dyn
         .filter(l => l.length > 0)
         .join('\n');
         
-      // Retorna até 12.000 caracteres para não estourar o limite de Context Window do Gemini  
+      // Retorna até 12.000 caracteres como proteção contra overflow de contexto do Gemini
       return { status: "sucesso", conteudo: cleanText.substring(0, 12000) };
     } catch (e: any) {
       return { error: "Falha na navegação web (Proxy CORS): " + e.message };
