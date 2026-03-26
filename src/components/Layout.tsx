@@ -44,6 +44,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
   const isFullscreenModule = location.pathname.startsWith('/app/');
+  const isChatPage = location.pathname === '/chat';
 
   useEffect(() => {
     const fetchInstalledModules = async () => {
@@ -100,7 +101,6 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   };
 
   const NavigationContent = () => (
-    // CORREÇÃO: flex-1 em vez de h-full para respeitar o espaço do header do menu
     <div className="flex flex-col flex-1 min-h-0 bg-card">
       <div className="flex-1 overflow-y-auto py-4 px-3 custom-scrollbar">
         {autenticado ? (
@@ -163,8 +163,6 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
           <NavButton item={{ to: '/configuracao', label: 'Configurações Globais', icon: Settings }} isLocked={!autenticado} />
         </div>
       </div>
-      
-      {/* RODAPÉ DO MENU - Agora garantido na base da tela */}
       <div className="p-4 border-t border-border shrink-0 bg-muted/10">
         {autenticado && (
           <div className="flex flex-col gap-3">
@@ -199,14 +197,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
             <div className="flex items-center gap-2"><img src="/jota-contabilidade-logo.png" alt="Logo" className="h-6 w-6" /><span className="font-bold text-sm">JOTA</span></div>
             <Sheet open={isMobileOpen} onOpenChange={setIsMobileOpen}>
               <SheetTrigger asChild><Button variant="ghost" size="icon"><Menu className="h-6 w-6" /></Button></SheetTrigger>
-              <SheetContent side="left" className="p-0 w-72 border-r border-border flex flex-col h-full">
-                <SheetTitle className="sr-only">Menu de Navegação</SheetTitle>
-                <div className="p-4 border-b border-border bg-gradient-primary flex items-center gap-3 shrink-0">
-                  <div className="rounded-lg bg-black/30 p-2 backdrop-blur shrink-0"><img src="/jota-contabilidade-logo.png" alt="Logo" className="h-6 w-6" /></div>
-                  <h1 className="text-lg font-bold text-black">JOTA</h1>
-                </div>
-                <NavigationContent />
-              </SheetContent>
+              <SheetContent side="left" className="p-0 w-72 border-r border-border flex flex-col h-full"><SheetTitle className="sr-only">Menu de Navegação</SheetTitle><div className="p-4 border-b border-border bg-gradient-primary flex items-center gap-3 shrink-0"><div className="rounded-lg bg-black/30 p-2 backdrop-blur shrink-0"><img src="/jota-contabilidade-logo.png" alt="Logo" className="h-6 w-6" /></div><h1 className="text-lg font-bold text-black">JOTA</h1></div><NavigationContent /></SheetContent>
             </Sheet>
           </header>
         )}
@@ -214,19 +205,13 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
           <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-2 p-1.5 bg-background/80 backdrop-blur-lg border border-border shadow-2xl rounded-full animate-in slide-in-from-bottom-10 duration-500">
             <Sheet open={isMobileOpen} onOpenChange={setIsMobileOpen}>
               <SheetTrigger asChild><Button variant="ghost" size="icon" className="rounded-full h-9 w-9 hover:bg-primary/20 transition-transform hover:scale-105 shrink-0 text-primary"><Menu className="h-5 w-5" /></Button></SheetTrigger>
-              <SheetContent side="left" className="p-0 w-72 border-r border-border flex flex-col h-full">
-                <SheetTitle className="sr-only">Menu de Navegação</SheetTitle>
-                <div className="p-4 border-b border-border bg-gradient-primary flex items-center gap-3 shrink-0">
-                  <div className="rounded-lg bg-black/30 p-2 backdrop-blur shrink-0"><img src="/jota-contabilidade-logo.png" alt="Logo" className="h-6 w-6" /></div>
-                  <h1 className="text-lg font-bold text-black">JOTA</h1>
-                </div>
-                <NavigationContent />
-              </SheetContent>
+              <SheetContent side="left" className="p-0 w-72 border-r border-border flex flex-col h-full"><SheetTitle className="sr-only">Menu de Navegação</SheetTitle><div className="p-4 border-b border-border bg-gradient-primary flex items-center gap-3 shrink-0"><div className="rounded-lg bg-black/30 p-2 backdrop-blur shrink-0"><img src="/jota-contabilidade-logo.png" alt="Logo" className="h-6 w-6" /></div><h1 className="text-lg font-bold text-black">JOTA</h1></div><NavigationContent /></SheetContent>
             </Sheet>
             <div className="pointer-events-none flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/10 text-amber-600 rounded-full border border-amber-500/20 shrink-0 mr-1"><Lock className="h-3 w-3" /><span className="text-[9px] font-bold uppercase tracking-wider">Sandbox</span></div>
           </div>
         )}
-        <main className={cn("flex-1 overflow-y-auto", isFullscreenModule ? "p-0" : "p-0 md:p-4")}>
+        {/* CORREÇÃO: main agora remove paddings no Chat também, permitindo alinhamento perfeito das sidebars */}
+        <main className={cn("flex-1 overflow-y-auto", (isFullscreenModule || isChatPage) ? "p-0" : "p-0 md:p-4")}>
           {children}
         </main>
       </div>
