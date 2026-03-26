@@ -1,7 +1,7 @@
 # Log de Erros e Inconsistências (Bug Log)
 
-## [ARQ-001] Refatoração da Gestão de Chaves de API (BYOK)
+## [BUG-004] Omissão de Campos de Configuração de Skills
 - **Data:** Sessão Atual
-- **Status:** Em implementação.
-- **Descrição:** A chave da API do Gemini estava sendo salva primariamente no `localStorage` através da tela de Configurações, causando falhas eventuais no Motor Autônomo quando a sincronização com o banco falhava.
-- **Solução:** Criação de uma página dedicada de "Perfil do Usuário". A `api_key` agora é gerenciada exclusivamente através da tabela `profiles`, garantindo que a Edge Function (Motor Autônomo) sempre encontre a chave atualizada do usuário, independentemente de qual dispositivo ele esteja usando.
+- **Status:** Proposta de Correção enviada.
+- **Descrição:** Após refatoração de layout mobile, os blocos condicionais de `executionType` (Webhook, Scraping, Base de Conhecimento) sumiram da interface, impossibilitando a configuração dessas ferramentas. O parser de arquivos PDF/Excel também foi desvinculado.
+- **Resolução Proposta:** Restaurar renderização condicional baseada no `skill.executionType` e reimplementar o File Reader assíncrono com `pdfjs-dist` e `xlsx`.
