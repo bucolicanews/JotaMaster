@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Bot, User, Send, Loader2, Wrench, Trash2, Sparkles, Terminal, MessageSquareQuote, Zap, Globe, Search } from 'lucide-react';
+import { Bot, User, Send, Loader2, Wrench, Trash2, Sparkles, Terminal, MessageSquareQuote, Zap, Globe, Search, Plus, MessageSquare } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { ChatMessage, sendChatMessage, fetchDbPrompts, fetchDbAgents } from '@/lib/geminiService';
@@ -16,6 +16,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Switch } from './ui/switch';
 import { Label } from './ui/label';
+import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet';
 
 const STORAGE_KEY = 'jota-chat-sessions';
 
@@ -34,6 +35,9 @@ export const ChatInterface = () => {
   const [availablePrompts, setAvailablePrompts] = useState<any[]>([]);
   const [installedModuleIds, setInstalledModuleIds] = useState<string[]>([]);
   const [activePersonaId, setActivePersonaId] = useState<string | null>(null);
+
+  // Estado para controlar a abertura do histórico no mobile
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
   const [isManuallyResized, setIsManuallyResized] = useState(false);
   const [mentionMenu, setMentionMenu] = useState<{ type: 'skill' | 'agent' | 'prompt', filter: string } | null>(null);
@@ -105,6 +109,7 @@ export const ChatInterface = () => {
     setActiveSessionId(newId);
     setMessages([]);
     setActivePersonaId(null);
+    setIsHistoryOpen(false); // Fecha a gaveta no mobile
   };
 
   const loadSession = (id: string) => {
@@ -112,6 +117,7 @@ export const ChatInterface = () => {
     const savedMsgs = localStorage.getItem(`jota-chat-msg-${id}`);
     setMessages(savedMsgs ? JSON.parse(savedMsgs) : []);
     setActivePersonaId(null);
+    setIsHistoryOpen(false); // Fecha a gaveta no mobile
   };
 
   const deleteSession = (id: string) => {
@@ -144,7 +150,6 @@ export const ChatInterface = () => {
     }
   };
 
-  // Scroll automático ao carregar mensagens ou mudar estado
   useEffect(() => {
     scrollToBottom();
     const timer = setTimeout(scrollToBottom, 100);
@@ -244,7 +249,6 @@ export const ChatInterface = () => {
   const activePersonaName = activePersonaId ? (availableAgents.find(a => a.id === activePersonaId)?.nome || availablePrompts.find(p => p.id === activePersonaId)?.title || 'Consultor JOTA AI') : 'Consultor JOTA AI';
 
   return (
-    // CORREÇÃO: h-full para preencher o container pai sem vazar
     <div className="flex flex-col h-full w-full max-w-6xl mx-auto overflow-hidden bg-background">
       <Card className="flex flex-col md:flex-row flex-1 shadow-elegant border-primary/20 overflow-hidden rounded-none md:rounded-xl">
         
@@ -256,15 +260,51 @@ export const ChatInterface = () => {
           <CardHeader className="border-b border-border/50 bg-muted/20 py-2 px-4 shrink-0">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 min-w-0">
+                {/* BOTÃO HISTÓRICO MOBILE */}
+                <div className="md:hidden">
+                  <Sheet open={isHistoryOpen} onOpenChange={setIsHistoryOpen}>
+                    <SheetTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary">
+                        <MessageSquare className="h-5 w-5" />
+                      </Button>
+                    </SheetTrigger>
+                    <SheetContent side="left" className="p-0 w-80 border-r border-border">
+                      <SheetTitle className="sr-only">Histórico de Conversas</SheetTitle>
+                      <ChatSidebar 
+                        sessions={sessions} 
+                        activeSessionId={activeSessionId} 
+                        onSelectSession={loadSession} 
+                        onNewChat={createNewChat} 
+                        onDeleteSession={deleteSession} 
+                        onUpdateTitle={updateSessionTitle} 
+                      />
+                    </SheetContent>
+                  </Sheet>
+                </div>
+
                 <div className="p-1.5 bg-primary/10 rounded-full shrink-0"><Bot className="h-4 w-4 text-primary" /></div>
                 <div className="min-w-0">
                   <CardTitle className="text-xs font-bold truncate">{sessions.find(s => s.id === activeSessionId)?.title || 'Nova Conversa'}</CardTitle>
                   <p className="text-[9px] text-muted-foreground truncate font-bold text-primary uppercase">{activePersonaName}</p>
                 </div>
               </div>
-              <div className="flex items-center gap-2 bg-background/50 px-2 py-1 rounded-full border border-border/50 shrink-0">
-                <Globe className={cn("h-3 w-3", isGroundingActive ? "text-blue-500" : "text-muted-foreground")} />
-                <Switch className="scale-75" checked={isGroundingActive} onCheckedChange={(v) => { setIsGroundingActive(v); localStorage.setItem('jota-gemini-search', v.toString()); }} />
+
+              <div className="flex items-center gap-1 sm:gap-2">
+                {/* BOTÃO NOVA CONVERSA RÁPIDO */}
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={createNewChat}
+                  className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-full transition-colors"
+                  title="Nova Conversa"
+                >
+                  <Plus className="h-5 w-5" />
+                </Button>
+
+                <div className="flex items-center gap-2 bg-background/50 px-2 py-1 rounded-full border border-border/50 shrink-0">
+                  <Globe className={cn("h-3 w-3", isGroundingActive ? "text-blue-500" : "text-muted-foreground")} />
+                  <Switch className="scale-75" checked={isGroundingActive} onCheckedChange={(v) => { setIsGroundingActive(v); localStorage.setItem('jota-gemini-search', v.toString()); }} />
+                </div>
               </div>
             </div>
           </CardHeader>
