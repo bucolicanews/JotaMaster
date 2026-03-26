@@ -1,5 +1,4 @@
 import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -60,6 +59,7 @@ export const ChatInterface = () => {
       setAvailableSkills(skills.filter(s => s.isActive));
       setAvailableAgents(agents);
       setAvailablePrompts(prompts.filter(p => p.isActive));
+      
       const savedSessions = localStorage.getItem(STORAGE_KEY);
       if (savedSessions) {
         const parsed = JSON.parse(savedSessions);
@@ -71,6 +71,7 @@ export const ChatInterface = () => {
           setMessages(savedMsgs ? JSON.parse(savedMsgs) : []);
         } else { createNewChat(); }
       } else { createNewChat(); }
+      
       const initialPrompt = sessionStorage.getItem('jota-initial-prompt');
       if (initialPrompt) { setInput(initialPrompt); sessionStorage.removeItem('jota-initial-prompt'); }
     };
@@ -145,12 +146,11 @@ export const ChatInterface = () => {
 
   const scrollToBottom = () => {
     if (scrollRef.current) {
-      scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "auto" });
+      scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
     }
   };
 
   useEffect(() => {
-    scrollToBottom();
     const timer = setTimeout(scrollToBottom, 100);
     return () => clearTimeout(timer);
   }, [messages, isLoading, activeTool]);
@@ -193,10 +193,12 @@ export const ChatInterface = () => {
     const newValue = input.substring(0, lastTrigger) + `${prefix}${name} ` + textAfter;
     setInput(newValue);
     setMentionMenu(null);
+    
     if (mentionMenu?.type === 'agent' || mentionMenu?.type === 'prompt') {
       setActivePersonaId(item.id);
       toast.info(`Persona alterada para: ${name}`);
     }
+
     setTimeout(() => {
       inputRef.current?.focus();
       const newPos = lastTrigger + name.length + 2;
@@ -219,23 +221,43 @@ export const ChatInterface = () => {
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
     if (!apiKey) return toast.error("Configure sua Gemini API Key no seu Perfil.");
+
     const userMsg: ChatMessage = { role: 'user', parts: [{ text: input }] };
     const newHistory = [...messages, userMsg];
     setMessages(newHistory);
     setInput('');
     setIsLoading(true);
     setActiveTool(null);
+
     try {
       const hasSkillsModule = installedModuleIds.includes('skills');
       const allowedSkills = hasSkillsModule ? availableSkills : [];
+      
       let overridePrompt = undefined;
+      let activePersonaName = 'Consultor JOTA AI';
+
       if (activePersonaId) {
         const agent = availableAgents.find(a => a.id === activePersonaId);
         const prompt = availablePrompts.find(p => p.id === activePersonaId);
-        if (agent) overridePrompt = agent.systemPrompt;
-        else if (prompt) overridePrompt = prompt.content;
+        
+        if (agent) {
+          overridePrompt = agent.systemPrompt;
+          activePersonaName = agent.nome;
+        } else if (prompt) {
+          overridePrompt = prompt.content;
+          activePersonaName = prompt.title;
+        }
       }
-      const responseText = await sendChatMessage(newHistory, apiKey, allowedSkills, (toolName) => setActiveTool(toolName), isGroundingActive, overridePrompt);
+      
+      const responseText = await sendChatMessage(
+        newHistory, 
+        apiKey, 
+        allowedSkills, 
+        (toolName) => setActiveTool(toolName), 
+        isGroundingActive,
+        overridePrompt
+      );
+      
       setMessages(prev => [...prev, { role: 'model', parts: [{ text: responseText }] }]);
     } catch (error: any) {
       toast.error("Erro no chat: " + error.message);
@@ -245,130 +267,164 @@ export const ChatInterface = () => {
     }
   };
 
-  const filteredItems = mentionMenu ? (mentionMenu.type === 'skill' ? availableSkills.filter(s => s.name.toLowerCase().includes(mentionMenu.filter.toLowerCase())) : mentionMenu.type === 'agent' ? availableAgents.filter(a => a.nome.toLowerCase().includes(mentionMenu.filter.toLowerCase())) : availablePrompts.filter(p => p.title.toLowerCase().includes(mentionMenu.filter.toLowerCase()))) : [];
+  const getFilteredItems = () => {
+    if (!mentionMenu) return [];
+    const filter = mentionMenu.filter.toLowerCase();
+    if (mentionMenu.type === 'skill') return availableSkills.filter(s => s.name.toLowerCase().includes(filter));
+    if (mentionMenu.type === 'agent') return availableAgents.filter(a => a.nome.toLowerCase().includes(filter));
+    return availablePrompts.filter(p => p.title.toLowerCase().includes(filter));
+  };
 
-  const activePersonaName = activePersonaId ? (availableAgents.find(a => a.id === activePersonaId)?.nome || availablePrompts.find(p => p.id === activePersonaId)?.title || 'Consultor JOTA AI') : 'Consultor JOTA AI';
+  const filteredItems = getFilteredItems();
+  
+  const activePersonaName = activePersonaId 
+    ? (availableAgents.find(a => a.id === activePersonaId)?.nome || availablePrompts.find(p => p.id === activePersonaId)?.title || 'Consultor JOTA AI')
+    : 'Consultor JOTA AI';
 
   return (
-    <div className="flex flex-col h-full w-full overflow-hidden bg-background border-t border-border/50">
+    <div className="flex flex-col h-full w-full overflow-hidden bg-background">
       <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
         
-        {/* SIDEBAR DESKTOP - Largura unificada para w-64 */}
+        {/* SIDEBAR DESKTOP */}
         <div className="hidden md:block w-64 border-r border-border shrink-0 bg-muted/5">
           <ChatSidebar sessions={sessions} activeSessionId={activeSessionId} onSelectSession={loadSession} onNewChat={createNewChat} onDeleteSession={deleteSession} onUpdateTitle={updateSessionTitle} />
         </div>
 
-        <div className="flex-1 flex flex-col min-w-0 h-full">
-          <div className="border-b border-border/50 bg-muted/20 py-2 px-4 shrink-0">
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2 min-w-0">
-                <div className="md:hidden">
-                  <Sheet open={isHistoryOpen} onOpenChange={setIsHistoryOpen}>
-                    <SheetTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary">
-                        <MessageSquare className="h-5 w-5" />
-                      </Button>
-                    </SheetTrigger>
-                    <SheetContent side="left" className="p-0 w-64 border-r border-border">
-                      <SheetTitle className="sr-only">Histórico de Conversas</SheetTitle>
-                      <ChatSidebar 
-                        sessions={sessions} 
-                        activeSessionId={activeSessionId} 
-                        onSelectSession={loadSession} 
-                        onNewChat={createNewChat} 
-                        onDeleteSession={deleteSession} 
-                        onUpdateTitle={updateSessionTitle} 
-                      />
-                    </SheetContent>
-                  </Sheet>
-                </div>
-
-                <div className="p-1.5 bg-primary/10 rounded-full shrink-0"><Bot className="h-4 w-4 text-primary" /></div>
-                <div className="min-w-0">
-                  <h2 className="text-xs font-bold truncate">{sessions.find(s => s.id === activeSessionId)?.title || 'Nova Conversa'}</h2>
-                  <p className="text-[9px] text-muted-foreground truncate font-bold text-primary uppercase">{activePersonaName}</p>
-                </div>
+        <div className="flex-1 flex flex-col min-w-0 h-full relative">
+          
+          {/* HEADER DO CHAT */}
+          <div className="border-b border-border/50 bg-muted/20 py-2 px-4 shrink-0 flex items-center justify-between gap-2 z-10">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="md:hidden">
+                <Sheet open={isHistoryOpen} onOpenChange={setIsHistoryOpen}>
+                  <SheetTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary">
+                      <MessageSquare className="h-5 w-5" />
+                    </Button>
+                  </SheetTrigger>
+                  <SheetContent side="left" className="p-0 w-64 border-r border-border">
+                    <SheetTitle className="sr-only">Histórico de Conversas</SheetTitle>
+                    <ChatSidebar 
+                      sessions={sessions} 
+                      activeSessionId={activeSessionId} 
+                      onSelectSession={loadSession} 
+                      onNewChat={createNewChat} 
+                      onDeleteSession={deleteSession} 
+                      onUpdateTitle={updateSessionTitle} 
+                    />
+                  </SheetContent>
+                </Sheet>
               </div>
 
-              <div className="flex items-center gap-1 sm:gap-2">
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  onClick={createNewChat}
-                  className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-full transition-colors"
-                  title="Nova Conversa"
-                >
-                  <Plus className="h-5 w-5" />
-                </Button>
+              <div className="p-1.5 bg-primary/10 rounded-full shrink-0"><Bot className="h-4 w-4 text-primary" /></div>
+              <div className="min-w-0">
+                <h2 className="text-xs font-bold truncate">{sessions.find(s => s.id === activeSessionId)?.title || 'Nova Conversa'}</h2>
+                <p className="text-[9px] text-muted-foreground truncate font-bold text-primary uppercase">{activePersonaName}</p>
+              </div>
+            </div>
 
-                <div className="flex items-center gap-2 bg-background/50 px-2 py-1 rounded-full border border-border/50 shrink-0">
-                  <Globe className={cn("h-3 w-3", isGroundingActive ? "text-blue-500" : "text-muted-foreground")} />
-                  <Switch className="scale-75" checked={isGroundingActive} onCheckedChange={(v) => { setIsGroundingActive(v); localStorage.setItem('jota-gemini-search', v.toString()); }} />
-                </div>
+            <div className="flex items-center gap-1 sm:gap-2">
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={createNewChat}
+                className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-full transition-colors"
+                title="Nova Conversa"
+              >
+                <Plus className="h-5 w-5" />
+              </Button>
+
+              <div className="flex items-center gap-2 bg-background/50 px-2 py-1 rounded-full border border-border/50 shrink-0">
+                <Globe className={cn("h-3 w-3", isGroundingActive ? "text-blue-500" : "text-muted-foreground")} />
+                <Label htmlFor="grounding-toggle" className="hidden sm:inline-block text-[10px] font-bold uppercase cursor-pointer">Pesquisa Web</Label>
+                <Switch className="scale-75" checked={isGroundingActive} onCheckedChange={(v) => { setIsGroundingActive(v); localStorage.setItem('jota-gemini-search', v.toString()); }} />
               </div>
             </div>
           </div>
 
-          <div className="flex-1 overflow-hidden p-0 flex flex-col">
-            <ScrollArea className="flex-1" viewportRef={scrollRef}>
-              <div className="p-4 space-y-6 max-w-4xl mx-auto">
+          {/* AREA DE MENSAGENS */}
+          <div className="flex-1 overflow-hidden p-0 flex flex-col bg-background">
+            <ScrollArea className="flex-1 p-4" viewportRef={scrollRef}>
+              <div className="space-y-6 max-w-4xl mx-auto pb-4">
                 {messages.length === 0 && (
                   <div className="flex flex-col items-center justify-center py-12 text-center space-y-4 opacity-30">
                     <Sparkles className="h-12 w-12 text-primary" />
-                    <p className="text-sm font-bold">Como posso ajudar hoje?</p>
+                    <div>
+                      <p className="font-bold">Inicie uma conversa técnica</p>
+                      <p className="text-xs">Use <span className="font-bold">/</span> para invocar personas, <span className="font-bold">@</span> para ferramentas ou <span className="font-bold">#</span> para agentes.</p>
+                    </div>
                   </div>
                 )}
+
                 {messages.filter(m => m.role !== 'function').map((msg, idx) => (
-                  <div key={idx} className={cn("flex gap-3", msg.role === 'user' ? "flex-row-reverse" : "flex-row")}>
-                    <div className={cn("w-7 h-7 rounded-full flex items-center justify-center shrink-0", msg.role === 'user' ? "bg-primary text-primary-foreground" : "bg-muted border border-border")}>
-                      {msg.role === 'user' ? <User className="h-3.5 w-3.5" /> : <Bot className="h-3.5 w-3.5" />}
+                  <div key={idx} className={cn("flex gap-3 animate-in fade-in slide-in-from-bottom-2 duration-300", msg.role === 'user' ? "flex-row-reverse" : "flex-row")}>
+                    <div className={cn("w-8 h-8 rounded-full flex items-center justify-center shrink-0", msg.role === 'user' ? "bg-primary text-primary-foreground" : "bg-muted border border-border")}>
+                      {msg.role === 'user' ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
                     </div>
-                    <div className={cn("max-w-[85%] rounded-2xl px-3 py-2 text-sm shadow-sm", msg.role === 'user' ? "bg-primary text-primary-foreground rounded-tr-none" : "bg-card border border-border rounded-tl-none")}>
+                    <div className={cn("max-w-[85%] rounded-2xl px-4 py-2 text-sm shadow-sm", msg.role === 'user' ? "bg-primary text-primary-foreground rounded-tr-none" : "bg-card border border-border rounded-tl-none")}>
                       <div className="prose prose-sm prose-invert max-w-none break-words"><ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.parts[0].text}</ReactMarkdown></div>
                     </div>
                   </div>
                 ))}
+
                 {activeTool && (
                   <div className="flex gap-3 animate-pulse">
-                    <div className="w-7 h-7 rounded-full bg-emerald-500/20 flex items-center justify-center border border-emerald-500/30 shrink-0"><Wrench className="h-3.5 w-3.5 text-emerald-500" /></div>
-                    <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl px-3 py-1.5 text-[10px] font-mono text-emerald-600">Executando: {activeTool}...</div>
+                    <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center border border-emerald-500/30 shrink-0"><Wrench className="h-4 w-4 text-emerald-500" /></div>
+                    <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-2xl px-4 py-2 text-[10px] font-mono text-emerald-600 break-words">Executando: <span className="font-bold">{activeTool}</span>...</div>
                   </div>
                 )}
+
                 {isLoading && !activeTool && (
                   <div className="flex gap-3">
-                    <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center border border-border shrink-0"><Bot className="h-3.5 w-3.5 text-primary animate-bounce" /></div>
-                    <div className="bg-muted/30 rounded-xl px-3 py-1.5 flex items-center gap-2"><Loader2 className="h-3 w-3 animate-spin text-muted-foreground" /><span className="text-xs text-muted-foreground">Pensando...</span></div>
+                    <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center border border-border shrink-0"><Bot className="h-4 w-4 text-primary animate-bounce" /></div>
+                    <div className="bg-muted/30 rounded-2xl px-4 py-2 flex items-center gap-2"><Loader2 className="h-3 w-3 animate-spin text-muted-foreground" /><span className="text-xs text-muted-foreground">Processando...</span></div>
                   </div>
                 )}
               </div>
             </ScrollArea>
 
-            <div className="p-3 border-t border-border/50 bg-muted/10 shrink-0">
+            {/* BARRA DE DIGITAÇÃO FIXA NO RODAPÉ */}
+            <div className="p-3 sm:p-4 border-t border-border/50 bg-muted/10 shrink-0 relative overflow-visible">
               {mentionMenu && filteredItems.length > 0 && (
-                <div className="absolute bottom-full left-2 right-2 sm:left-4 sm:right-auto sm:w-72 mb-2 bg-card border border-border rounded-lg shadow-2xl overflow-hidden z-[100]">
-                  <div className="bg-muted/80 px-3 py-1.5 border-b border-border flex items-center gap-2">
-                    <Terminal className="h-3 w-3 text-primary" />
-                    <span className="text-[10px] font-bold uppercase text-muted-foreground">Sugestões</span>
+                <div className="absolute bottom-full left-2 right-2 sm:left-4 sm:right-auto sm:w-72 mb-2 bg-card border border-border rounded-lg shadow-2xl overflow-hidden z-[100] animate-in slide-in-from-bottom-2">
+                  <div className="bg-muted/80 px-3 py-2 border-b border-border flex items-center gap-2">
+                    {mentionMenu.type === 'skill' ? <Wrench className="h-3 w-3 text-emerald-500" /> : mentionMenu.type === 'agent' ? <Zap className="h-3 w-3 text-primary" /> : <MessageSquareQuote className="h-3 w-3 text-blue-500" />}
+                    <span className="text-[10px] font-bold uppercase text-muted-foreground">
+                      {mentionMenu.type === 'skill' ? 'Habilidades' : mentionMenu.type === 'agent' ? 'Agentes' : 'Prompts'}
+                    </span>
                   </div>
-                  <div className="max-h-48 overflow-y-auto">
+                  <div className="max-h-48 sm:max-h-60 overflow-y-auto">
                     {filteredItems.map((item, idx) => (
-                      <div key={idx} className={cn("px-3 py-2 cursor-pointer flex flex-col gap-0.5 border-l-4", idx === selectedIndex ? "bg-primary/10 border-primary" : "hover:bg-muted/30 border-transparent")} onClick={() => insertItem(item)}>
+                      <div key={idx} className={cn("px-3 py-2 cursor-pointer flex flex-col gap-0.5 transition-colors", idx === selectedIndex ? "bg-primary/10 border-l-4 border-primary" : "hover:bg-muted/30 border-l-4 border-transparent")} onClick={() => insertItem(item)}>
                         <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold text-foreground truncate">{item.name || item.nome || item.title}</span>
-                          <Badge variant="outline" className="text-[8px] h-3 px-1 uppercase opacity-50">{mentionMenu.type}</Badge>
+                          <span className="text-xs font-bold text-foreground truncate max-w-[70%]">{item.name || item.nome || item.title}</span>
+                          <Badge variant="outline" className="text-[8px] h-3 px-1 uppercase opacity-50 shrink-0">{mentionMenu.type}</Badge>
                         </div>
+                        <p className="text-[10px] text-muted-foreground line-clamp-1">{item.description || item.role || 'Sem descrição'}</p>
                       </div>
                     ))}
                   </div>
                 </div>
               )}
+
               <div className="max-w-4xl mx-auto flex items-end gap-2">
-                <Textarea ref={inputRef} placeholder="Digite sua dúvida..." value={input} onChange={handleInputChange} onKeyDown={handleKeyDown} className="flex-1 bg-background min-h-[44px] max-h-[150px] resize-none py-3 px-4 text-sm overflow-y-auto rounded-xl border-border/50 focus-visible:ring-primary/30" disabled={isLoading} rows={1} />
-                <Button onClick={handleSend} disabled={isLoading || !input.trim()} className="bg-primary hover:bg-primary/90 h-11 w-11 rounded-xl p-0 shrink-0 mb-0.5 shadow-lg active:scale-95 transition-transform">
+                <Textarea 
+                  ref={inputRef} 
+                  placeholder="Digite sua dúvida... use / para personas, @ para ferramentas ou # para agentes." 
+                  value={input} 
+                  onChange={handleInputChange} 
+                  onKeyDown={handleKeyDown} 
+                  className="flex-1 bg-background min-h-[44px] max-h-[120px] resize-none py-3 px-3 sm:px-4 text-sm sm:text-base overflow-y-auto rounded-xl border-border/50 focus-visible:ring-primary/30" 
+                  disabled={isLoading} 
+                  autoComplete="off" 
+                  rows={1} 
+                />
+                <Button onClick={handleSend} disabled={isLoading || !input.trim()} className="bg-primary hover:bg-primary/90 h-11 w-11 rounded-xl p-0 shrink-0 mb-0.5 shadow-md transition-transform hover:scale-105 active:scale-95">
                   {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
                 </Button>
               </div>
             </div>
+
           </div>
         </div>
       </div>
