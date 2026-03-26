@@ -4,16 +4,20 @@ import { Sparkles } from 'lucide-react';
 
 const Chat = () => {
   return (
-    <div className="container mx-auto px-4 py-8 space-y-6">
-      <div className="flex items-center gap-3 mb-2">
-        <Sparkles className="h-8 w-8 text-primary" />
-        <div>
-          <h1 className="text-2xl font-bold">Chat Consultivo Inteligente</h1>
-          <p className="text-sm text-muted-foreground">Converse com a IA integrada às suas ferramentas e base de conhecimento.</p>
+    <div className="flex flex-col h-full w-full overflow-hidden">
+      <div className="px-4 py-4 md:py-6 shrink-0">
+        <div className="flex items-center gap-3">
+          <Sparkles className="h-6 w-6 md:h-8 md:w-8 text-primary" />
+          <div>
+            <h1 className="text-xl md:text-2xl font-bold">Chat Consultivo Inteligente</h1>
+            <p className="text-[10px] md:text-sm text-muted-foreground">Converse com a IA integrada às suas ferramentas.</p>
+          </div>
         </div>
       </div>
       
-      <ChatInterface />
+      <div className="flex-1 min-h-0 w-full px-0 md:px-4 pb-0 md:pb-4">
+        <ChatInterface />
+      </div>
     </div>
   );
 };
