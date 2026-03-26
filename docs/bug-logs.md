@@ -1,5 +1,5 @@
-## [BUG-005] RLS UPSERT Block para Admins e Quebra de Layout
+## [BUG-006] Regressão na Ferramenta de Web Scraping
 - **Data:** Sessão Atual
 - **Status:** Proposta de Correção enviada.
-- **Descrição:** Admins sofriam bloqueio ao atualizar skills de usuários devido à validação de `INSERT` durante o `UPSERT`. O layout das opções de execução estava com paddings assimétricos.
-- **Resolução Proposta:** Adição de exceção de admin no `WITH CHECK` das políticas de `INSERT` e remoção de backgrounds/paddings excessivos no grid de configuração da Skill.
+- **Descrição:** O motor de scraping falhava em sites governamentais por bloqueios de proxy único, e a UI perdeu as instruções vitais de seletores CSS durante a refatoração.
+- **Resolução Proposta:** Injeção de "Dual Proxy Strategy" no `taxSkills.ts` e restauração da caixa de dicas (tags de tabelas) no formulário do `Skills.tsx`.
