@@ -400,10 +400,12 @@ export default function Skills() {
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label className="text-orange-600 font-bold">Seletor CSS (Opcional)</Label>
+  <Label className="text-orange-600 font-bold" > Seletor CSS(Opcional) </Label>
+                            <div>#main-content, .texto-artigo, #parent-fieldname-text, #content-core, #parent-fieldname-text</div>
+                            
                           <Input 
                             disabled={!canEdit} 
-                            value={skill.selector || ''} 
+                            value={skill.selector || '#main-content, .texto-artigo, #parent-fieldname-text, #content-core, #parent-fieldname-text'} 
                             onChange={e => updateSkill(skill.id, 'selector', e.target.value)} 
                             placeholder="ex: .article-content, #main-table" 
                           />
