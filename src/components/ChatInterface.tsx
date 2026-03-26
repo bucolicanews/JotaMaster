@@ -159,11 +159,13 @@ export const ChatInterface = () => {
     const value = e.target.value;
     const cursor = e.target.selectionStart || 0;
     setInput(value);
+
     const textBefore = value.substring(0, cursor);
     const lastAt = textBefore.lastIndexOf('@');
     const lastHash = textBefore.lastIndexOf('#');
     const lastSlash = textBefore.lastIndexOf('/');
     const lastTrigger = Math.max(lastAt, lastHash, lastSlash);
+
     if (lastTrigger !== -1) {
       const charBefore = textBefore[lastTrigger - 1];
       if (lastTrigger === 0 || charBefore === ' ' || charBefore === '\n') {
@@ -248,12 +250,11 @@ export const ChatInterface = () => {
   const activePersonaName = activePersonaId ? (availableAgents.find(a => a.id === activePersonaId)?.nome || availablePrompts.find(p => p.id === activePersonaId)?.title || 'Consultor JOTA AI') : 'Consultor JOTA AI';
 
   return (
-    // CORREÇÃO: Removido max-w-6xl e Card wrapper para ocupar 100% do espaço e limpar bordas
     <div className="flex flex-col h-full w-full overflow-hidden bg-background border-t border-border/50">
       <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
         
-        {/* SIDEBAR DESKTOP - Largura unificada para w-80 */}
-        <div className="hidden md:block w-80 border-r border-border shrink-0 bg-muted/5">
+        {/* SIDEBAR DESKTOP - Largura unificada para w-64 */}
+        <div className="hidden md:block w-64 border-r border-border shrink-0 bg-muted/5">
           <ChatSidebar sessions={sessions} activeSessionId={activeSessionId} onSelectSession={loadSession} onNewChat={createNewChat} onDeleteSession={deleteSession} onUpdateTitle={updateSessionTitle} />
         </div>
 
@@ -268,7 +269,7 @@ export const ChatInterface = () => {
                         <MessageSquare className="h-5 w-5" />
                       </Button>
                     </SheetTrigger>
-                    <SheetContent side="left" className="p-0 w-80 border-r border-border">
+                    <SheetContent side="left" className="p-0 w-64 border-r border-border">
                       <SheetTitle className="sr-only">Histórico de Conversas</SheetTitle>
                       <ChatSidebar 
                         sessions={sessions} 
