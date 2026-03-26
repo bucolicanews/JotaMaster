@@ -175,30 +175,49 @@ export async function executeSkill(name: string, args: any, skillsOverride?: Dyn
 
   if (skill.executionType === 'web_scraping' && skill.url) {
     let targetUrl = skill.url;
+    
+    // Substitui variáveis na URL (ex: {{cep}})
     if (args && typeof args === 'object') {
       for (const key in args) {
         targetUrl = targetUrl.split('{{' + key + '}}').join(String(args[key]));
       }
     }
+    
+    // CORREÇÃO: CORS Proxy
+    // O navegador bloqueia requisições Cross-Origin (CORS). Usamos o proxy público AllOrigins para baixar o HTML livremente.
     const proxyUrl = 'https://api.allorigins.win/get?url=' + encodeURIComponent(targetUrl);
+    
     try {
       const response = await fetch(proxyUrl);
-      if (!response.ok) throw new Error('Status: ' + response.status);
+      if (!response.ok) throw new Error('Status HTTP Proxy: ' + response.status);
+      
       const data = await response.json();
       const html = data.contents || "";
+      
+      // Parseia o HTML sujo
       const parser = new DOMParser();
       const doc = parser.parseFromString(html, 'text/html');
       let targetElement: Element | null = doc.body;
+      
       if (skill.selector) {
         targetElement = doc.querySelector(skill.selector);
-        if (!targetElement) return { error: "Seletor CSS não encontrado." };
+        if (!targetElement) return { error: `Seletor CSS '${skill.selector}' não encontrado na página.` };
       }
-      const noise = targetElement.querySelectorAll('script, style, nav, footer, header');
+      
+      // Remove ruídos que quebram o contexto ou sujam os tokens da IA
+      const noise = targetElement.querySelectorAll('script, style, nav, footer, header, iframe, svg, img');
       noise.forEach(n => n.remove());
-      const cleanText = ((targetElement as HTMLElement).innerText || "").split('\n').map(l => l.trim()).filter(l => l.length > 0).join('\n');
+      
+      const cleanText = ((targetElement as HTMLElement).innerText || "")
+        .split('\n')
+        .map(l => l.trim())
+        .filter(l => l.length > 0)
+        .join('\n');
+        
+      // Retorna até 12.000 caracteres para não estourar o limite de Context Window do Gemini  
       return { status: "sucesso", conteudo: cleanText.substring(0, 12000) };
     } catch (e: any) {
-      return { error: "Falha na navegação web: " + e.message };
+      return { error: "Falha na navegação web (Proxy CORS): " + e.message };
     }
   }
 
@@ -224,7 +243,7 @@ export async function executeSkill(name: string, args: any, skillsOverride?: Dyn
           const lastBrace = codeToExecute.lastIndexOf('}');
           if (firstBrace !== -1 && lastBrace !== -1) codeToExecute = codeToExecute.substring(firstBrace + 1, lastBrace);
       }
-      // Injetando supabase no escopo da função
+      // Injetando dependências no escopo restrito da função
       const fn = new AsyncFunction('args', 'helpers', 'supabase', codeToExecute);
       return await fn(args, helpers, supabase);
     } catch (e: any) {
