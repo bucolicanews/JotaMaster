@@ -15,7 +15,7 @@ const Chat = () => {
         </div>
       </div>
       
-      <div className="flex-1 min-h-0 w-full px-0 md:px-4 pb-0 md:pb-4">
+      <div className="flex-1 min-h-0 w-full px-0 pb-0">
         <ChatInterface />
       </div>
     </div>

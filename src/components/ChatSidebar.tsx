@@ -51,7 +51,8 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
   };
 
   return (
-    <div className="w-80 border-r border-border flex flex-col bg-muted/10 h-full shrink-0">
+    // CORREÇÃO: Largura unificada para w-80 e remoção de bordas externas conflitantes
+    <div className="w-80 flex flex-col bg-muted/10 h-full shrink-0">
       <div className="p-4 border-b border-border/50">
         <Button 
           onClick={onNewChat} 
@@ -111,7 +112,6 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                   )}
                 </div>
 
-                {/* Container de Botões sempre visível para facilitar o acesso */}
                 <div className="flex items-center gap-1 shrink-0">
                   {editingId === session.id ? (
                     <>

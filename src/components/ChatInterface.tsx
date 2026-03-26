@@ -36,7 +36,6 @@ export const ChatInterface = () => {
   const [installedModuleIds, setInstalledModuleIds] = useState<string[]>([]);
   const [activePersonaId, setActivePersonaId] = useState<string | null>(null);
 
-  // Estado para controlar a abertura do histórico no mobile
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
   const [isManuallyResized, setIsManuallyResized] = useState(false);
@@ -109,7 +108,7 @@ export const ChatInterface = () => {
     setActiveSessionId(newId);
     setMessages([]);
     setActivePersonaId(null);
-    setIsHistoryOpen(false); // Fecha a gaveta no mobile
+    setIsHistoryOpen(false);
   };
 
   const loadSession = (id: string) => {
@@ -117,7 +116,7 @@ export const ChatInterface = () => {
     const savedMsgs = localStorage.getItem(`jota-chat-msg-${id}`);
     setMessages(savedMsgs ? JSON.parse(savedMsgs) : []);
     setActivePersonaId(null);
-    setIsHistoryOpen(false); // Fecha a gaveta no mobile
+    setIsHistoryOpen(false);
   };
 
   const deleteSession = (id: string) => {
@@ -249,18 +248,19 @@ export const ChatInterface = () => {
   const activePersonaName = activePersonaId ? (availableAgents.find(a => a.id === activePersonaId)?.nome || availablePrompts.find(p => p.id === activePersonaId)?.title || 'Consultor JOTA AI') : 'Consultor JOTA AI';
 
   return (
-    <div className="flex flex-col h-full w-full max-w-6xl mx-auto overflow-hidden bg-background">
-      <Card className="flex flex-col md:flex-row flex-1 shadow-elegant border-primary/20 overflow-hidden rounded-none md:rounded-xl">
+    // CORREÇÃO: Removido max-w-6xl e Card wrapper para ocupar 100% do espaço e limpar bordas
+    <div className="flex flex-col h-full w-full overflow-hidden bg-background border-t border-border/50">
+      <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
         
-        <div className="hidden md:block w-64 border-r border-border shrink-0 bg-muted/5">
+        {/* SIDEBAR DESKTOP - Largura unificada para w-80 */}
+        <div className="hidden md:block w-80 border-r border-border shrink-0 bg-muted/5">
           <ChatSidebar sessions={sessions} activeSessionId={activeSessionId} onSelectSession={loadSession} onNewChat={createNewChat} onDeleteSession={deleteSession} onUpdateTitle={updateSessionTitle} />
         </div>
 
         <div className="flex-1 flex flex-col min-w-0 h-full">
-          <CardHeader className="border-b border-border/50 bg-muted/20 py-2 px-4 shrink-0">
+          <div className="border-b border-border/50 bg-muted/20 py-2 px-4 shrink-0">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 min-w-0">
-                {/* BOTÃO HISTÓRICO MOBILE */}
                 <div className="md:hidden">
                   <Sheet open={isHistoryOpen} onOpenChange={setIsHistoryOpen}>
                     <SheetTrigger asChild>
@@ -284,13 +284,12 @@ export const ChatInterface = () => {
 
                 <div className="p-1.5 bg-primary/10 rounded-full shrink-0"><Bot className="h-4 w-4 text-primary" /></div>
                 <div className="min-w-0">
-                  <CardTitle className="text-xs font-bold truncate">{sessions.find(s => s.id === activeSessionId)?.title || 'Nova Conversa'}</CardTitle>
+                  <h2 className="text-xs font-bold truncate">{sessions.find(s => s.id === activeSessionId)?.title || 'Nova Conversa'}</h2>
                   <p className="text-[9px] text-muted-foreground truncate font-bold text-primary uppercase">{activePersonaName}</p>
                 </div>
               </div>
 
               <div className="flex items-center gap-1 sm:gap-2">
-                {/* BOTÃO NOVA CONVERSA RÁPIDO */}
                 <Button 
                   variant="ghost" 
                   size="icon" 
@@ -307,11 +306,11 @@ export const ChatInterface = () => {
                 </div>
               </div>
             </div>
-          </CardHeader>
+          </div>
 
-          <CardContent className="flex-1 overflow-hidden p-0 flex flex-col">
+          <div className="flex-1 overflow-hidden p-0 flex flex-col">
             <ScrollArea className="flex-1" viewportRef={scrollRef}>
-              <div className="p-4 space-y-6 max-w-3xl mx-auto">
+              <div className="p-4 space-y-6 max-w-4xl mx-auto">
                 {messages.length === 0 && (
                   <div className="flex flex-col items-center justify-center py-12 text-center space-y-4 opacity-30">
                     <Sparkles className="h-12 w-12 text-primary" />
@@ -362,16 +361,16 @@ export const ChatInterface = () => {
                   </div>
                 </div>
               )}
-              <div className="max-w-3xl mx-auto flex items-end gap-2">
-                <Textarea ref={inputRef} placeholder="Digite sua dúvida..." value={input} onChange={handleInputChange} onKeyDown={handleKeyDown} className="flex-1 bg-background min-h-[44px] max-h-[120px] resize-none py-3 px-4 text-sm overflow-y-auto rounded-xl border-border/50 focus-visible:ring-primary/30" disabled={isLoading} rows={1} />
+              <div className="max-w-4xl mx-auto flex items-end gap-2">
+                <Textarea ref={inputRef} placeholder="Digite sua dúvida..." value={input} onChange={handleInputChange} onKeyDown={handleKeyDown} className="flex-1 bg-background min-h-[44px] max-h-[150px] resize-none py-3 px-4 text-sm overflow-y-auto rounded-xl border-border/50 focus-visible:ring-primary/30" disabled={isLoading} rows={1} />
                 <Button onClick={handleSend} disabled={isLoading || !input.trim()} className="bg-primary hover:bg-primary/90 h-11 w-11 rounded-xl p-0 shrink-0 mb-0.5 shadow-lg active:scale-95 transition-transform">
                   {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
                 </Button>
               </div>
             </div>
-          </CardContent>
+          </div>
         </div>
-      </Card>
+      </div>
     </div>
   );
 };
