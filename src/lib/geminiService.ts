@@ -82,17 +82,14 @@ export async function callGeminiAgent(
   apiKey: string,
   skillsOverride?: DynamicSkill[]
 ): Promise<string> {
-  if (!apiKey) throw new Error('Chave API Gemini não configurada.');
-  
   const model = localStorage.getItem('jota-gemini-model') || 'gemini-2.0-flash';
   const useGrounding = localStorage.getItem('jota-gemini-search') === 'true';
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
   
   const dynamicSkills = skillsOverride || [];
   const dynamicManifests = dynamicSkills.map(s => ({ name: s.name, description: s.description, parameters: s.parameters }));
   
   let tools: any[] | undefined = undefined;
-  const isExplicitSearch = userContent.toLowerCase().includes("pesquise") || 
+  const isExplicitSearch = userContent.toLowerCase().includes("pesquise") ||
                            userContent.toLowerCase().includes("google") ||
                            userContent.toLowerCase().includes("internet");
 
@@ -107,17 +104,21 @@ export async function callGeminiAgent(
   const enhancedSystemPrompt = `${systemPrompt}\n\nREGRA CRÍTICA: Se houver uma ferramenta disponível para obter dados reais (como CEP ou cálculos), você DEVE usá-la. Não responda com base em seu conhecimento interno se a ferramenta puder fornecer o dado exato.`;
 
   const initialBody = {
-    system_instruction: { parts: [{ text: enhancedSystemPrompt }] },
-    contents: [{ role: 'user', parts: [{ text: userContent }] }],
+    systemPrompt: enhancedSystemPrompt,
+    history: [{ role: 'user', parts: [{ text: userContent }] }],
     tools: tools,
-    generationConfig: { temperature: 0.1, maxOutputTokens: 8192 }, 
+    model: model,
+    generationConfig: { temperature: 0.1, maxOutputTokens: 8192 },
   };
 
-  const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(initialBody) });
-  const data = await response.json();
-  if (data.error) throw new Error(`Erro API Gemini: ${data.error.message}`);
+  const { data, error } = await supabase.functions.invoke('chat-gemini', {
+    body: initialBody
+  });
+
+  if (error) throw new Error(`Erro API Gemini (Edge): ${error.message}`);
+  if (data?.error) throw new Error(data.error);
   
-  let message = data?.candidates?.[0]?.content;
+  let message = data?.message;
   if (!message) return "Sem resposta da IA.";
 
   if (message.parts?.some((p: any) => p.functionCall)) {
@@ -131,15 +132,21 @@ export async function callGeminiAgent(
     }
     
     const finalBody = {
-      system_instruction: { parts: [{ text: enhancedSystemPrompt }] },
+      systemPrompt: enhancedSystemPrompt,
       tools: tools,
-      contents: [ { role: 'user', parts: [{ text: userContent }] }, message, { role: 'function', parts: toolResults } ],
+      model: model,
+      history: [ { role: 'user', parts: [{ text: userContent }] }, message, { role: 'function', parts: toolResults } ],
       generationConfig: { temperature: 0.1, maxOutputTokens: 8192 },
     };
     
-    const finalRes = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(finalBody) });
-    const finalData = await finalRes.json();
-    return finalData?.candidates?.[0]?.content?.parts?.map((p: any) => p.text || '').join('\n') || '';
+    const { data: finalData, error: finalError } = await supabase.functions.invoke('chat-gemini', {
+      body: finalBody
+    });
+
+    if (finalError) throw new Error(`Erro API Gemini (Edge): ${finalError.message}`);
+    if (finalData?.error) throw new Error(finalData.error);
+
+    return finalData?.message?.parts?.map((p: any) => p.text || '').join('\n') || '';
   }
   
   return message.parts?.map((p: any) => p.text || '').join('\n') || '';
@@ -153,16 +160,13 @@ export async function sendChatMessage(
   useGroundingOverride?: boolean,
   systemPromptOverride?: string
 ): Promise<string> {
-  if (!apiKey) throw new Error('Chave API Gemini não configurada.');
-  
   const model = localStorage.getItem('jota-gemini-model') || 'gemini-2.0-flash';
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
   
   const lastUserMessage = history[history.length - 1]?.parts[0]?.text || "";
   const isExplicitSkillCall = lastUserMessage.includes('@');
   
-  const useGrounding = useGroundingOverride !== undefined 
-    ? useGroundingOverride 
+  const useGrounding = useGroundingOverride !== undefined
+    ? useGroundingOverride
     : localStorage.getItem('jota-gemini-search') === 'true';
 
   const dynamicManifests = skillsOverride.map(s => ({ name: s.name, description: s.description, parameters: s.parameters }));
@@ -196,17 +200,21 @@ export async function sendChatMessage(
   Responda de forma profissional e use Markdown.`;
 
   const body = {
-    system_instruction: { parts: [{ text: finalSystemPrompt }] },
-    contents: history,
+    systemPrompt: finalSystemPrompt,
+    history: history,
     tools: tools,
+    model: model,
     generationConfig: { temperature: 0.2, maxOutputTokens: 4096 },
   };
 
-  const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-  const data = await response.json();
-  if (data.error) throw new Error(data.error.message);
+  const { data, error } = await supabase.functions.invoke('chat-gemini', {
+    body: body
+  });
+
+  if (error) throw new Error(`Erro API Gemini (Edge): ${error.message}`);
+  if (data?.error) throw new Error(data.error);
   
-  const message = data?.candidates?.[0]?.content;
+  const message = data?.message;
   if (!message) return "Desculpe, não consegui processar.";
 
   if (message.parts?.some((p: any) => p.functionCall)) {
