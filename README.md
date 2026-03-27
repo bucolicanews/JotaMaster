@@ -115,7 +115,7 @@
                     <ul class="space-y-3 text-sm">
                         <li><a href="#visao-geral" class="text-slate-600 hover:text-orange-500 flex items-center gap-2"><i class="lucide-book-open w-4 h-4"></i> Introdução</a></li>
                         <li><a href="#tecnologias" class="text-slate-600 hover:text-orange-500 flex items-center gap-2"><i class="lucide-cpu w-4 h-4"></i> Stack Técnica</a></li>
-                        <li><a href="#funcionalidades" class="text-slate-600 hover:text-orange-500 flex items-center gap-2"><i class="lucide-layers w-4 h-4"></i> Módulos & Plugins</a></li>
+                        <li><a href="#funcionalidades" class="text-slate-600 hover:text-orange-500 flex items-center gap-2"><i class="lucide-layers w-4 h-4"></i> Módulos & Plugins.</a></li>
                     </ul>
                 </div>
                 <div>
