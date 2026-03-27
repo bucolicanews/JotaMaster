@@ -142,7 +142,7 @@
                     v1.0.0 Stable Release
                 </div>
                 <h1 class="text-5xl lg:text-7xl font-extrabold text-slate-900 mb-6 leading-tight">
-                    A Placa-mãe da <span class="text-orange-500">Inteligência Fiscal</span>
+                    A Placa-mãe da <span class="text-orange-500">Inteligência Fiscal.</span>
                 </h1>
                 <p class="text-xl text-slate-600 mb-10 max-w-2xl leading-relaxed">
                     O JOTA Master é um ecossistema SaaS modular projetado para orquestrar precificação complexa, viabilidade de negócios e agentes de IA autônomos sob a nova Reforma Tributária Brasileira.
