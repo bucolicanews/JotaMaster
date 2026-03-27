@@ -44,13 +44,20 @@ export const ChatInterface = () => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  const apiKey = localStorage.getItem('jota-gemini-key') || '';
+  const [apiKey, setApiKey] = useState(localStorage.getItem('jota-gemini-key') || '');
 
   useEffect(() => {
     const loadInitialData = async () => {
       if (!session?.user) return;
       const { data: inst } = await supabase.from('installed_modules').select('module_id').eq('user_id', session.user.id).eq('is_active', true);
       setInstalledModuleIds((inst || []).map(m => m.module_id));
+      
+      const { data: profileData } = await supabase.from('profiles').select('api_key').eq('id', session.user.id).single();
+      if (profileData?.api_key) {
+        localStorage.setItem('jota-gemini-key', profileData.api_key);
+        setApiKey(profileData.api_key);
+      }
+      
       const [skills, agents, prompts] = await Promise.all([
         fetchDbSkills(session.user.id),
         fetchDbAgents(session.user.id),
@@ -62,14 +69,19 @@ export const ChatInterface = () => {
       
       const savedSessions = localStorage.getItem(STORAGE_KEY);
       if (savedSessions) {
-        const parsed = JSON.parse(savedSessions);
-        setSessions(parsed);
-        if (parsed.length > 0) {
-          const lastSessionId = parsed[0].id;
-          setActiveSessionId(lastSessionId);
-          const savedMsgs = localStorage.getItem(`jota-chat-msg-${lastSessionId}`);
-          setMessages(savedMsgs ? JSON.parse(savedMsgs) : []);
-        } else { createNewChat(); }
+        try {
+          const parsed = JSON.parse(savedSessions);
+          setSessions(parsed);
+          if (parsed.length > 0) {
+            const lastSessionId = parsed[0].id;
+            setActiveSessionId(lastSessionId);
+            const savedMsgs = localStorage.getItem(`jota-chat-msg-${lastSessionId}`);
+            setMessages(savedMsgs ? JSON.parse(savedMsgs) : []);
+          } else { createNewChat(); }
+        } catch (e) {
+          console.error("Erro ao analisar sessões salvas:", e);
+          createNewChat();
+        }
       } else { createNewChat(); }
       
       const initialPrompt = sessionStorage.getItem('jota-initial-prompt');
@@ -115,7 +127,12 @@ export const ChatInterface = () => {
   const loadSession = (id: string) => {
     setActiveSessionId(id);
     const savedMsgs = localStorage.getItem(`jota-chat-msg-${id}`);
-    setMessages(savedMsgs ? JSON.parse(savedMsgs) : []);
+    try {
+      setMessages(savedMsgs ? JSON.parse(savedMsgs) : []);
+    } catch (e) {
+      console.error("Erro ao carregar mensagens da sessão:", e);
+      setMessages([]);
+    }
     setActivePersonaId(null);
     setIsHistoryOpen(false);
   };
