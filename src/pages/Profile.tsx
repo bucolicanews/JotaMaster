@@ -9,7 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-
+import { Eye, EyeOff } from "lucide-react";
 export default function Profile() {
   const { session, profile: authProfile } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
@@ -17,7 +17,7 @@ export default function Profile() {
   
   const [geminiModel, setGeminiModel] = useState(localStorage.getItem('jota-gemini-model') || 'gemini-2.0-flash');
   const [enableGoogleSearch, setEnableGoogleSearch] = useState(localStorage.getItem('jota-gemini-search') === 'true');
-  
+  const [showPassword, setShowPassword] = useState(false);  
   const [formData, setFormData] = useState({
     first_name: '',
     last_name: '',
@@ -147,15 +147,29 @@ export default function Profile() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2 md:col-span-2">
                 <Label htmlFor="api_key" className="font-bold text-indigo-700">Sua API Key do Gemini</Label>
-                <Input 
+                
+            <div className="relative">
+                < Input 
                   id="api_key" 
                   name="api_key" 
-                  type="password" 
+                  type={showPassword ? "text" : "password"} 
                   value={formData.api_key} 
                   onChange={handleChange} 
                   placeholder="AIzaSy..." 
                   className="font-mono text-sm bg-background border-indigo-500/30 focus-visible:ring-primary"
-                />
+                    />
+                    <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="mr-6 absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                {showPassword ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
+              </button>
+            </div>
                 <p className="text-[10px] text-muted-foreground mt-1">Sua chave é salva em nosso banco de dados criptografado para alimentar os motores autônomos.</p>
               </div>
               

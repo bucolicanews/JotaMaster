@@ -20,6 +20,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from '@/lib/utils';
+import { Eye, EyeOff } from "lucide-react";
 
 export default function AdminDashboard() {
   const { isAdmin } = useAuth();
@@ -27,8 +28,11 @@ export default function AdminDashboard() {
   const [packages, setPackages] = useState<any[]>([]);
   const [modules, setModules] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  
+  const [showPassword, setShowPassword] = useState(false);  
+  const [showPassword_vertex, setShowPassword_vertex] = useState(true);
   const [isSavingSettings, setIsSavingSettings] = useState(false);
+
+  // ESTADOS PARA CONFIGURAÇÕES GLOBAIS
   const [settings, setSettings] = useState({
     vertex_api_key: '',
     price_per_1m_input_tokens: 1.25,
@@ -223,11 +227,13 @@ export default function AdminDashboard() {
       </div>
 
       <Tabs defaultValue="clientes" className="w-full">
-        <TabsList className="grid w-full md:w-[800px] grid-cols-4 mb-6">
+      <TabsList className="grid w-full md:w-[800px] grid-cols-5 mb-6">
           <TabsTrigger value="clientes"><Users className="h-4 w-4 mr-2" /> Locatários</TabsTrigger>
           <TabsTrigger value="catalogo"><Blocks className="h-4 w-4 mr-2" /> Catálogo SaaS</TabsTrigger>
-          <TabsTrigger value="pacotes"><Coins className="h-4 w-4 mr-2" /> Pacotes</TabsTrigger>
-          <TabsTrigger value="economia"><TrendingUp className="h-4 w-4 mr-2" /> Economia IA</TabsTrigger>
+         < TabsTrigger value = "pacotes" > <Coins className="h-4 w-4 mr-2" /> Pacotes </TabsTrigger>
+          <TabsTrigger value= "ollama" ><TrendingUp className="h-4 w-4 mr-2" /> Ollama</TabsTrigger>
+          < TabsTrigger value = "vertrex" > <TrendingUp className="h-4 w-4 mr-2" /> Vertex AI </TabsTrigger>
+         
         </TabsList>
 
         <TabsContent value="clientes" className="space-y-4">
@@ -456,8 +462,8 @@ export default function AdminDashboard() {
           </div>
         </TabsContent>
 
-        {/* ABA: ECONOMIA IA */}
-        <TabsContent value="economia" className="space-y-6">
+        {/* ABA: VERTREX IA */}
+        <TabsContent value="vertrex" className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <Card className="lg:col-span-2 shadow-elegant border-primary/20">
               <CardHeader className="bg-muted/10 border-b border-border/50">
@@ -467,14 +473,28 @@ export default function AdminDashboard() {
               <CardContent className="p-6 space-y-6">
                 <div className="space-y-2">
                   <Label>Vertex AI Master Key (Google Cloud)</Label>
+                   <div className="relative">
                   <Input 
-                    type="password" 
+                    type={showPassword_vertex ? "text" : "password"}
                     placeholder="Cole sua chave Master..." 
                     value={settings.vertex_api_key}
                     onChange={(e) => setSettings({...settings, vertex_api_key: e.target.value})}
-                    className="font-mono text-xs"
+                    className="font-mono text-xs pr-10"
                   />
+                  <button
+                      type="button"
+                      onClick={() => setShowPassword_vertex(!showPassword_vertex)}
+                      className="mr-6 absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    >
+                {showPassword_vertex ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
+</button>
                 </div>
+          </div>
+
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-border/50">
                   <div className="space-y-2">
@@ -532,12 +552,63 @@ export default function AdminDashboard() {
                   disabled={isSavingSettings}
                 >
                   {isSavingSettings ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
-                  Salvar Economia
+                  Salvar vertrex
                 </Button>
               </CardContent>
+              
             </Card>
           </div>
         </TabsContent>
+                    
+
+       {/* ABA: OLLAMA IA */}
+        <TabsContent value="ollama" className="space-y-6">
+      <Card className="shadow-elegant border-primary/20">
+        <CardHeader className="bg-muted/10 border-b border-border/50">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <KeyRound className="h-5 w-5 text-primary" />
+            Configurações Ollama
+          </CardTitle>
+          <CardDescription>
+            Configure sua Master Key e endpoints de processamento.
+          </CardDescription>
+        </CardHeader>
+
+        <CardContent className="p-6 space-y-6">
+          <div className="space-y-2">
+            <Label>Ollama Master Key</Label>
+
+            <div className="relative">
+              <Input
+                type={showPassword ? "text" : "password"}
+                placeholder="Cole sua chave Master..."
+                value={settings.vertex_api_key}
+                onChange={(e) =>
+                  setSettings({
+                    ...settings,
+                    vertex_api_key: e.target.value,
+                  })
+                }
+                className="font-mono text-xs pr-10"
+              />
+
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="mr-6 absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                {showPassword ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
+              </button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </TabsContent>
+            
       </Tabs>
     </div>
   );
