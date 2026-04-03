@@ -14,7 +14,6 @@ serve(async (req) => {
   try {
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
-      console.error("[chat-gemini] Falta Authorization header");
       return new Response('Unauthorized', { status: 401, headers: corsHeaders })
     }
 
@@ -22,33 +21,47 @@ serve(async (req) => {
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
 
-    // Initialize client to get user
-    const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, { 
-      global: { headers: { Authorization: authHeader } } 
+    const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } }
     });
 
     const { data: { user }, error: authError } = await supabaseClient.auth.getUser()
     if (authError || !user) {
-      console.error("[chat-gemini] Erro de autenticação:", authError);
       return new Response('Unauthorized', { status: 401, headers: corsHeaders })
     }
 
     const body = await req.json()
     const { history, systemPrompt, tools, generationConfig, model } = body;
 
-    // Use service role to bypass RLS and get the user's API key
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Busca key do usuario
     const { data: profile } = await supabaseAdmin
       .from('profiles')
       .select('api_key')
       .eq('id', user.id)
       .single()
 
-    const apiKey = profile?.api_key || Deno.env.get('GEMINI_API_KEY');
+    // Busca key do admin (vertex_api_key) via service role (bypassa RLS)
+    const { data: sysSettings } = await supabaseAdmin
+      .from('system_settings')
+      .select('vertex_api_key')
+      .eq('id', 'global_config')
+      .maybeSingle()
+
+    const adminApiKey = (sysSettings as any)?.vertex_api_key || '';
+
+    console.log('[chat-gemini] profile.api_key length:', profile?.api_key?.length ?? 0);
+    console.log('[chat-gemini] adminApiKey length:', adminApiKey?.length ?? 0);
+
+    // Prioridade: key própria do usuario → key do admin → env fallback
+    const apiKey = profile?.api_key || adminApiKey || Deno.env.get('GEMINI_API_KEY');
+
+    console.log('[chat-gemini] apiKey final length:', apiKey?.length ?? 0);
 
     if (!apiKey) {
-      console.error("[chat-gemini] Erro: Nenhuma chave Gemini encontrada no perfil");
-      return new Response(JSON.stringify({ error: 'Configure sua Gemini API Key no seu Perfil.' }), { status: 400, headers: corsHeaders })
+      console.error("[chat-gemini] Erro: Nenhuma chave Gemini encontrada");
+      return new Response(JSON.stringify({ error: 'Configure sua Gemini API Key no seu Perfil ou no Painel Admin.' }), { status: 400, headers: corsHeaders })
     }
 
     const targetModel = model || 'gemini-2.0-flash';
@@ -61,7 +74,7 @@ serve(async (req) => {
       generationConfig: generationConfig || { temperature: 0.2, maxOutputTokens: 8192 },
     };
 
-    console.log(`[chat-gemini] Chamando Google API para o usuário ${user.id} com modelo ${targetModel}`);
+    console.log(`[chat-gemini] Usuário ${user.id} | Modelo: ${targetModel}`);
 
     const response = await fetch(url, {
       method: 'POST',
@@ -72,17 +85,18 @@ serve(async (req) => {
     const data = await response.json();
 
     if (!response.ok) {
-       console.error("[chat-gemini] Erro na API do Google:", data);
-       return new Response(JSON.stringify({ error: `Erro na API Gemini: ${data.error?.message || 'Desconhecido'}` }), { status: 500, headers: corsHeaders });
+      console.error("[chat-gemini] Erro na API do Google:", JSON.stringify(data));
+      return new Response(JSON.stringify({ error: `Erro na API Gemini: ${data.error?.message || 'Desconhecido'}` }), { status: 500, headers: corsHeaders });
     }
 
-    return new Response(JSON.stringify({ 
-      success: true, 
-      message: data.candidates?.[0]?.content 
+    return new Response(JSON.stringify({
+      success: true,
+      message: data.candidates?.[0]?.content,
+      usageMetadata: data.usageMetadata
     }), { headers: corsHeaders, status: 200 })
 
   } catch (error: any) {
-    console.error("[chat-gemini] Erro não tratado:", error);
+    console.error("[chat-gemini] Erro não tratado:", error.message);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: corsHeaders,

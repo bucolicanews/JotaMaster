@@ -75,6 +75,22 @@ export async function fetchDbPrompts(userId: string, isAdmin: boolean = false): 
   }));
 }
 
+function sanitizeParameters(parameters: any): any {
+  if (!parameters || typeof parameters !== 'object') return { type: 'object', properties: {} };
+  const props = parameters.properties || {};
+  const sanitizedProps: Record<string, any> = {};
+  for (const [key, value] of Object.entries(props)) {
+    if (/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(key)) {
+      sanitizedProps[key] = value;
+    }
+  }
+  return {
+    ...parameters,
+    properties: sanitizedProps,
+    required: (parameters.required || []).filter((r: string) => sanitizedProps[r] !== undefined),
+  };
+}
+
 // Execução Gemini
 export async function callGeminiAgent(
   systemPrompt: string,
@@ -86,7 +102,7 @@ export async function callGeminiAgent(
   const useGrounding = localStorage.getItem('jota-gemini-search') === 'true';
   
   const dynamicSkills = skillsOverride || [];
-  const dynamicManifests = dynamicSkills.map(s => ({ name: s.name, description: s.description, parameters: s.parameters }));
+  const dynamicManifests = dynamicSkills.map(s => ({ name: s.name, description: s.description, parameters: sanitizeParameters(s.parameters) }));
   
   let tools: any[] | undefined = undefined;
   const isExplicitSearch = userContent.toLowerCase().includes("pesquise") ||
@@ -169,7 +185,7 @@ export async function sendChatMessage(
     ? useGroundingOverride
     : localStorage.getItem('jota-gemini-search') === 'true';
 
-  const dynamicManifests = skillsOverride.map(s => ({ name: s.name, description: s.description, parameters: s.parameters }));
+  const dynamicManifests = skillsOverride.map(s => ({ name: s.name, description: s.description, parameters: sanitizeParameters(s.parameters) }));
   
   let tools: any[] | undefined = undefined;
 
